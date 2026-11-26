@@ -317,7 +317,10 @@
     
 
 
-/* === EKEN WEATHER LIVE COLOR MAP & SINGLE PANEL === */
+
+
+
+/* === EKEN WEATHER SINGLE LIVE PANEL === */
 #brand-logo {
   position: fixed !important;
   top: 10px !important;
@@ -353,14 +356,21 @@
   z-index: 1250 !important;
 }
 
-#ew-live-panel {
+/* Ayrı duran eski ECMWF / bilgi panellerini gizle; her şey tek panelde toplansın */
+[id*="ecmwf"]:not(#ew-single-panel):not(#ew-single-panel *),
+[id*="info-panel"]:not(#ew-single-panel):not(#ew-single-panel *),
+[id*="detail-panel"]:not(#ew-single-panel):not(#ew-single-panel *) {
+  display: none !important;
+}
+
+#ew-single-panel {
   position: fixed !important;
   top: 86px !important;
   left: 12px !important;
   z-index: 1320 !important;
   width: 315px !important;
   max-width: calc(100vw - 24px) !important;
-  max-height: calc(100vh - 120px) !important;
+  max-height: calc(100vh - 125px) !important;
   overflow-y: auto !important;
   padding: 9px 11px !important;
   border-radius: 11px !important;
@@ -372,7 +382,7 @@
   box-sizing: border-box !important;
 }
 
-.ewl-card {
+.ews-box {
   background: rgba(15, 23, 42, 0.92) !important;
   border: 1px solid rgba(148, 163, 184, 0.22) !important;
   border-radius: 8px !important;
@@ -380,27 +390,27 @@
   margin-bottom: 8px !important;
 }
 
-.ewl-row {
+.ews-row {
   display: flex !important;
   justify-content: space-between !important;
   gap: 8px !important;
   padding: 2px 0 !important;
   border-bottom: 1px solid rgba(148, 163, 184, 0.08) !important;
 }
-.ewl-row:last-child { border-bottom: none !important; }
-.ewl-k { color: #94a3b8 !important; }
-.ewl-v { color: #f8fafc !important; font-weight: 600 !important; text-align: right !important; }
-.ewl-hi { color: #38bdf8 !important; font-weight: 700 !important; }
+.ews-row:last-child { border-bottom: none !important; }
+.ews-k { color: #94a3b8 !important; }
+.ews-v { color: #f8fafc !important; font-weight: 600 !important; text-align: right !important; }
+.ews-hi { color: #38bdf8 !important; font-weight: 700 !important; }
 
-.ewl-vars {
+.ews-grid {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 4px !important;
-  max-height: 210px !important;
+  max-height: 215px !important;
   overflow-y: auto !important;
 }
 
-.ewl-btn {
+.ews-btn {
   background: rgba(15, 23, 42, 0.92) !important;
   color: #cbd5e1 !important;
   border: 1px solid rgba(148, 163, 184, 0.25) !important;
@@ -413,25 +423,13 @@
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
-.ewl-btn.active {
+.ews-btn.active {
   background: rgba(2, 132, 199, 0.52) !important;
   border-color: #38bdf8 !important;
   color: #ffffff !important;
   font-weight: 600 !important;
 }
 
-/* Harita üzerindeki canlı renkli ECMWF katmanı */
-.ew-color-field-layer {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  pointer-events: none !important;
-  z-index: 380 !important;
-  mix-blend-mode: normal !important;
-}
-
-/* Colorbar sağ altta küçük ve dikey yer kaplamayan formda */
 #cbar-box {
   position: fixed !important;
   right: 12px !important;
@@ -451,9 +449,7 @@
   overflow: hidden !important;
   box-sizing: border-box !important;
 }
-#cbar-box * {
-  max-height: 20px !important;
-}
+#cbar-box * { max-height: 20px !important; }
 
 #music-bar {
   position: fixed !important;
@@ -827,21 +823,31 @@
 
 
 
+
+
+
+<audio id="bg-music" src="/ambient.mp3" autoplay loop preload="auto" playsinline></audio>
+<div id="music-bar" style="position:fixed;right:12px;bottom:34px;z-index:1350;display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(9,17,34,0.92);border:1px solid rgba(56,189,248,0.35);color:#fff;font-size:11px;">
+  <span id="music-title" style="display:none;">♪ Eken Weather — Atmospheric Forecast Music</span>
+  <button id="music-toggle" type="button" style="background:rgba(15,23,42,0.9);color:#f8fafc;border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;font-size:11px;cursor:pointer;">♪ Müzik: Açık</button>
+</div>
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="brand-logo">
   <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
   <span class="logo-text">Eken Weather</span>
 </div>
 
-<div id="ew-live-panel">
-  <div class="ewl-card">
-    <div class="ewl-row"><span class="ewl-k">Koordinat:</span><span id="ewl-coord" class="ewl-v">Haritaya tıklayın</span></div>
-    <div class="ewl-row"><span class="ewl-k">İl:</span><span id="ewl-il" class="ewl-v">—</span></div>
-    <div class="ewl-row"><span class="ewl-k">İlçe:</span><span id="ewl-ilce" class="ewl-v">—</span></div>
-    <div class="ewl-row"><span class="ewl-k">Mahalle:</span><span id="ewl-mah" class="ewl-v">—</span></div>
-    <div class="ewl-row"><span id="ewl-vname" class="ewl-k">2m Sıcaklık (2t):</span><span id="ewl-vval" class="ewl-v ewl-hi">—</span></div>
+<div id="ew-single-panel">
+  <div class="ews-box">
+    <div class="ews-row"><span class="ews-k">Koordinat:</span><span id="ews-coord" class="ews-v">Haritaya tıklayın</span></div>
+    <div class="ews-row"><span class="ews-k">İl:</span><span id="ews-il" class="ews-v">—</span></div>
+    <div class="ews-row"><span class="ews-k">İlçe:</span><span id="ews-ilce" class="ews-v">—</span></div>
+    <div class="ews-row"><span class="ews-k">Mahalle:</span><span id="ews-mah" class="ews-v">—</span></div>
+    <div class="ews-row"><span id="ews-vname" class="ews-k">2m Sıcaklık (2t):</span><span id="ews-vval" class="ews-v ews-hi">—</span></div>
   </div>
-  <div id="ewl-vars" class="ewl-vars"></div>
+  <div id="ews-vars" class="ews-grid"></div>
 </div>
 
 <script>
@@ -864,42 +870,17 @@
   ];
 
   let cur = VARS[0];
-  let pt = null;
+  let lastPt = null;
   let mapRef = null;
-  let colorCanvas = null;
-  let gridCache = [];
+  let heatLayer = null;
 
-  const varsEl = document.getElementById("ewl-vars");
-  const panelEl = document.getElementById("ew-live-panel");
-  if (panelEl) {
-    panelEl.addEventListener("click", e => e.stopPropagation());
-    panelEl.addEventListener("mousedown", e => e.stopPropagation());
+  const panel = document.getElementById("ew-single-panel");
+  const varsEl = document.getElementById("ews-vars");
+
+  if (panel) {
+    panel.addEventListener("click", e => e.stopPropagation());
+    panel.addEventListener("mousedown", e => e.stopPropagation());
   }
-
-  const stops = [
-    [0.0,  [29, 78, 216]],
-    [0.25, [6, 182, 212]],
-    [0.50, [34, 197, 94]],
-    [0.75, [234, 179, 8]],
-    [0.90, [249, 115, 22]],
-    [1.0,  [220, 38, 38]]
-  ];
-
-  const ratioToRgb = (t) => {
-    const x = Math.max(0, Math.min(1, t));
-    let a = stops[0], b = stops[stops.length - 1];
-    for (let i = 0; i < stops.length - 1; i++) {
-      if (x >= stops[i][0] && x <= stops[i + 1][0]) {
-        a = stops[i]; b = stops[i + 1]; break;
-      }
-    }
-    const f = (x - a[0]) / ((b[0] - a[0]) || 1);
-    return [
-      Math.round(a[1][0] + (b[1][0] - a[1][0]) * f),
-      Math.round(a[1][1] + (b[1][1] - a[1][1]) * f),
-      Math.round(a[1][2] + (b[1][2] - a[1][2]) * f)
-    ];
-  };
 
   const paintCbar = (v) => {
     const cbar = document.getElementById("cbar-box");
@@ -915,63 +896,17 @@
     `;
   };
 
-  const ensureColorCanvas = (m) => {
-    const container = m.getContainer ? m.getContainer() : null;
-    if (!container) return null;
-    if (!colorCanvas) {
-      colorCanvas = document.createElement("canvas");
-      colorCanvas.className = "ew-color-field-layer";
-    }
-    if (colorCanvas.parentElement !== container) {
-      const targetPane = container.querySelector(".leaflet-map-pane");
-      if (targetPane && targetPane.nextSibling) {
-        container.insertBefore(colorCanvas, targetPane.nextSibling);
-      } else {
-        container.appendChild(colorCanvas);
-      }
-    }
-    const r = container.getBoundingClientRect();
-    colorCanvas.width = Math.max(1, Math.floor(r.width));
-    colorCanvas.height = Math.max(1, Math.floor(r.height));
-    return colorCanvas;
-  };
-
-  const renderColorField = () => {
-    if (!mapRef) return;
-    const cvs = ensureColorCanvas(mapRef);
-    if (!cvs) return;
-    const ctx = cvs.getContext("2d");
-    if (!ctx) return;
-    const w = cvs.width, h = cvs.height;
-    ctx.clearRect(0, 0, w, h);
-
-    if (!gridCache.length) return;
-
-    const step = 12;
-    for (let y = 0; y < h; y += step) {
-      for (let x = 0; x < w; x += step) {
-        const ll = mapRef.containerPointToLatLng([x + step * 0.5, y + step * 0.5]);
-        let num = 0, den = 0;
-        for (let i = 0; i < gridCache.length; i++) {
-          const g = gridCache[i];
-          const d2 = (ll.lat - g.lat) * (ll.lat - g.lat) + (ll.lng - g.lng) * (ll.lng - g.lng) + 0.08;
-          const wt = 1 / Math.pow(d2, 1.3);
-          num += g.val * wt;
-          den += wt;
-        }
-        if (den > 0) {
-          const val = num / den;
-          const t = (val - cur.min) / ((cur.max - cur.min) || 1);
-          const [rr, gg, bb] = ratioToRgb(t);
-          ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.36)`;
-          ctx.fillRect(x, y, step + 1, step + 1);
-        }
-      }
-    }
-  };
-
-  const fetchGridAndPaint = async () => {
+  // Mevcut sayfadaki renk/ısı/katman fonksiyonlarını tetikle veya L.heatLayer ile canlı veri bas
+  const triggerMapColorLayer = async () => {
     if (!mapRef || !mapRef.getBounds) return;
+
+    // Sayfanın kendi değişken/katman güncelleyicisi varsa onu da çağır
+    for (const fnName of ["setVar", "setVariable", "updateMap", "updateLayer", "renderLayer", "drawLayer", "loadData"]) {
+      if (typeof window[fnName] === "function") {
+        try { window[fnName](cur.om, cur); } catch (_) {}
+      }
+    }
+
     const b = mapRef.getBounds();
     const s = Math.max(35.5, b.getSouth());
     const n = Math.min(43.2, b.getNorth());
@@ -993,27 +928,39 @@
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
       const arr = Array.isArray(data) ? data : [data];
-      const nextGrid = [];
+
+      const pts = [];
       arr.forEach((loc, idx) => {
-        const vRaw = loc?.current?.[cur.om] ?? (Array.isArray(loc?.hourly?.[cur.om]) ? loc.hourly[cur.om][0] : undefined);
-        if (typeof vRaw === "number" && Number.isFinite(vRaw)) {
-          nextGrid.push({ lat: lats[idx], lng: lons[idx], val: vRaw });
+        const raw = loc?.current?.[cur.om] ?? (Array.isArray(loc?.hourly?.[cur.om]) ? loc.hourly[cur.om][0] : undefined);
+        if (typeof raw === "number" && Number.isFinite(raw)) {
+          const norm = Math.max(0.05, Math.min(1, (raw - cur.min) / ((cur.max - cur.min) || 1)));
+          pts.push([lats[idx], lons[idx], norm]);
         }
       });
-      if (nextGrid.length) {
-        gridCache = nextGrid;
-        renderColorField();
+
+      if (pts.length && window.L && typeof window.L.heatLayer === "function") {
+        if (!heatLayer) {
+          heatLayer = window.L.heatLayer(pts, {
+            radius: 58,
+            blur: 42,
+            maxZoom: 12,
+            minOpacity: 0.35,
+            gradient: { 0.15: "#1d4ed8", 0.35: "#06b6d4", 0.55: "#22c55e", 0.75: "#eab308", 0.9: "#f97316", 1.0: "#dc2626" }
+          }).addTo(mapRef);
+        } else {
+          heatLayer.setLatLngs(pts);
+        }
       }
     } catch (_) {}
   };
 
-  const onMapClick = async (lat, lng) => {
-    const cEl = document.getElementById("ewl-coord");
-    const ilEl = document.getElementById("ewl-il");
-    const ilceEl = document.getElementById("ewl-ilce");
-    const mahEl = document.getElementById("ewl-mah");
-    const vnEl = document.getElementById("ewl-vname");
-    const vvEl = document.getElementById("ewl-vval");
+  const queryPoint = async (lat, lng) => {
+    const cEl = document.getElementById("ews-coord");
+    const ilEl = document.getElementById("ews-il");
+    const ilceEl = document.getElementById("ews-ilce");
+    const mahEl = document.getElementById("ews-mah");
+    const vnEl = document.getElementById("ews-vname");
+    const vvEl = document.getElementById("ews-vval");
 
     if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
@@ -1055,40 +1002,37 @@
     VARS.forEach(v => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "ewl-btn" + (v.code === cur.code ? " active" : "");
+      b.className = "ews-btn" + (v.code === cur.code ? " active" : "");
       b.textContent = `${v.name} (${v.unit})`;
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         cur = v;
         renderVars();
         paintCbar(cur);
-        const vnEl = document.getElementById("ewl-vname");
+        const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-        fetchGridAndPaint();
-        if (pt) onMapClick(pt.lat, pt.lng);
+        triggerMapColorLayer();
+        if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
       });
       varsEl.appendChild(b);
     });
   };
 
-  const hookLeaflet = () => {
+  const bindMap = () => {
     const m = window.map || Object.values(window).find(x => x && typeof x.on === "function" && typeof x.getBounds === "function");
     if (m) {
       mapRef = m;
-      if (!m._ewlHooked) {
-        m._ewlHooked = true;
+      if (!m._ewsBound) {
+        m._ewsBound = true;
         m.on("click", (e) => {
           if (!e || !e.latlng) return;
-          pt = { lat: e.latlng.lat, lng: e.latlng.lng };
-          onMapClick(pt.lat, pt.lng);
+          lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
+          queryPoint(lastPt.lat, lastPt.lng);
         });
-        m.on("moveend zoomend resize", () => {
-          renderColorField();
-          fetchGridAndPaint();
+        m.on("moveend zoomend", () => {
+          triggerMapColorLayer();
         });
-        fetchGridAndPaint();
-      } else {
-        renderColorField();
+        triggerMapColorLayer();
       }
     }
     document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
@@ -1098,8 +1042,26 @@
 
   renderVars();
   paintCbar(cur);
-  hookLeaflet();
-  setInterval(hookLeaflet, 800);
+  bindMap();
+  setInterval(bindMap, 900);
+
+  // Müzik kontrolü (/ambient.mp3)
+  const audio = document.getElementById("bg-music");
+  const mBtn = document.getElementById("music-toggle");
+  const mTitle = document.getElementById("music-title");
+  if (audio && mBtn && mTitle) {
+    audio.volume = 0.35;
+    const sync = () => {
+      const ok = !audio.paused && !audio.muted;
+      mBtn.textContent = ok ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
+      mTitle.style.display = ok ? "inline" : "none";
+    };
+    const play = async () => { try { audio.muted = false; await audio.play(); } catch (_) {} sync(); };
+    mBtn.addEventListener("click", async e => { e.stopPropagation(); if (audio.paused || audio.muted) await play(); else { audio.pause(); sync(); } });
+    play();
+    window.addEventListener("pointerdown", play, { once: true });
+    sync();
+  }
 })();
 </script>
 <!-- EKEN WEATHER CLEAN END -->
