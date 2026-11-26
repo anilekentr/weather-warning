@@ -1410,20 +1410,20 @@
         return { val: metVal, tag: "MET Norway" };
       }
       if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
-      return { val: null, tag: "429 bekleniyor" };
+      return { val: null, tag: "Veri bekleniyor" };
     }
 
     const waitMs = Math.max(0, 1400 - (Date.now() - lastNetAt));
     if (waitMs > 0) await sleep(waitMs);
     lastNetAt = Date.now();
 
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=Europe%2FIstanbul&forecast_days=1`;
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=1`;
     try {
       const res = await fetch(url, { cache: "no-store" });
       if (res.status === 429) {
         rateLimitUntil = Date.now() + 25000;
         if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
-        return { val: null, tag: "429 limit" };
+        return { val: null, tag: "Kota siniri" };
       }
       if (res.ok) {
         const j = await res.json();
