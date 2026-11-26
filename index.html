@@ -883,16 +883,25 @@
     }
 
     async function fetchEcmwf() {
-      if (!gridData) {
-        const lats = SAMPLE_GRID.map(p => p.lat).join(",");
-        const lons = SAMPLE_GRID.map(p => p.lon).join(",");
-        const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
-        const res = await fetch(url);
-        if (res.ok) gridData = await res.json();
+      try {
+        if (!gridData) {
+          const lats = SAMPLE_GRID.map(p => p.lat).join(",");
+          const lons = SAMPLE_GRID.map(p => p.lon).join(",");
+          const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
+          const res = await fetch(url);
+          gridData = res.ok ? await res.json() : null;
+        }
+      } catch (_) {
+        gridData = null;
       }
-      const pUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(curCoord.lat)}&longitude=${encodeURIComponent(curCoord.lon)}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
-      const pRes = await fetch(pUrl);
-      if (pRes.ok) pointData = await pRes.json();
+
+      try {
+        const pUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(curCoord.lat)}&longitude=${encodeURIComponent(curCoord.lon)}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
+        const pRes = await fetch(pUrl);
+        pointData = pRes.ok ? await pRes.json() : null;
+      } catch (_) {
+        pointData = null;
+      }
     }
 
     async function fetchAddress(lat, lon) {
