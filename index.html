@@ -887,14 +887,7 @@
   
   
   <!-- Tek Panel: Koordinat, İl/İlçe/Mahalle, Seçili Değişken Değeri, 90 ECMWF Değişkeni ve Alt Bilgi Butonu -->
-  <div id="ew-unified-panel">
-    <div class="ew-info-box">
-      <div class="ew-info-row"><span class="ew-k">Koordinat:</span><span id="ew-coord" class="ew-v">Haritaya tıklayın</span></div>
-      <div class="ew-info-row"><span class="ew-k">İl:</span><span id="ew-city" class="ew-v">—</span></div>
-      <div class="ew-info-row"><span class="ew-k">İlçe:</span><span id="ew-dist" class="ew-v">—</span></div>
-      <div class="ew-info-row"><span class="ew-k">Mahalle:</span><span id="ew-hood" class="ew-v">—</span></div>
-      <div class="ew-info-row"><span class="ew-k" id="ew-vlabel">2m Sıcaklık (2t):</span><span id="ew-vval" class="ew-v ew-val-hi">—</span></div>
-    </div>
+  
 
     <div id="ew-var-list" class="ew-var-list"></div>
 
@@ -1253,136 +1246,7 @@
     <button id="music-toggle" type="button" class="ew-mbtn" style="border-radius:999px;">♪ Müzik: Açık</button>
   </div>
 
-  <script>
-  (() => {
-    const VARS = [
-      { code: "2t", om: "temperature_2m", name: "2m Sıcaklık (2t)", unit: "°C", min: -10, max: 40, grad: "linear-gradient(90deg,#313695,#74add1,#fee090,#a50026)" },
-      { code: "2d", om: "dew_point_2m", name: "2m Çiy Noktası (2d)", unit: "°C", min: -15, max: 28, grad: "linear-gradient(90deg,#313695,#74add1,#fee090,#a50026)" },
-      { code: "rh2m", om: "relative_humidity_2m", name: "2m Bağıl Nem (rh2m)", unit: "%", min: 0, max: 100, grad: "linear-gradient(90deg,#92400e,#eab308,#38bdf8,#1d4ed8)" },
-      { code: "msl", om: "pressure_msl", name: "Deniz Basıncı (msl)", unit: "hPa", min: 985, max: 1038, grad: "linear-gradient(90deg,#1e3a8a,#0284c7,#22c55e,#dc2626)" },
-      { code: "sp", om: "surface_pressure", name: "Yüzey Basıncı (sp)", unit: "hPa", min: 850, max: 1035, grad: "linear-gradient(90deg,#1e3a8a,#0284c7,#22c55e,#dc2626)" },
-      { code: "ws10", om: "wind_speed_10m", name: "10m Rüzgar (ws10)", unit: "km/h", min: 0, max: 90, grad: "linear-gradient(90deg,#0f172a,#0284c7,#22c55e,#ef4444)" },
-      { code: "wd10", om: "wind_direction_10m", name: "10m Yön (wd10)", unit: "°", min: 0, max: 360, grad: "linear-gradient(90deg,#0f172a,#0284c7,#22c55e,#ef4444)" },
-      { code: "10fg", om: "wind_gusts_10m", name: "10m Hamle (10fg)", unit: "km/h", min: 0, max: 120, grad: "linear-gradient(90deg,#0f172a,#0284c7,#22c55e,#ef4444)" },
-      { code: "tp", om: "precipitation", name: "Toplam Yağış (tp)", unit: "mm", min: 0, max: 30, grad: "linear-gradient(90deg,#0f172a,#38bdf8,#a855f7,#f43f5e)" },
-      { code: "rain", om: "rain", name: "Yağmur (rain)", unit: "mm", min: 0, max: 30, grad: "linear-gradient(90deg,#0f172a,#38bdf8,#a855f7,#f43f5e)" },
-      { code: "sf", om: "snowfall", name: "Kar Yağışı (sf)", unit: "cm", min: 0, max: 25, grad: "linear-gradient(90deg,#0f172a,#38bdf8,#a855f7,#f43f5e)" },
-      { code: "tcc", om: "cloud_cover", name: "Bulutluluk (tcc)", unit: "%", min: 0, max: 100, grad: "linear-gradient(90deg,#92400e,#eab308,#38bdf8,#1d4ed8)" },
-      { code: "cape", om: "cape", name: "CAPE (cape)", unit: "J/kg", min: 0, max: 3000, grad: "linear-gradient(90deg,#1e3a8a,#0284c7,#22c55e,#dc2626)" },
-      { code: "t850", om: "temperature_850hPa", name: "850 hPa T (t850)", unit: "°C", min: -25, max: 30, grad: "linear-gradient(90deg,#313695,#74add1,#fee090,#a50026)" },
-      { code: "t500", om: "temperature_500hPa", name: "500 hPa T (t500)", unit: "°C", min: -45, max: 0, grad: "linear-gradient(90deg,#313695,#74add1,#fee090,#a50026)" },
-      { code: "z500", om: "geopotential_height_500hPa", name: "500 hPa Z (z500)", unit: "m", min: 5100, max: 5950, grad: "linear-gradient(90deg,#1e3a8a,#0284c7,#22c55e,#dc2626)" }
-    ];
-
-    let curVar = VARS[0];
-    let lastPt = null;
-    const listEl = document.getElementById("ew-var-list");
-
-    const paintCbar = (v) => {
-      const cbar = document.getElementById("cbar-box");
-      if (!cbar) return;
-      cbar.innerHTML = `
-        <div style="display:flex;justify-content:space-between;color:#e2e8f0;margin-bottom:3px;">
-          <span>${v.code.toUpperCase()}</span><span>${v.unit}</span>
-        </div>
-        <div style="height:7px;border-radius:4px;background:${v.grad};"></div>
-        <div style="display:flex;justify-content:space-between;color:#cbd5e1;margin-top:2px;">
-          <span>${v.min}</span><span>${v.max}</span>
-        </div>
-      `;
-    };
-
-    const queryPoint = async (lat, lng) => {
-      const cEl = document.getElementById("ew-coord");
-      const cityEl = document.getElementById("ew-city");
-      const distEl = document.getElementById("ew-dist");
-      const vlEl = document.getElementById("ew-vlabel");
-      const vvEl = document.getElementById("ew-vval");
-
-      if (cEl) cEl.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-      if (vlEl) vlEl.textContent = `${curVar.name}:`;
-      if (vvEl) vvEl.textContent = "...";
-
-      try {
-        const r = await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(curVar.om)}&hourly=${encodeURIComponent(curVar.om)}&forecast_days=1`);
-        const j = await r.json();
-        let val = j?.current?.[curVar.om];
-        if (val === undefined && Array.isArray(j?.hourly?.[curVar.om])) val = j.hourly[curVar.om][0];
-        if (vvEl) vvEl.textContent = (val !== undefined && val !== null) ? `${val} ${curVar.unit}` : "Veri yok";
-      } catch (_) {
-        if (vvEl) vvEl.textContent = "Hata";
-      }
-
-      try {
-        const gr = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=tr`);
-        const gj = await gr.json();
-        const a = gj?.address || {};
-        if (cityEl) cityEl.textContent = a.province || a.city || a.state || "Açık Alan";
-        if (distEl) distEl.textContent = a.town || a.county || a.district || a.suburb || "—";
-      } catch (_) {}
-    };
-
-    const pickVar = (v) => {
-      curVar = v;
-      paintCbar(v);
-      renderList();
-      const vlEl = document.getElementById("ew-vlabel");
-      if (vlEl) vlEl.textContent = `${v.name}:`;
-      if (typeof window.setVariable === "function") window.setVariable(v.code, v);
-      if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
-    };
-
-    const renderList = () => {
-      if (!listEl) return;
-      listEl.innerHTML = "";
-      VARS.forEach(v => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "ew-vbtn" + (v.code === curVar.code ? " active" : "");
-        b.textContent = v.name;
-        b.title = `${v.name} (${v.unit})`;
-        b.addEventListener("click", () => pickVar(v));
-        listEl.appendChild(b);
-      });
-    };
-
-    const hookMap = () => {
-      const m = window.map || Object.values(window).find(x => x && typeof x.on === "function" && typeof x.getCenter === "function");
-      if (m && !m._ewDone) {
-        m._ewDone = true;
-        m.on("click", e => {
-          lastPt = e.latlng;
-          queryPoint(e.latlng.lat, e.latlng.lng);
-        });
-      }
-      document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
-        if (el.innerHTML !== "🇹🇷") el.innerHTML = "🇹🇷";
-      });
-    };
-
-    renderList();
-    paintCbar(curVar);
-    hookMap();
-    setInterval(hookMap, 800);
-
-    const audio = document.getElementById("bg-music");
-    const mBtn = document.getElementById("music-toggle");
-    const mTitle = document.getElementById("music-title");
-    if (audio && mBtn && mTitle) {
-      audio.volume = 0.35;
-      const sync = () => {
-        const ok = !audio.paused && !audio.muted;
-        mBtn.textContent = ok ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
-        mTitle.style.display = ok ? "inline" : "none";
-      };
-      const play = async () => { try { audio.muted = false; await audio.play(); } catch (_) {} sync(); };
-      mBtn.addEventListener("click", async e => { e.stopPropagation(); if (audio.paused || audio.muted) await play(); else { audio.pause(); sync(); } });
-      play();
-      window.addEventListener("pointerdown", play, { once: true });
-      sync();
-    }
-  })();
-  </script>
+  
 
 </body>
 </html>
