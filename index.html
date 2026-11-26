@@ -49,7 +49,7 @@
       border-radius: 8px; padding: 9px 12px; width: 245px;
     }
     .cbar-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 5px; }
-    .cbar-grad { height: 13px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.2); }
+    .cbar-grad { display: block; width: 100%; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.25); }
     .cbar-ticks { display: flex; justify-content: space-between; font-size: 10px; color: #cbd5e1; margin-top: 4px; }
 
     .probe {
@@ -457,7 +457,9 @@
       document.getElementById("cbar-title").textContent = s.name;
       document.getElementById("cbar-unit").textContent = s.unit;
       const stopsCss = (s.stops || []).map(([p, [r, g, b]]) => `rgb(${r},${g},${b}) ${Math.round(p * 100)}%`);
-      document.getElementById("cbar-grad").style.background = `linear-gradient(90deg, ${stopsCss.join(", ")})`;
+      const fbCbar = "rgb(37,99,235) 0%, rgb(6,182,212) 25%, rgb(34,197,94) 50%, rgb(234,179,8) 75%, rgb(239,68,68) 100%";
+  const cbarCss = stopsCss.length ? stopsCss.join(", ") : fbCbar;
+  document.getElementById("cbar-grad").style.background = `linear-gradient(90deg, ${cbarCss})`;
       const ticksEl = document.getElementById("cbar-ticks");
       ticksEl.innerHTML = "";
       (s.ticks || []).forEach(t => {
