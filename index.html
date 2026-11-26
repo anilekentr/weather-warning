@@ -992,18 +992,24 @@
       const { idx, iso } = syncTimeControls(times, forceHourPick);
       const arr = (pointData && pointData.hourly && pointData.hourly[curVar.key]) || [];
       const raw = arr[idx];
-      const valText = (typeof raw === "number" && Number.isFinite(raw))
-        ? `${raw.toFixed(2)} ${curVar.unit}`
-        : `-- ${curVar.unit}`;
+      const hasVal = typeof raw === "number" && Number.isFinite(raw);
+      const valText = hasVal ? `${raw.toFixed(2)} ${curVar.unit}` : "Veri yok";
 
-      const istHourStr = iso ? new Date(iso + ":00Z").toLocaleString("tr-TR", {
-        timeZone: "Europe/Istanbul",
-        hour: "2-digit",
-        minute: "2-digit"
-      }) : "--";
+      let istHourStr = "Veri yok";
+      if (hasVal && iso) {
+        const dt = new Date(iso.endsWith("Z") ? iso : `${iso}:00Z`);
+        if (!Number.isNaN(dt.getTime())) {
+          istHourStr = dt.toLocaleString("tr-TR", {
+            timeZone: "Europe/Istanbul",
+            hour: "2-digit",
+            minute: "2-digit"
+          });
+        }
+      }
 
-      document.getElementById("point-summary").textContent =
-        `(${curCoord.lat.toFixed(4)}, ${curCoord.lon.toFixed(4)}) · ${curVar.name}: ${valText} · ${iso ? iso.replace("T", " ") + " UTC" : "--"} / ${istHourStr} TSİ`;
+      document.getElementById("point-summary").textContent = hasVal
+        ? `(${curCoord.lat.toFixed(4)}, ${curCoord.lon.toFixed(4)}) · ${curVar.name}: ${valText} · ${iso ? iso.replace("T", " ") + " UTC" : "Veri yok"} / ${istHourStr} TSİ`
+        : `(${curCoord.lat.toFixed(4)}, ${curCoord.lon.toFixed(4)}) · ${curVar.name}: Veri yok`;
       document.getElementById("point-addr").textContent = curAddr;
     }
 
