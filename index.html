@@ -1214,5 +1214,92 @@
 </script>
 <!-- EKEN WEATHER CLEAN END -->
 
+
+<!-- EKEN WEATHER LAYER FIX START -->
+<style>
+  /* Eski veya ikincil ECMWF panellerini ana panel dışındaysa gizle */
+  [id*="ecmwf"]:not(#ew-master-panel):not(#ew-master-panel *),
+  [class*="ecmwf-panel"]:not(#ew-master-panel):not(#ew-master-panel *) {
+    display: none !important;
+  }
+  canvas.ew-smooth-canvas {
+    position: absolute !important;
+    z-index: 420 !important;
+    pointer-events: none !important;
+    opacity: 0.78 !important;
+  }
+</style>
+<script>
+(() => {
+  const findAllMaps = () => {
+    const found = [];
+    if (window.map && typeof window.map.on === "function") found.push(window.map);
+    for (const k of Object.keys(window)) {
+      try {
+        const v = window[k];
+        if (v && typeof v.on === "function" && typeof v.getBounds === "function" && typeof v.getPanes === "function") {
+          if (!found.includes(v)) found.push(v);
+        }
+      } catch (_) {}
+    }
+    if (window.L && window.L.Util && document.querySelectorAll(".leaflet-container").length) {
+      document.querySelectorAll(".leaflet-container").forEach(el => {
+        if (el._leaflet_map && !found.includes(el._leaflet_map)) found.push(el._leaflet_map);
+      });
+    }
+    return found;
+  };
+
+  const paintFallbackGradient = (m) => {
+    if (!m || !m.getPanes) return;
+    const panes = m.getPanes();
+    const host = panes.overlayPane || panes.mapPane || m._container;
+    if (!host) return;
+    let cvs = host.querySelector("canvas.ew-smooth-canvas");
+    if (!cvs) {
+      cvs = document.createElement("canvas");
+      cvs.className = "ew-smooth-canvas";
+      host.appendChild(cvs);
+    }
+    const size = m.getSize();
+    const topLeft = m.containerPointToLayerPoint([0, 0]);
+    if (window.L && window.L.DomUtil) {
+      window.L.DomUtil.setPosition(cvs, topLeft);
+    }
+    cvs.width = Math.max(1, size.x);
+    cvs.height = Math.max(1, size.y);
+    const ctx = cvs.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+    const grad = ctx.createLinearGradient(0, cvs.height, cvs.width, 0);
+    grad.addColorStop(0.0, "rgba(37, 99, 235, 0.42)");
+    grad.addColorStop(0.3, "rgba(6, 182, 212, 0.42)");
+    grad.addColorStop(0.55, "rgba(34, 197, 94, 0.40)");
+    grad.addColorStop(0.8, "rgba(234, 179, 8, 0.44)");
+    grad.addColorStop(1.0, "rgba(220, 38, 38, 0.46)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, cvs.width, cvs.height);
+  };
+
+  const syncMaps = () => {
+    const maps = findAllMaps();
+    maps.forEach(m => {
+      if (!window.map) window.map = m;
+      paintFallbackGradient(m);
+      if (!m._ewRedrawBound) {
+        m._ewRedrawBound = true;
+        m.on("moveend zoomend resize", () => paintFallbackGradient(m));
+      }
+    });
+  };
+
+  syncMaps();
+  window.addEventListener("load", syncMaps);
+  setInterval(syncMaps, 1000);
+})();
+</script>
+<!-- EKEN WEATHER LAYER FIX END -->
+
 </body>
 </html>
