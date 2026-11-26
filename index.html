@@ -787,9 +787,24 @@ function setBadge(status, source) {
     });
 
     (async function init() {
-      const res = await fetch("/api/variables");
-      const meta = await res.json();
-      variables = meta.variables || [];
+      let meta = {};
+      try {
+        const res = await fetch("/api/variables");
+        if (res.ok) meta = await res.json();
+      } catch (err) {
+        console.warn("api/variables yedek listeye gecti:", err);
+      }
+      variables = Array.isArray(meta.variables) && meta.variables.length ? meta.variables : [
+        { key: "temperature_2m", name: "2 m Sıcaklığı", unit: "°C", provider: "ECMWF", group: "surface" },
+        { key: "wind_speed_10m", name: "10 m Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "surface" },
+        { key: "precipitation", name: "Toplam Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
+        { key: "pressure_msl", name: "Deniz Seviyesi Basıncı (MSLP)", unit: "hPa", provider: "ECMWF", group: "surface" },
+        { key: "dewpoint_2m", name: "2 m Çiy Noktası", unit: "°C", provider: "ECMWF", group: "surface" },
+        { key: "total_cloud_cover", name: "Toplam Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
+        { key: "temperature_850hPa", name: "850 hPa Sıcaklık", unit: "°C", provider: "ECMWF", group: "levels", level: 850 },
+        { key: "geopotential_height_500hPa", name: "500 hPa Jeopotansiyel Yükseklik", unit: "dam", provider: "ECMWF", group: "levels", level: 500 },
+        { key: "wind_speed_500hPa", name: "500 hPa Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "levels", level: 500 }
+      ];
       const TR_EXACT = {
         precipitation: "Toplam Yağış",
         large_scale_precipitation: "Büyük Ölçekli Yağış",
