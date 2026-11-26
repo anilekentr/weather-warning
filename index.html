@@ -338,62 +338,29 @@
 
 
 
-/* === EKEN WEATHER V3 UNIFIED === */
-#brand-logo {
-  position: fixed !important;
-  top: 10px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  z-index: 1400 !important;
-  height: 36px !important;
-  padding: 3px 12px 3px 7px !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 7px !important;
-  border-radius: 999px !important;
-  background: rgba(9, 17, 34, 0.94) !important;
-  border: 1px solid rgba(56, 189, 248, 0.35) !important;
-  pointer-events: none !important;
-}
-#brand-logo img {
-  width: 22px !important;
-  height: 22px !important;
-  border-radius: 50% !important;
-  object-fit: cover !important;
-}
-#brand-logo .logo-text {
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  color: #f8fafc !important;
-  white-space: nowrap !important;
-}
 
-.leaflet-top.leaflet-left {
-  top: 12px !important;
-  left: 12px !important;
-  z-index: 1250 !important;
-}
 
-/* Fazla/eski panelleri gizle; tek panel (#ew-single-panel) açık kalsın */
-[class*="panel"]:not(#ew-single-panel):not(#ew-single-panel *):not(#cbar-box):not(#cbar-box *),
-[id*="panel"]:not(#ew-single-panel):not(#ew-single-panel *):not(#cbar-box):not(#cbar-box *):not(#music-bar):not(#music-bar *) {
+
+/* === EKEN WEATHER FINAL === */
+[id*="ecmwf"]:not(#ew-single-panel):not(#ew-single-panel *),
+[id*="info-panel"]:not(#ew-single-panel):not(#ew-single-panel *),
+[id*="detail-panel"]:not(#ew-single-panel):not(#ew-single-panel *) {
   display: none !important;
 }
 
 #ew-single-panel {
-  display: block !important;
   position: fixed !important;
-  top: 86px !important;
+  top: 76px !important;
   left: 12px !important;
-  z-index: 1350 !important;
-  width: 325px !important;
+  z-index: 1500 !important;
+  width: 320px !important;
   max-width: calc(100vw - 24px) !important;
-  max-height: calc(100vh - 125px) !important;
+  max-height: calc(100vh - 115px) !important;
   overflow-y: auto !important;
   padding: 9px 11px !important;
   border-radius: 11px !important;
   background: rgba(9, 17, 34, 0.95) !important;
-  border: 1px solid rgba(56, 189, 248, 0.38) !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
   color: #f8fafc !important;
   font-family: system-ui, -apple-system, sans-serif !important;
   font-size: 11.5px !important;
@@ -470,7 +437,6 @@ canvas.ew-smooth-field {
 }
 
 #cbar-box {
-  display: block !important;
   position: fixed !important;
   right: 12px !important;
   bottom: 72px !important;
@@ -488,22 +454,6 @@ canvas.ew-smooth-field {
   border: 1px solid rgba(56, 189, 248, 0.35) !important;
   font-size: 10px !important;
   box-sizing: border-box !important;
-}
-
-#music-bar {
-  display: flex !important;
-  position: fixed !important;
-  right: 12px !important;
-  bottom: 34px !important;
-  left: auto !important;
-  top: auto !important;
-  z-index: 1350 !important;
-}
-
-.leaflet-control-attribution {
-  font-size: 14px !important;
-  padding: 2px 8px !important;
-  border-radius: 8px !important;
 }
 /* === END EKEN WEATHER === */
 
@@ -891,19 +841,17 @@ canvas.ew-smooth-field {
 
 
 
-<!-- EKEN WEATHER CLEAN START -->
-<div id="brand-logo">
-  <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
-  <span class="logo-text">Eken Weather</span>
-</div>
 
+
+
+<!-- EKEN WEATHER CLEAN START -->
 <div id="ew-single-panel">
   <div class="ews-box">
     <div class="ews-row"><span class="ews-k">Koordinat:</span><span id="ews-coord" class="ews-v">Haritaya tıklayın</span></div>
     <div class="ews-row"><span class="ews-k">İl:</span><span id="ews-il" class="ews-v">—</span></div>
     <div class="ews-row"><span class="ews-k">İlçe:</span><span id="ews-ilce" class="ews-v">—</span></div>
     <div class="ews-row"><span class="ews-k">Mahalle:</span><span id="ews-mah" class="ews-v">—</span></div>
-    <div class="ews-row"><span id="ews-vname" class="ews-k">2m Sıcaklık (2t):</span><span id="ews-vval" class="ews-v ewl-hi ews-hi">—</span></div>
+    <div class="ews-row"><span id="ews-vname" class="ews-k">2m Sıcaklık (2t):</span><span id="ews-vval" class="ews-v ews-hi">—</span></div>
   </div>
   <input id="ews-filter" class="ews-search" type="text" placeholder="90 ECMWF değişkeni ara (ör: 850, rüzgar, nem, cape)..." />
   <div id="ews-vars" class="ews-grid"></div>
@@ -911,19 +859,6 @@ canvas.ew-smooth-field {
 
 <script>
 (() => {
-  // Eski kodlardaki null DOM hatalarının bizim akışı durdurmasını engelle
-  window.addEventListener("error", (ev) => {
-    if (ev && ev.message && (ev.message.includes("innerHTML") || ev.message.includes("m.on is not a function"))) {
-      ev.preventDefault();
-    }
-  });
-  window.addEventListener("unhandledrejection", (ev) => {
-    const msg = String(ev?.reason?.message || ev?.reason || "");
-    if (msg.includes("innerHTML") || msg.includes("m.on is not a function")) {
-      ev.preventDefault();
-    }
-  });
-
   const VARS = [
     { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: 2, max: 30 },
     { code: "rh2m", om: "relative_humidity_2m", name: "2m Bağıl Nem", unit: "%", min: 20, max: 100 },
@@ -1028,13 +963,7 @@ canvas.ew-smooth-field {
     [1.00, [220, 38, 38]]
   ];
 
-  let cur = VARS[0];
-  let filterText = "";
-  let lastPt = null;
-  let fieldCanvas = null;
-  let gridSamples = [];
-  let pointMarker = null;
-
+  let cur = VARS[0], filterText = "", lastPt = null, fieldCanvas = null, gridSamples = [], pointMarker = null;
   const panel = document.getElementById("ew-single-panel");
   const varsEl = document.getElementById("ews-vars");
   const filterEl = document.getElementById("ews-filter");
@@ -1044,7 +973,7 @@ canvas.ew-smooth-field {
     panel.addEventListener("mousedown", e => e.stopPropagation());
   }
   if (filterEl) {
-    filterEl.addEventListener("input", (e) => {
+    filterEl.addEventListener("input", e => {
       filterText = (e.target.value || "").toLowerCase().trim();
       renderVars();
     });
@@ -1054,9 +983,7 @@ canvas.ew-smooth-field {
     const x = Math.max(0, Math.min(1, t));
     let a = STOPS[0], b = STOPS[STOPS.length - 1];
     for (let i = 0; i < STOPS.length - 1; i++) {
-      if (x >= STOPS[i][0] && x <= STOPS[i + 1][0]) {
-        a = STOPS[i]; b = STOPS[i + 1]; break;
-      }
+      if (x >= STOPS[i][0] && x <= STOPS[i + 1][0]) { a = STOPS[i]; b = STOPS[i + 1]; break; }
     }
     const f = (x - a[0]) / ((b[0] - a[0]) || 1);
     return [
@@ -1071,91 +998,58 @@ canvas.ew-smooth-field {
     const vals = (samples || []).map(d => d.val).filter(n => typeof n === "number" && Number.isFinite(n));
     if (vals.length >= 2) {
       const dMin = Math.min(...vals), dMax = Math.max(...vals);
-      if (dMax - dMin > 0.01) {
-        sMin = Number(dMin.toFixed(1));
-        sMax = Number(dMax.toFixed(1));
-      }
+      if (dMax - dMin > 0.01) { sMin = Number(dMin.toFixed(1)); sMax = Number(dMax.toFixed(1)); }
     }
     return { sMin, sMax };
   };
 
   const paintCbar = (v, samples = []) => {
-    let cbar = document.getElementById("cbar-box");
-    if (!cbar) {
-      cbar = document.createElement("div");
-      cbar.id = "cbar-box";
-      document.body.appendChild(cbar);
-    }
+    const cbar = document.getElementById("cbar-box");
+    if (!cbar) return;
     const { sMin, sMax } = getBounds(v, samples);
     const q1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(1));
     const q2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(1));
     const q3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(1));
-    cbar.innerHTML = `
-      <div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:600;">
-        <span>${v.name}</span><span>${v.unit}</span>
-      </div>
-      <div style="height:7px;border-radius:3px;margin:3px 0;background:${GRAD_CSS};border:1px solid rgba(255,255,255,0.2);"></div>
-      <div style="display:flex;justify-content:space-between;color:#cbd5e1;line-height:1.1;font-size:9px;">
-        <span>${sMin}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${sMax}</span>
-      </div>
-    `;
+    cbar.innerHTML = `<div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:600;"><span>${v.name}</span><span>${v.unit}</span></div><div style="height:7px;border-radius:3px;margin:3px 0;background:${GRAD_CSS};border:1px solid rgba(255,255,255,0.2);"></div><div style="display:flex;justify-content:space-between;color:#cbd5e1;line-height:1.1;font-size:9px;"><span>${sMin}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${sMax}</span></div>`;
   };
 
   const findMap = () => {
-    if (window.map && typeof window.map.on === "function" && typeof window.map.getBounds === "function") {
-      return window.map;
-    }
-    if (Array.isArray(window.__ewMaps) && window.__ewMaps.length) {
-      window.map = window.__ewMaps[window.__ewMaps.length - 1];
-      return window.map;
-    }
+    if (window.map && typeof window.map.on === "function" && typeof window.map.getBounds === "function") return window.map;
     for (const k of Object.keys(window)) {
       try {
         const obj = window[k];
         if (obj && typeof obj.on === "function" && typeof obj.getBounds === "function" && typeof obj.containerPointToLatLng === "function") {
-          window.map = obj;
-          return obj;
+          window.map = obj; return obj;
         }
       } catch (_) {}
     }
     return null;
   };
 
-  const ensureSmoothCanvas = (m) => {
-    const container = m.getContainer && m.getContainer();
-    if (!container) return null;
-    if (!fieldCanvas) {
-      fieldCanvas = document.createElement("canvas");
-      fieldCanvas.className = "ew-smooth-field";
+  const ensureCanvas = (m) => {
+    const c = m.getContainer && m.getContainer();
+    if (!c) return null;
+    if (!fieldCanvas) { fieldCanvas = document.createElement("canvas"); fieldCanvas.className = "ew-smooth-field"; }
+    if (fieldCanvas.parentElement !== c) {
+      const mp = c.querySelector(".leaflet-map-pane");
+      if (mp && mp.nextSibling) c.insertBefore(fieldCanvas, mp.nextSibling); else c.appendChild(fieldCanvas);
     }
-    if (fieldCanvas.parentElement !== container) {
-      const mapPane = container.querySelector(".leaflet-map-pane");
-      if (mapPane && mapPane.nextSibling) container.insertBefore(fieldCanvas, mapPane.nextSibling);
-      else container.appendChild(fieldCanvas);
-    }
-    const rect = container.getBoundingClientRect();
-    const w = Math.max(1, Math.floor(rect.width));
-    const h = Math.max(1, Math.floor(rect.height));
-    if (fieldCanvas.width !== w || fieldCanvas.height !== h) {
-      fieldCanvas.width = w; fieldCanvas.height = h;
-    }
+    const r = c.getBoundingClientRect(), w = Math.max(1, Math.floor(r.width)), h = Math.max(1, Math.floor(r.height));
+    if (fieldCanvas.width !== w || fieldCanvas.height !== h) { fieldCanvas.width = w; fieldCanvas.height = h; }
     return fieldCanvas;
   };
 
-  const renderSmoothField = () => {
+  const renderField = () => {
     const m = findMap();
     if (!m || !gridSamples.length) return;
-    const cvs = ensureSmoothCanvas(m);
+    const cvs = ensureCanvas(m);
     if (!cvs) return;
     const ctx = cvs.getContext("2d");
     if (!ctx) return;
-
     const w = cvs.width, h = cvs.height;
     ctx.clearRect(0, 0, w, h);
-
     const { sMin, sMax } = getBounds(cur, gridSamples);
     const span = (sMax - sMin) > 0.01 ? (sMax - sMin) : 1;
-
     const step = 14;
     for (let y = 0; y < h; y += step) {
       for (let x = 0; x < w; x += step) {
@@ -1165,13 +1059,10 @@ canvas.ew-smooth-field {
           const g = gridSamples[i];
           const d2 = (ll.lat - g.lat) * (ll.lat - g.lat) + (ll.lng - g.lng) * (ll.lng - g.lng) + 0.14;
           const wt = 1 / Math.pow(d2, 1.15);
-          num += g.val * wt;
-          den += wt;
+          num += g.val * wt; den += wt;
         }
         if (den > 0) {
-          const val = num / den;
-          const t = (val - sMin) / span;
-          const [rr, gg, bb] = ratioToRgb(t);
+          const [rr, gg, bb] = ratioToRgb(((num / den) - sMin) / span);
           ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.45)`;
           ctx.fillRect(x, y, step + 1, step + 1);
         }
@@ -1179,25 +1070,19 @@ canvas.ew-smooth-field {
     }
   };
 
-  const loadGridSamples = async () => {
+  const loadGrid = async () => {
     const m = findMap();
     if (!m || !m.getBounds) return;
     const b = m.getBounds();
     const s = Math.max(35.0, b.getSouth()), n = Math.min(43.5, b.getNorth());
     const w = Math.max(25.0, b.getWest()), e = Math.min(45.0, b.getEast());
-
     const rows = 5, cols = 6, lats = [], lons = [];
     for (let r = 0; r < rows; r++) {
       const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(3));
-      for (let c = 0; c < cols; c++) {
-        lats.push(la);
-        lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(3)));
-      }
+      for (let c = 0; c < cols; c++) { lats.push(la); lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(3))); }
     }
-
     try {
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`;
-      const data = await (await fetch(url, { cache: "no-store" })).json();
+      const data = await (await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" })).json();
       const arr = Array.isArray(data) ? data : [data];
       const next = [];
       arr.forEach((loc, idx) => {
@@ -1205,15 +1090,9 @@ canvas.ew-smooth-field {
         if ((typeof raw !== "number" || !Number.isFinite(raw)) && Array.isArray(loc?.hourly?.[cur.om])) {
           raw = loc.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
         }
-        if (typeof raw === "number" && Number.isFinite(raw)) {
-          next.push({ lat: lats[idx], lng: lons[idx], val: raw });
-        }
+        if (typeof raw === "number" && Number.isFinite(raw)) next.push({ lat: lats[idx], lng: lons[idx], val: raw });
       });
-      if (next.length) {
-        gridSamples = next;
-        paintCbar(cur, gridSamples);
-        renderSmoothField();
-      }
+      if (next.length) { gridSamples = next; paintCbar(cur, gridSamples); renderField(); }
     } catch (_) {}
   };
 
@@ -1225,7 +1104,6 @@ canvas.ew-smooth-field {
     if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
     if (vvEl) vvEl.textContent = "Yükleniyor...";
-
     try {
       const j = await (await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" })).json();
       let val = j?.current?.[cur.om];
@@ -1255,23 +1133,18 @@ canvas.ew-smooth-field {
   const renderVars = () => {
     if (!varsEl) return;
     varsEl.innerHTML = "";
-    const list = filterText
-      ? VARS.filter(v => `${v.name} ${v.code} ${v.om} ${v.unit}`.toLowerCase().includes(filterText))
-      : VARS;
+    const list = filterText ? VARS.filter(v => `${v.name} ${v.code} ${v.om} ${v.unit}`.toLowerCase().includes(filterText)) : VARS;
     list.forEach(v => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "ews-btn" + (v.code === cur.code ? " active" : "");
       b.textContent = `${v.name} (${v.unit})`;
       b.title = `${v.name} — ${v.om} [${v.unit}]`;
-      b.addEventListener("click", (e) => {
-        e.stopPropagation();
-        cur = v;
-        renderVars();
-        paintCbar(cur, gridSamples);
+      b.addEventListener("click", e => {
+        e.stopPropagation(); cur = v; renderVars(); paintCbar(cur, gridSamples);
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-        loadGridSamples();
+        loadGrid();
         if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
       });
       varsEl.appendChild(b);
@@ -1281,25 +1154,12 @@ canvas.ew-smooth-field {
   const bindMap = () => {
     const m = findMap();
     if (!m) return;
-    if (!m._ewsV3Bound) {
-      m._ewsV3Bound = true;
-      m.on("click", (e) => {
-        if (e?.latlng) {
-          lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
-          queryPoint(lastPt.lat, lastPt.lng);
-        }
-      });
-      m.on("moveend zoomend resize", () => {
-        renderSmoothField();
-        loadGridSamples();
-      });
-      loadGridSamples();
-    } else {
-      renderSmoothField();
-    }
-    document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
-      if (el.innerHTML !== "🇹🇷") el.innerHTML = "🇹🇷";
-    });
+    if (!m._ewsFinalBound) {
+      m._ewsFinalBound = true;
+      m.on("click", e => { if (e?.latlng) { lastPt = { lat: e.latlng.lat, lng: e.latlng.lng }; queryPoint(lastPt.lat, lastPt.lng); } });
+      m.on("moveend zoomend resize", () => { renderField(); loadGrid(); });
+      loadGrid();
+    } else renderField();
   };
 
   renderVars();
