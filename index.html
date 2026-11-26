@@ -335,7 +335,10 @@
 
 
 
-/* === EKEN WEATHER 90-VAR & SMOOTH CBAR FIELD === */
+
+
+
+/* === EKEN WEATHER V3 UNIFIED === */
 #brand-logo {
   position: fixed !important;
   top: 10px !important;
@@ -371,24 +374,18 @@
   z-index: 1250 !important;
 }
 
-/* Alttaki veya yanlardaki tüm eski/ikincil panelleri kaldır/gizle */
-.panel:not(#ew-single-panel),
-.info-panel:not(#ew-single-panel),
-#ecmwf-panel:not(#ew-single-panel),
-#point-info:not(#ew-single-panel),
-#location-panel:not(#ew-single-panel),
-[id*="bottom-panel"]:not(#ew-single-panel),
-[id*="data-panel"]:not(#ew-single-panel),
-[class*="bottom-panel"]:not(#ew-single-panel),
-[class*="data-panel"]:not(#ew-single-panel) {
+/* Fazla/eski panelleri gizle; tek panel (#ew-single-panel) açık kalsın */
+[class*="panel"]:not(#ew-single-panel):not(#ew-single-panel *):not(#cbar-box):not(#cbar-box *),
+[id*="panel"]:not(#ew-single-panel):not(#ew-single-panel *):not(#cbar-box):not(#cbar-box *):not(#music-bar):not(#music-bar *) {
   display: none !important;
 }
 
 #ew-single-panel {
+  display: block !important;
   position: fixed !important;
   top: 86px !important;
   left: 12px !important;
-  z-index: 1320 !important;
+  z-index: 1350 !important;
   width: 325px !important;
   max-width: calc(100vw - 24px) !important;
   max-height: calc(100vh - 125px) !important;
@@ -396,7 +393,7 @@
   padding: 9px 11px !important;
   border-radius: 11px !important;
   background: rgba(9, 17, 34, 0.95) !important;
-  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  border: 1px solid rgba(56, 189, 248, 0.38) !important;
   color: #f8fafc !important;
   font-family: system-ui, -apple-system, sans-serif !important;
   font-size: 11.5px !important;
@@ -439,7 +436,7 @@
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 4px !important;
-  max-height: 235px !important;
+  max-height: 240px !important;
   overflow-y: auto !important;
 }
 .ews-btn {
@@ -462,7 +459,6 @@
   font-weight: 600 !important;
 }
 
-/* Yumuşak harmanlanmış renk alanı katmanı */
 canvas.ew-smooth-field {
   position: absolute !important;
   inset: 0 !important;
@@ -470,18 +466,19 @@ canvas.ew-smooth-field {
   height: 100% !important;
   pointer-events: none !important;
   z-index: 390 !important;
-  filter: blur(18px) saturate(1.15) !important;
+  filter: blur(20px) saturate(1.18) !important;
 }
 
 #cbar-box {
+  display: block !important;
   position: fixed !important;
   right: 12px !important;
   bottom: 72px !important;
   left: auto !important;
   top: auto !important;
   transform: none !important;
-  z-index: 1200 !important;
-  width: 196px !important;
+  z-index: 1250 !important;
+  width: 198px !important;
   height: auto !important;
   min-height: 54px !important;
   max-height: 64px !important;
@@ -494,6 +491,7 @@ canvas.ew-smooth-field {
 }
 
 #music-bar {
+  display: flex !important;
   position: fixed !important;
   right: 12px !important;
   bottom: 34px !important;
@@ -575,7 +573,7 @@ canvas.ew-smooth-field {
       return pts;
     })();
 
-    window.map = L.map("map", { center: [40.85, 29.0], zoom: 7, preferCanvas: true });
+    window.map = (window.__ewMaps = window.__ewMaps || [], (function(__m){ window.__ewMaps.push(__m); window.map = __m; return __m; })(L.map("map", { center: [40.85, 29.0], zoom: 7, preferCanvas: true })));
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap",
       maxZoom: 18
@@ -890,6 +888,9 @@ canvas.ew-smooth-field {
 
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="brand-logo">
   <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
@@ -902,7 +903,7 @@ canvas.ew-smooth-field {
     <div class="ews-row"><span class="ews-k">İl:</span><span id="ews-il" class="ews-v">—</span></div>
     <div class="ews-row"><span class="ews-k">İlçe:</span><span id="ews-ilce" class="ews-v">—</span></div>
     <div class="ews-row"><span class="ews-k">Mahalle:</span><span id="ews-mah" class="ews-v">—</span></div>
-    <div class="ews-row"><span id="ews-vname" class="ews-k">2m Sıcaklık (2t):</span><span id="ews-vval" class="ews-v ews-hi">—</span></div>
+    <div class="ews-row"><span id="ews-vname" class="ews-k">2m Sıcaklık (2t):</span><span id="ews-vval" class="ews-v ewl-hi ews-hi">—</span></div>
   </div>
   <input id="ews-filter" class="ews-search" type="text" placeholder="90 ECMWF değişkeni ara (ör: 850, rüzgar, nem, cape)..." />
   <div id="ews-vars" class="ews-grid"></div>
@@ -910,7 +911,19 @@ canvas.ew-smooth-field {
 
 <script>
 (() => {
-  // Open-Meteo ECMWF tarafından desteklenen kapsamlı değişken listesi (~90 değişken)
+  // Eski kodlardaki null DOM hatalarının bizim akışı durdurmasını engelle
+  window.addEventListener("error", (ev) => {
+    if (ev && ev.message && (ev.message.includes("innerHTML") || ev.message.includes("m.on is not a function"))) {
+      ev.preventDefault();
+    }
+  });
+  window.addEventListener("unhandledrejection", (ev) => {
+    const msg = String(ev?.reason?.message || ev?.reason || "");
+    if (msg.includes("innerHTML") || msg.includes("m.on is not a function")) {
+      ev.preventDefault();
+    }
+  });
+
   const VARS = [
     { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: 2, max: 30 },
     { code: "rh2m", om: "relative_humidity_2m", name: "2m Bağıl Nem", unit: "%", min: 20, max: 100 },
@@ -1004,7 +1017,6 @@ canvas.ew-smooth-field {
     { code: "dp850", om: "dew_point_850hPa", name: "850hPa Çiy Noktası", unit: "°C", min: -20, max: 20 }
   ];
 
-  // EKEN WEATHER_2.jpg görselindeki yeşil-sarı-turuncu-mavi-kırmızı yumuşak renk skalası
   const GRAD_CSS = "linear-gradient(90deg,#1d4ed8,#06b6d4,#22c55e,#84cc16,#eab308,#f97316,#dc2626)";
   const STOPS = [
     [0.00, [29, 78, 216]],
@@ -1054,7 +1066,7 @@ canvas.ew-smooth-field {
     ];
   };
 
-  const getActiveBounds = (v, samples) => {
+  const getBounds = (v, samples) => {
     let sMin = v.min, sMax = v.max;
     const vals = (samples || []).map(d => d.val).filter(n => typeof n === "number" && Number.isFinite(n));
     if (vals.length >= 2) {
@@ -1067,10 +1079,14 @@ canvas.ew-smooth-field {
     return { sMin, sMax };
   };
 
-  const paintSampledCbar = (v, samples = []) => {
-    const cbar = document.getElementById("cbar-box");
-    if (!cbar) return;
-    const { sMin, sMax } = getActiveBounds(v, samples);
+  const paintCbar = (v, samples = []) => {
+    let cbar = document.getElementById("cbar-box");
+    if (!cbar) {
+      cbar = document.createElement("div");
+      cbar.id = "cbar-box";
+      document.body.appendChild(cbar);
+    }
+    const { sMin, sMax } = getBounds(v, samples);
     const q1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(1));
     const q2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(1));
     const q3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(1));
@@ -1086,7 +1102,13 @@ canvas.ew-smooth-field {
   };
 
   const findMap = () => {
-    if (window.map && typeof window.map.on === "function") return window.map;
+    if (window.map && typeof window.map.on === "function" && typeof window.map.getBounds === "function") {
+      return window.map;
+    }
+    if (Array.isArray(window.__ewMaps) && window.__ewMaps.length) {
+      window.map = window.__ewMaps[window.__ewMaps.length - 1];
+      return window.map;
+    }
     for (const k of Object.keys(window)) {
       try {
         const obj = window[k];
@@ -1120,7 +1142,6 @@ canvas.ew-smooth-field {
     return fieldCanvas;
   };
 
-  // Cbar skalasına göre yumuşak radyal/IDW renk alanı çizimi
   const renderSmoothField = () => {
     const m = findMap();
     if (!m || !gridSamples.length) return;
@@ -1132,7 +1153,7 @@ canvas.ew-smooth-field {
     const w = cvs.width, h = cvs.height;
     ctx.clearRect(0, 0, w, h);
 
-    const { sMin, sMax } = getActiveBounds(cur, gridSamples);
+    const { sMin, sMax } = getBounds(cur, gridSamples);
     const span = (sMax - sMin) > 0.01 ? (sMax - sMin) : 1;
 
     const step = 14;
@@ -1151,7 +1172,7 @@ canvas.ew-smooth-field {
           const val = num / den;
           const t = (val - sMin) / span;
           const [rr, gg, bb] = ratioToRgb(t);
-          ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.44)`;
+          ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.45)`;
           ctx.fillRect(x, y, step + 1, step + 1);
         }
       }
@@ -1190,7 +1211,7 @@ canvas.ew-smooth-field {
       });
       if (next.length) {
         gridSamples = next;
-        paintSampledCbar(cur, gridSamples);
+        paintCbar(cur, gridSamples);
         renderSmoothField();
       }
     } catch (_) {}
@@ -1247,7 +1268,7 @@ canvas.ew-smooth-field {
         e.stopPropagation();
         cur = v;
         renderVars();
-        paintSampledCbar(cur, gridSamples);
+        paintCbar(cur, gridSamples);
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
         loadGridSamples();
@@ -1260,8 +1281,8 @@ canvas.ew-smooth-field {
   const bindMap = () => {
     const m = findMap();
     if (!m) return;
-    if (!m._ewsSmoothBound) {
-      m._ewsSmoothBound = true;
+    if (!m._ewsV3Bound) {
+      m._ewsV3Bound = true;
       m.on("click", (e) => {
         if (e?.latlng) {
           lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
@@ -1282,11 +1303,8 @@ canvas.ew-smooth-field {
   };
 
   renderVars();
-  paintSampledCbar(cur, []);
-  const tmr = setInterval(() => {
-    bindMap();
-    if (window.map && window.map._ewsSmoothBound) clearInterval(tmr);
-  }, 350);
+  paintCbar(cur, []);
+  setInterval(bindMap, 400);
   window.addEventListener("load", bindMap);
 })();
 </script>
