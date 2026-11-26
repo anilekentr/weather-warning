@@ -1745,5 +1745,148 @@
 </script>
 <!-- EKEN TIME BAR END -->
 
+
+<!-- EKEN PRECIP SUM OVERRIDE START -->
+<script>
+(() => {
+  const PRECIP_MAP = {
+    "tp": { om: "precipitation", unit: "mm", label: "Toplam Yağış" },
+    "rain": { om: "rain", unit: "mm", label: "Yağmur" },
+    "shw": { om: "showers", unit: "mm", label: "Sağanak Yağış" },
+    "sf": { om: "snowfall", unit: "cm", label: "Kar Yağışı" }
+  };
+
+  const getActivePrecipSpec = () => {
+    const activeBtn = document.querySelector("#ews-vars .ews-btn.active");
+    const titleAttr = activeBtn ? (activeBtn.getAttribute("title") || "") : "";
+    for (const [code, spec] of Object.entries(PRECIP_MAP)) {
+      if (new RegExp(`\b${spec.om}\b`, "i").test(titleAttr) || new RegExp(`\(${code}\)`, "i").test(titleAttr)) {
+        return { code, ...spec };
+      }
+    }
+    const labelTxt = (document.getElementById("ews-vname")?.textContent || "").toLowerCase();
+    if (labelTxt.includes("yağmur")) return { code: "rain", ...PRECIP_MAP.rain };
+    if (labelTxt.includes("sağanak")) return { code: "shw", ...PRECIP_MAP.shw };
+    if (labelTxt.includes("kar")) return { code: "sf", ...PRECIP_MAP.sf };
+    if (labelTxt.includes("yağış") || labelTxt.includes("(tp)")) return { code: "tp", ...PRECIP_MAP.tp };
+    return null;
+  };
+
+  const parseCurrentCoord = () => {
+    const cTxt = document.getElementById("ews-coord")?.textContent || "";
+    const m = cTxt.match(/(-?\d+(?:\.\d+)?)°K,\s*(-?\d+(?:\.\d+)?)°D/);
+    if (!m) return null;
+    return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  };
+
+  const parseHourOffset = () => {
+    const sEl = document.getElementById("ewt-slider");
+    return sEl ? (parseInt(sEl.value, 10) || 0) : 0;
+  };
+
+  const computeWindowSumFromHourly = (times, vals, startMs, endMs) => {
+    if (!Array.isArray(times) || !Array.isArray(vals) || !times.length || !vals.length) {
+      return null;
+    }
+    let sum = 0;
+    let count = 0;
+    let firstTs = null;
+    let lastTs = null;
+
+    const len = Math.min(times.length, vals.length);
+    for (let i = 0; i < len; i++) {
+      const tMs = Date.parse(times[i]);
+      if (!Number.isFinite(tMs)) continue;
+      if (tMs >= startMs && tMs <= endMs) {
+        const v = vals[i];
+        if (typeof v === "number" && Number.isFinite(v)) {
+          sum += v;
+          count += 1;
+          if (firstTs === null || tMs < firstTs) firstTs = tMs;
+          if (lastTs === null || tMs > lastTs) lastTs = tMs;
+        }
+      }
+    }
+
+    if (count === 0) return null;
+    return { sum: Number(sum.toFixed(2)), count, firstTs, lastTs };
+  };
+
+  const syncPrecipWindowSum = async () => {
+    const spec = getActivePrecipSpec();
+    const coord = parseCurrentCoord();
+    const vvEl = document.getElementById("ews-vval");
+    const winValEl = document.getElementById("ews-time-window-val");
+    if (!spec || !coord || !vvEl) return;
+
+    const off = parseHourOffset();
+    const nowMs = Date.now();
+    const targetMs = nowMs + off * 3600 * 1000;
+    const startMs = Math.min(nowMs, targetMs);
+    const endMs = Math.max(nowMs, targetMs);
+
+    const cacheKey = `ew_precip_${coord.lat.toFixed(2)}_${coord.lng.toFixed(2)}_${spec.om}`;
+    let hourlyObj = null;
+
+    try {
+      const cachedRaw = sessionStorage.getItem(cacheKey);
+      if (cachedRaw) {
+        const parsed = JSON.parse(cachedRaw);
+        if (parsed && (Date.now() - parsed.ts < 900000)) {
+          hourlyObj = parsed.hourly;
+        }
+      }
+    } catch (_) {}
+
+    if (!hourlyObj) {
+      try {
+        const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${coord.lat.toFixed(4)}&longitude=${coord.lng.toFixed(4)}&hourly=${encodeURIComponent(spec.om)}&past_days=2&forecast_days=3&timezone=UTC`;
+        const res = await fetch(url, { cache: "no-store" });
+        if (res.ok) {
+          const j = await res.json();
+          if (j?.hourly && Array.isArray(j.hourly[spec.om])) {
+            hourlyObj = j.hourly;
+            try {
+              sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), hourly: hourlyObj }));
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!hourlyObj) return;
+
+    const calc = computeWindowSumFromHourly(hourlyObj.time, hourlyObj[spec.om], startMs, endMs);
+    if (!calc) {
+      vvEl.textContent = `0.00 ${spec.unit}`;
+      if (winValEl) {
+        winValEl.textContent = `Seçili aralıkta yağış verisi yok (${Math.max(1, Math.abs(off) || 1)} sa)`;
+      }
+      return;
+    }
+
+    vvEl.textContent = `${calc.sum.toFixed(2)} ${spec.unit}`;
+    if (winValEl) {
+      const sIso = new Date(calc.firstTs).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+      const eIso = new Date(calc.lastTs).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+      winValEl.textContent = `${sIso} → ${eIso} (${calc.count} sa toplam)`;
+    }
+  };
+
+  let lastSig = "";
+  setInterval(() => {
+    const spec = getActivePrecipSpec();
+    const coord = parseCurrentCoord();
+    const off = parseHourOffset();
+    const sig = `${spec ? spec.code : "none"}|${coord ? coord.lat.toFixed(3) + "," + coord.lng.toFixed(3) : "none"}|${off}`;
+    if (spec && coord && sig !== lastSig) {
+      lastSig = sig;
+      syncPrecipWindowSum();
+    }
+  }, 600);
+})();
+</script>
+<!-- EKEN PRECIP SUM OVERRIDE END -->
+
 </body>
 </html>
