@@ -1083,6 +1083,41 @@
 <div id="music-bar" style="position:fixed;right:12px;bottom:34px;z-index:1350;display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(9,17,34,0.92);border:1px solid rgba(56,189,248,0.35);color:#fff;font-size:11px;">
   <span id="music-title" style="display:none;">♪ Eken Weather — Atmospheric Forecast Music</span>
   <button id="music-toggle" type="button" style="background:rgba(15,23,42,0.9);color:#f8fafc;border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;font-size:11px;cursor:pointer;">♪ Müzik: Açık</button>
+<script>
+(() => {
+  const audio = document.getElementById("bg-music");
+  const btn = document.getElementById("music-toggle");
+  if (!audio || !btn) return;
+
+  const syncLabel = () => {
+    btn.textContent = audio.paused ? "♪ Müzik: Kapalı" : "♪ Müzik: Açık";
+  };
+
+  const toggleMusic = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      if (audio.paused) {
+        await audio.play();
+      } else {
+        audio.pause();
+      }
+    } catch (_) {
+      // Tarayici oynatmayi engellerse etiketi gercek paused durumuna esitle
+    }
+    syncLabel();
+  };
+
+  btn.addEventListener("click", toggleMusic);
+  audio.addEventListener("play", syncLabel);
+  audio.addEventListener("pause", syncLabel);
+
+  audio.play().then(syncLabel).catch(() => {
+    // Sayfa acilisinda autoplay engellenirse kullanici ilk dokunusta baslatabilsin
+    btn.textContent = "♪ Müzik: Açık";
+  });
+})();
+</script>
 </div>
 
 
