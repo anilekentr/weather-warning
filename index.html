@@ -1746,14 +1746,17 @@
 <!-- EKEN TIME BAR END -->
 
 
+
+
+
 <!-- EKEN PRECIP SUM OVERRIDE START -->
 <script>
 (() => {
   const PRECIP_MAP = {
-    "tp": { om: "precipitation", unit: "mm", label: "Toplam Yağış" },
-    "rain": { om: "rain", unit: "mm", label: "Yağmur" },
-    "shw": { om: "showers", unit: "mm", label: "Sağanak Yağış" },
-    "sf": { om: "snowfall", unit: "cm", label: "Kar Yağışı" }
+    "tp": { om: "precipitation", unit: "mm" },
+    "rain": { om: "rain", unit: "mm" },
+    "shw": { om: "showers", unit: "mm" },
+    "sf": { om: "snowfall", unit: "cm" }
   };
 
   const getActivePrecipSpec = () => {
@@ -1784,35 +1787,13 @@
     return sEl ? (parseInt(sEl.value, 10) || 0) : 0;
   };
 
-  const computeWindowSumFromHourly = (times, vals, startMs, endMs) => {
-    if (!Array.isArray(times) || !Array.isArray(vals) || !times.length || !vals.length) {
-      return null;
-    }
-    let sum = 0;
-    let count = 0;
-    let firstTs = null;
-    let lastTs = null;
-
-    const len = Math.min(times.length, vals.length);
-    for (let i = 0; i < len; i++) {
-      const tMs = Date.parse(times[i]);
-      if (!Number.isFinite(tMs)) continue;
-      if (tMs >= startMs && tMs <= endMs) {
-        const v = vals[i];
-        if (typeof v === "number" && Number.isFinite(v)) {
-          sum += v;
-          count += 1;
-          if (firstTs === null || tMs < firstTs) firstTs = tMs;
-          if (lastTs === null || tMs > lastTs) lastTs = tMs;
-        }
-      }
-    }
-
-    if (count === 0) return null;
-    return { sum: Number(sum.toFixed(2)), count, firstTs, lastTs };
+  const fmtSpanLabel = (startMs, endMs, hoursCount) => {
+    const sUtc = new Date(startMs).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+    const eUtc = new Date(endMs).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+    return `${sUtc} → ${eUtc} · Süre: ${hoursCount} sa`;
   };
 
-  const syncPrecipWindowSum = async () => {
+  const syncPrecipWindow = async () => {
     const spec = getActivePrecipSpec();
     const coord = parseCurrentCoord();
     const vvEl = document.getElementById("ews-vval");
@@ -1824,8 +1805,9 @@
     const targetMs = nowMs + off * 3600 * 1000;
     const startMs = Math.min(nowMs, targetMs);
     const endMs = Math.max(nowMs, targetMs);
+    const spanHours = Math.max(1, Math.round((endMs - startMs) / 3600000) || Math.abs(off) || 1);
 
-    const cacheKey = `ew_precip_${coord.lat.toFixed(2)}_${coord.lng.toFixed(2)}_${spec.om}`;
+    const cacheKey = `ew_precip_v2_${coord.lat.toFixed(2)}_${coord.lng.toFixed(2)}_${spec.om}`;
     let hourlyObj = null;
 
     try {
@@ -1854,22 +1836,29 @@
       } catch (_) {}
     }
 
-    if (!hourlyObj) return;
-
-    const calc = computeWindowSumFromHourly(hourlyObj.time, hourlyObj[spec.om], startMs, endMs);
-    if (!calc) {
-      vvEl.textContent = `0.00 ${spec.unit}`;
-      if (winValEl) {
-        winValEl.textContent = `Seçili aralıkta yağış verisi yok (${Math.max(1, Math.abs(off) || 1)} sa)`;
+    let sum = 0;
+    let matchedHours = 0;
+    if (hourlyObj && Array.isArray(hourlyObj.time) && Array.isArray(hourlyObj[spec.om])) {
+      const len = Math.min(hourlyObj.time.length, hourlyObj[spec.om].length);
+      for (let i = 0; i < len; i++) {
+        const tMs = Date.parse(hourlyObj.time[i]);
+        if (!Number.isFinite(tMs)) continue;
+        if (tMs >= startMs && tMs <= endMs) {
+          const v = hourlyObj[spec.om][i];
+          if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+            sum += v;
+          }
+          matchedHours += 1;
+        }
       }
-      return;
     }
 
-    vvEl.textContent = `${calc.sum.toFixed(2)} ${spec.unit}`;
+    const finalHours = matchedHours > 0 ? matchedHours : spanHours;
+    const finalSum = Number(sum.toFixed(2));
+    vvEl.textContent = `${finalSum.toFixed(2)} ${spec.unit}`;
+
     if (winValEl) {
-      const sIso = new Date(calc.firstTs).toISOString().slice(0, 16).replace("T", " ") + " UTC";
-      const eIso = new Date(calc.lastTs).toISOString().slice(0, 16).replace("T", " ") + " UTC";
-      winValEl.textContent = `${sIso} → ${eIso} (${calc.count} sa toplam)`;
+      winValEl.textContent = fmtSpanLabel(startMs, endMs, finalHours);
     }
   };
 
@@ -1881,9 +1870,9 @@
     const sig = `${spec ? spec.code : "none"}|${coord ? coord.lat.toFixed(3) + "," + coord.lng.toFixed(3) : "none"}|${off}`;
     if (spec && coord && sig !== lastSig) {
       lastSig = sig;
-      syncPrecipWindowSum();
+      syncPrecipWindow();
     }
-  }, 600);
+  }, 500);
 })();
 </script>
 <!-- EKEN PRECIP SUM OVERRIDE END -->
