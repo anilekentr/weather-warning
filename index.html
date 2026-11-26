@@ -353,7 +353,10 @@
 
 
 
-/* === EKEN WEATHER 90 VARS === */
+
+
+
+/* === EKEN WEATHER ECMWF PANEL & DATA COLOR === */
 #ew-single-panel {
   display: block !important;
   visibility: visible !important;
@@ -361,7 +364,7 @@
   position: fixed !important;
   top: 76px !important;
   left: 12px !important;
-  z-index: 1600 !important;
+  z-index: 1650 !important;
   width: 326px !important;
   max-width: calc(100vw - 24px) !important;
   max-height: calc(100vh - 115px) !important;
@@ -376,20 +379,27 @@
   box-sizing: border-box !important;
 }
 
+/* Alttaki panelleri tamamen kaldır */
 #bottom-panel,
 #alt-panel,
 #ecmwf-panel,
 #point-info,
 #location-panel,
+#info-bar,
+#status-bar,
 .bottom-panel,
 .alt-panel,
 .info-panel {
   display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
 }
 
 .ews-box {
-  background: rgba(15, 23, 42, 0.92) !important;
-  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  background: rgba(15, 23, 42, 0.94) !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
   border-radius: 8px !important;
   padding: 7px 9px !important;
   margin-bottom: 7px !important;
@@ -397,14 +407,15 @@
 .ews-row {
   display: flex !important;
   justify-content: space-between !important;
+  align-items: center !important;
   gap: 8px !important;
-  padding: 2px 0 !important;
+  padding: 2.5px 0 !important;
   border-bottom: 1px solid rgba(148, 163, 184, 0.08) !important;
 }
 .ews-row:last-child { border-bottom: none !important; }
 .ews-k { color: #94a3b8 !important; }
 .ews-v { color: #f8fafc !important; font-weight: 600 !important; text-align: right !important; }
-.ews-hi { color: #38bdf8 !important; font-weight: 700 !important; }
+.ews-hi { color: #38bdf8 !important; font-weight: 700 !important; font-size: 12px !important; }
 
 .ews-search {
   width: 100% !important;
@@ -413,7 +424,7 @@
   margin-bottom: 6px !important;
   border-radius: 6px !important;
   border: 1px solid rgba(56, 189, 248, 0.35) !important;
-  background: rgba(15, 23, 42, 0.95) !important;
+  background: rgba(15, 23, 42, 0.96) !important;
   color: #f8fafc !important;
   font-size: 11px !important;
   outline: none !important;
@@ -440,7 +451,7 @@
   text-overflow: ellipsis !important;
 }
 .ews-btn.active {
-  background: rgba(2, 132, 199, 0.58) !important;
+  background: rgba(2, 132, 199, 0.62) !important;
   border-color: #38bdf8 !important;
   color: #ffffff !important;
   font-weight: 600 !important;
@@ -876,6 +887,9 @@
 
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="ew-single-panel">
   <div class="ews-box">
@@ -984,26 +998,16 @@
     { code: "dp850", om: "dew_point_850hPa", name: "850hPa Çiy Noktası", unit: "°C", min: -20, max: 20 }
   ];
 
-  // Her bir VARS parametresi için min-max aralığına bağlı deterministik renk durakları üret
-  const buildParamStops = (v) => {
-    const code = v.code;
-    if (code.startsWith("ws") || code.startsWith("wd") || code === "10fg") {
-      return [[16, 185, 129], [132, 204, 22], [234, 179, 8], [249, 115, 22], [225, 29, 72], [147, 51, 234]];
-    }
-    if (code.startsWith("rh") || code.startsWith("sm") || code.endsWith("cc") || code === "2d" || code === "vis" || code === "vpd") {
-      return [[124, 58, 237], [37, 99, 235], [6, 182, 212], [20, 184, 166], [34, 197, 94], [234, 179, 8]];
-    }
-    if (["tp", "rain", "shw", "sf", "sd", "wmo", "et0"].includes(code)) {
-      return [[15, 23, 42], [29, 78, 216], [6, 182, 212], [34, 197, 94], [250, 204, 21], [239, 68, 68]];
-    }
-    if (code.startsWith("z") || ["msl", "sp"].includes(code)) {
-      return [[30, 64, 175], [14, 165, 233], [34, 197, 94], [234, 179, 8], [249, 115, 22], [185, 28, 28]];
-    }
-    if (["cape", "cin", "li"].includes(code)) {
-      return [[22, 163, 74], [132, 204, 22], [250, 204, 21], [249, 115, 22], [220, 38, 38], [168, 85, 247]];
-    }
-    return [[29, 78, 216], [6, 182, 212], [34, 197, 94], [132, 204, 22], [234, 179, 8], [249, 115, 22], [220, 38, 38]];
-  };
+  const STOPS = [
+    [29, 78, 216],
+    [6, 182, 212],
+    [34, 197, 94],
+    [132, 204, 22],
+    [234, 179, 8],
+    [249, 115, 22],
+    [220, 38, 38]
+  ];
+  const GRAD_CSS = `linear-gradient(90deg,${STOPS.map(([r, g, b]) => `rgb(${r},${g},${b})`).join(",")})`;
 
   let cur = VARS[0], filterText = "", lastPt = null, cvs = null, samples = [], ptMarker = null;
   const panel = document.getElementById("ew-single-panel");
@@ -1021,42 +1025,55 @@
     });
   }
 
-  // Renklendirme sınırları doğrudan seçili VARS parametresinin min-max değerlerinden gelir
-  const getParamBounds = (v) => {
-    const sMin = Number(v.min);
-    const sMax = Number(v.max);
-    return {
-      sMin: Number.isFinite(sMin) ? sMin : 0,
-      sMax: (Number.isFinite(sMax) && sMax > sMin) ? sMax : (Number.isFinite(sMin) ? sMin + 1 : 1)
-    };
+  // Alttaki fazladan panelleri gizle/kaldır
+  const removeBottomPanels = () => {
+    document.querySelectorAll("div, section, aside, footer").forEach(el => {
+      if (el.id === "ew-single-panel" || el.id === "cbar-box" || el.id === "music-bar") return;
+      if (el.closest("#ew-single-panel") || el.closest("#cbar-box") || el.closest("#music-bar") || el.closest(".leaflet-container")) return;
+      const r = el.getBoundingClientRect();
+      const st = getComputedStyle(el);
+      if (st.position === "fixed" && r.top > window.innerHeight * 0.65 && r.height >= 32 && r.width >= 100) {
+        el.style.setProperty("display", "none", "important");
+      }
+    });
   };
 
-  const sampleParamColor = (t, v) => {
-    const stops = buildParamStops(v);
-    const x = Math.max(0, Math.min(1, t)) * (stops.length - 1);
-    const i0 = Math.floor(x), i1 = Math.min(stops.length - 1, i0 + 1);
+  // Gelen canlı ECMWF verilerinden renk sınırlarını belirle (yoksa VARS min-max kullan)
+  const getDataBounds = (v, list) => {
+    const vals = (list || []).map(d => d.val).filter(n => typeof n === "number" && Number.isFinite(n));
+    if (vals.length >= 2) {
+      const dMin = Math.min(...vals);
+      const dMax = Math.max(...vals);
+      if (dMax - dMin > 0.001) {
+        return { sMin: Number(dMin.toFixed(2)), sMax: Number(dMax.toFixed(2)) };
+      }
+    }
+    return { sMin: Number(v.min), sMax: Number(v.max) };
+  };
+
+  const sampleRgb = (t) => {
+    const x = Math.max(0, Math.min(1, t)) * (STOPS.length - 1);
+    const i0 = Math.floor(x), i1 = Math.min(STOPS.length - 1, i0 + 1);
     const f = x - i0;
     return [
-      Math.round(stops[i0][0] + (stops[i1][0] - stops[i0][0]) * f),
-      Math.round(stops[i0][1] + (stops[i1][1] - stops[i0][1]) * f),
-      Math.round(stops[i0][2] + (stops[i1][2] - stops[i0][2]) * f)
+      Math.round(STOPS[i0][0] + (STOPS[i1][0] - STOPS[i0][0]) * f),
+      Math.round(STOPS[i0][1] + (STOPS[i1][1] - STOPS[i0][1]) * f),
+      Math.round(STOPS[i0][2] + (STOPS[i1][2] - STOPS[i0][2]) * f)
     ];
   };
 
-  const paintParamCbar = (v) => {
+  const paintCbar = (v, list = []) => {
     let cbar = document.getElementById("cbar-box");
     if (!cbar) {
       cbar = document.createElement("div");
       cbar.id = "cbar-box";
       document.body.appendChild(cbar);
     }
-    const { sMin, sMax } = getParamBounds(v);
-    const stops = buildParamStops(v);
-    const grad = `linear-gradient(90deg,${stops.map(([r, g, b]) => `rgb(${r},${g},${b})`).join(",")})`;
-    const q1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(2));
-    const q2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(2));
-    const q3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(2));
-    cbar.innerHTML = `<div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:700;"><span>${v.name} (${v.code})</span><span>${v.unit}</span></div><div style="height:8px;border-radius:4px;margin:3px 0;background:${grad};border:1px solid rgba(255,255,255,0.25);"></div><div style="display:flex;justify-content:space-between;color:#e2e8f0;line-height:1.1;font-size:9px;"><span>${sMin}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${sMax}</span></div>`;
+    const { sMin, sMax } = getDataBounds(v, list);
+    const q1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(1));
+    const q2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(1));
+    const q3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(1));
+    cbar.innerHTML = `<div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:700;"><span>${v.name} (${v.code})</span><span>${v.unit}</span></div><div style="height:8px;border-radius:4px;margin:3px 0;background:${GRAD_CSS};border:1px solid rgba(255,255,255,0.25);"></div><div style="display:flex;justify-content:space-between;color:#e2e8f0;line-height:1.1;font-size:9px;"><span>${sMin}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${sMax}</span></div>`;
   };
 
   const findMap = () => {
@@ -1086,69 +1103,51 @@
     return cvs;
   };
 
-  const buildParamFieldPoints = (m, v) => {
-    const { sMin, sMax } = getParamBounds(v);
-    const span = sMax - sMin;
-    const b = m.getBounds();
-    const s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
-    const pts = [], rows = 4, cols = 5;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const lat = s + ((n - s) * (r + 0.5)) / rows;
-        const lng = w + ((e - w) * (c + 0.5)) / cols;
-        const norm = 0.5 + 0.35 * Math.sin(lat * 1.25) * Math.cos(lng * 1.15) + 0.15 * ((c / (cols - 1)) - (r / (rows - 1)));
-        const clamped = Math.max(0, Math.min(1, norm));
-        pts.push({ lat, lng, val: sMin + span * clamped });
-      }
-    }
-    return pts;
-  };
-
-  // Seçili VARS parametresinin min-max aralığına göre katmanlı renklendirme
-  const renderBySelectedParam = () => {
+  // Doğrudan gelen ECMWF verilerine göre katmanlı renklendirme
+  const renderFromEcmwfData = () => {
     const m = findMap();
-    if (!m || !m.getBounds) return;
+    if (!m || !m.getBounds || !samples.length) return;
     const el = ensureCanvas(m);
     if (!el) return;
     const ctx = el.getContext("2d");
     if (!ctx) return;
 
-    const { sMin, sMax } = getParamBounds(cur);
-    const span = (sMax - sMin) > 0 ? (sMax - sMin) : 1;
-    const activePts = samples.length ? samples : buildParamFieldPoints(m, cur);
+    const { sMin, sMax } = getDataBounds(cur, samples);
+    const span = (sMax - sMin) > 0.001 ? (sMax - sMin) : 1;
     const w = el.width, h = el.height;
     ctx.clearRect(0, 0, w, h);
 
-    const step = 16;
+    // 1. katman: ECMWF grid değerlerinin enterpolasyonu
+    const step = 15;
     for (let y = 0; y < h; y += step) {
       for (let x = 0; x < w; x += step) {
         const ll = m.containerPointToLatLng([x + step * 0.5, y + step * 0.5]);
         let num = 0, den = 0;
-        for (let i = 0; i < activePts.length; i++) {
-          const g = activePts[i];
-          const d2 = (ll.lat - g.lat) * (ll.lat - g.lat) + (ll.lng - g.lng) * (ll.lng - g.lng) + 0.16;
-          const wt = 1 / Math.pow(d2, 1.1);
+        for (let i = 0; i < samples.length; i++) {
+          const g = samples[i];
+          const d2 = (ll.lat - g.lat) * (ll.lat - g.lat) + (ll.lng - g.lng) * (ll.lng - g.lng) + 0.14;
+          const wt = 1 / Math.pow(d2, 1.15);
           num += g.val * wt; den += wt;
         }
         if (den > 0) {
-          const t = ((num / den) - sMin) / span;
-          const [rr, gg, bb] = sampleParamColor(t, cur);
+          const [rr, gg, bb] = sampleRgb(((num / den) - sMin) / span);
           ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.36)`;
           ctx.fillRect(x, y, step + 1, step + 1);
         }
       }
     }
 
+    // 2. katman: Her ECMWF grid noktasının kendi verisine göre yumuşak radyal renk katmanı
     ctx.save();
     ctx.filter = "blur(16px)";
-    for (let i = 0; i < activePts.length; i++) {
-      const g = activePts[i];
+    for (let i = 0; i < samples.length; i++) {
+      const g = samples[i];
       const pt = m.latLngToContainerPoint([g.lat, g.lng]);
       const t = Math.max(0, Math.min(1, (g.val - sMin) / span));
-      const [rr, gg, bb] = sampleParamColor(t, cur);
-      const rad = Math.max(90, Math.min(230, Math.hypot(w, h) * (0.11 + t * 0.08)));
+      const [rr, gg, bb] = sampleRgb(t);
+      const rad = Math.max(95, Math.min(235, Math.hypot(w, h) * (0.11 + t * 0.08)));
       const grd = ctx.createRadialGradient(pt.x, pt.y, rad * 0.05, pt.x, pt.y, rad);
-      grd.addColorStop(0, `rgba(${rr}, ${gg}, ${bb}, ${(0.28 + t * 0.32).toFixed(2)})`);
+      grd.addColorStop(0, `rgba(${rr}, ${gg}, ${bb}, ${(0.28 + t * 0.34).toFixed(2)})`);
       grd.addColorStop(0.55, `rgba(${rr}, ${gg}, ${bb}, ${(0.14 + t * 0.16).toFixed(2)})`);
       grd.addColorStop(1, `rgba(${rr}, ${gg}, ${bb}, 0)`);
       ctx.fillStyle = grd;
@@ -1157,29 +1156,39 @@
     ctx.restore();
   };
 
-  const fetchParamGrid = async () => {
+  const extractVal = (obj, omKey) => {
+    let raw = obj?.current?.[omKey];
+    if ((typeof raw !== "number" || !Number.isFinite(raw)) && Array.isArray(obj?.hourly?.[omKey])) {
+      raw = obj.hourly[omKey].find(x => typeof x === "number" && Number.isFinite(x));
+    }
+    return (typeof raw === "number" && Number.isFinite(raw)) ? raw : null;
+  };
+
+  const fetchEcmwfGrid = async () => {
     const m = findMap();
     if (!m || !m.getBounds) return;
     const b = m.getBounds();
     const s = Math.max(35.0, b.getSouth()), n = Math.min(43.5, b.getNorth());
     const w = Math.max(25.0, b.getWest()), e = Math.min(45.0, b.getEast());
-    const rows = 4, cols = 5, lats = [], lons = [];
+    const rows = 5, cols = 6, lats = [], lons = [];
     for (let r = 0; r < rows; r++) {
-      const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(2));
-      for (let c = 0; c < cols; c++) { lats.push(la); lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(2))); }
+      const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(3));
+      for (let c = 0; c < cols; c++) { lats.push(la); lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(3))); }
     }
     try {
-      const data = await (await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" })).json();
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`;
+      const data = await (await fetch(url, { cache: "no-store" })).json();
       const arr = Array.isArray(data) ? data : [data];
       const next = [];
       arr.forEach((loc, idx) => {
-        let raw = loc?.current?.[cur.om];
-        if ((typeof raw !== "number" || !Number.isFinite(raw)) && Array.isArray(loc?.hourly?.[cur.om])) {
-          raw = loc.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
-        }
-        if (typeof raw === "number" && Number.isFinite(raw)) next.push({ lat: lats[idx], lng: lons[idx], val: raw });
+        const val = extractVal(loc, cur.om);
+        if (val !== null) next.push({ lat: lats[idx], lng: lons[idx], val });
       });
-      if (next.length) { samples = next; paintParamCbar(cur); renderBySelectedParam(); }
+      if (next.length) {
+        samples = next;
+        paintCbar(cur, samples);
+        renderFromEcmwfData();
+      }
     } catch (_) {}
   };
 
@@ -1190,21 +1199,22 @@
           vnEl = document.getElementById("ews-vname"), vvEl = document.getElementById("ews-vval");
     if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-    if (vvEl) vvEl.textContent = "Yükleniyor...";
+    if (vvEl) vvEl.textContent = "ECMWF okunuyor...";
+
     try {
-      const j = await (await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" })).json();
-      let val = j?.current?.[cur.om];
-      if ((typeof val !== "number" || !Number.isFinite(val)) && Array.isArray(j?.hourly?.[cur.om])) {
-        val = j.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
-      }
-      const label = (typeof val === "number" && Number.isFinite(val)) ? `${val.toFixed(2)} ${cur.unit}` : "Veri yok";
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`;
+      const j = await (await fetch(url, { cache: "no-store" })).json();
+      const val = extractVal(j, cur.om);
+      const label = (val !== null) ? `${val.toFixed(2)} ${cur.unit}` : "ECMWF veri yok";
       if (vvEl) vvEl.textContent = label;
       if (m && window.L) {
         if (!ptMarker) ptMarker = window.L.circleMarker([lat, lng], { radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2 }).addTo(m);
         else ptMarker.setLatLng([lat, lng]);
         ptMarker.bindTooltip(`${cur.name}: ${label}`, { permanent: false, direction: "top" }).openTooltip();
       }
-    } catch (_) { if (vvEl) vvEl.textContent = "Alınamadı"; }
+    } catch (_) {
+      if (vvEl) vvEl.textContent = "ECMWF alınamadı";
+    }
 
     if (ilEl) ilEl.textContent = "Sorgulanıyor...";
     if (ilceEl) ilceEl.textContent = "—";
@@ -1214,7 +1224,9 @@
       if (ilEl) ilEl.textContent = a.province || a.city || a.state || "Açık Alan / Deniz";
       if (ilceEl) ilceEl.textContent = a.town || a.county || a.city_district || a.district || "—";
       if (mahEl) mahEl.textContent = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || "—";
-    } catch (_) { if (ilEl) ilEl.textContent = "Konum alınamadı"; }
+    } catch (_) {
+      if (ilEl) ilEl.textContent = "Konum alınamadı";
+    }
   };
 
   const renderVars = () => {
@@ -1230,13 +1242,11 @@
       b.addEventListener("click", e => {
         e.stopPropagation();
         cur = v;
-        samples = [];
         renderVars();
-        paintParamCbar(cur);
-        renderBySelectedParam();
+        paintCbar(cur, samples);
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-        fetchParamGrid();
+        fetchEcmwfGrid();
         if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
       });
       varsEl.appendChild(b);
@@ -1244,20 +1254,29 @@
   };
 
   const bindMap = () => {
+    removeBottomPanels();
     const m = findMap();
     if (!m) return;
-    if (!m._ew90VarsBound) {
-      m._ew90VarsBound = true;
-      m.on("click", e => { if (e?.latlng) { lastPt = { lat: e.latlng.lat, lng: e.latlng.lng }; queryPoint(lastPt.lat, lastPt.lng); } });
-      m.on("moveend zoomend resize", () => { renderBySelectedParam(); fetchParamGrid(); });
-      fetchParamGrid();
+    if (!m._ewEcmwfBound) {
+      m._ewEcmwfBound = true;
+      m.on("click", e => {
+        if (e?.latlng) {
+          lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
+          queryPoint(lastPt.lat, lastPt.lng);
+        }
+      });
+      m.on("moveend zoomend resize", () => {
+        renderFromEcmwfData();
+        fetchEcmwfGrid();
+      });
+      fetchEcmwfGrid();
     } else {
-      renderBySelectedParam();
+      renderFromEcmwfData();
     }
   };
 
   renderVars();
-  paintParamCbar(cur);
+  paintCbar(cur, []);
   setInterval(bindMap, 450);
   window.addEventListener("load", bindMap);
 })();
