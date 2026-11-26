@@ -1260,6 +1260,56 @@
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+
+  // MET Norway (api.met.no) uzerinden gercek noktasal deger okuma
+  const mapVarToMetNo = (instantDetails, v) => {
+    if (!instantDetails || typeof instantDetails !== "object") return null;
+    const c = v.code;
+    if (c === "2t" || c === "app" || c.startsWith("t") || c.startsWith("st")) {
+      return typeof instantDetails.air_temperature === "number" ? instantDetails.air_temperature : null;
+    }
+    if (c === "rh2m" || c.startsWith("rh")) {
+      return typeof instantDetails.relative_humidity === "number" ? instantDetails.relative_humidity : null;
+    }
+    if (c === "2d" || c === "dp850") {
+      return typeof instantDetails.dew_point_temperature === "number" ? instantDetails.dew_point_temperature : null;
+    }
+    if (c === "msl" || c === "sp" || c.startsWith("z")) {
+      return typeof instantDetails.air_pressure_at_sea_level === "number" ? instantDetails.air_pressure_at_sea_level : null;
+    }
+    if (c === "ws10" || c === "ws100" || c === "ws200" || c.startsWith("ws")) {
+      return typeof instantDetails.wind_speed === "number" ? Number((instantDetails.wind_speed * 3.6).toFixed(2)) : null;
+    }
+    if (c === "10fg") {
+      return typeof instantDetails.wind_speed_of_gust === "number" ? Number((instantDetails.wind_speed_of_gust * 3.6).toFixed(2)) : null;
+    }
+    if (c === "wd10" || c === "wd100" || c === "wd200" || c.startsWith("wd")) {
+      return typeof instantDetails.wind_from_direction === "number" ? instantDetails.wind_from_direction : null;
+    }
+    if (c === "tcc" || c === "lcc" || c === "mcc" || c === "hcc") {
+      return typeof instantDetails.cloud_area_fraction === "number" ? instantDetails.cloud_area_fraction : null;
+    }
+    return null;
+  };
+
+  const fetchMetNoVal = async (lat, lng, v) => {
+    try {
+      const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat.toFixed(4)}&lon=${lng.toFixed(4)}`;
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: { "Accept": "application/json" }
+      });
+      if (!res.ok) return null;
+      const j = await res.json();
+      const ts = j?.properties?.timeseries;
+      if (!Array.isArray(ts) || !ts.length) return null;
+      const details = ts[0]?.data?.instant?.details;
+      return mapVarToMetNo(details, v);
+    } catch (_) {
+      return null;
+    }
+  };
+
   const fetchRealVal = async (lat, lng, v) => {
     const key = `${lat.toFixed(2)}_${lng.toFixed(2)}_${v.om}`;
     const cached = obsCache[key];
@@ -1268,6 +1318,12 @@
     }
 
     if (Date.now() < rateLimitUntil) {
+      const metVal = await fetchMetNoVal(lat, lng, v);
+      if (typeof metVal === "number" && Number.isFinite(metVal)) {
+        obsCache[key] = { val: metVal, ts: Date.now() };
+        saveStorage(obsCache);
+        return { val: metVal, tag: "MET Norway" };
+      }
       if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
       return { val: null, tag: "429 bekleniyor" };
     }
@@ -1295,6 +1351,12 @@
       }
     } catch (_) {}
 
+    const metFallback = await fetchMetNoVal(lat, lng, v);
+    if (typeof metFallback === "number" && Number.isFinite(metFallback)) {
+      obsCache[key] = { val: metFallback, ts: Date.now() };
+      saveStorage(obsCache);
+      return { val: metFallback, tag: "MET Norway" };
+    }
     if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
     return { val: null, tag: "veri yok" };
   };
