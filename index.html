@@ -2115,43 +2115,78 @@
 <!-- EKEN STALE QUOTA CLEANER END -->
 
 
-<!-- EKEN MAP NO-DATA SYNC START -->
+
+
+
+<!-- EKEN ALL VARS NO-DATA SYNC START -->
 <script>
 (() => {
   const LOCK_KEY = "ew_ecmwf_daily_429_until";
 
-  const isEcmwfUnavailable = () => {
-    const vvEl = document.getElementById("ews-vval");
+  const isUnavailable = () => {
     const lockedUntil = Number(localStorage.getItem(LOCK_KEY) || 0) || 0;
     if (Date.now() < lockedUntil) return true;
+    const vvEl = document.getElementById("ews-vval");
     if (vvEl && vvEl.textContent.trim() === "Veri yok") return true;
     return false;
   };
 
-  const scrubMapDomElements = () => {
-    if (!isEcmwfUnavailable()) return;
+  const syncAllVariablesLabel = () => {
+    const btn = document.querySelector(
+      "#ews-vars .ews-btn.active, #ews-vars .ews-btn.selected, #ews-vars .ews-btn.is-active, #ews-vars button.active, #ews-vars button[aria-pressed='true']"
+    );
+    const vvEl = document.getElementById("ews-vval");
+    if (!btn || !vvEl) return;
 
-    // Harita kapsayicisindaki acik popup, tooltip ve deger etiketlerini temizle
-    const selectors = [
-      ".leaflet-popup-content",
-      ".leaflet-tooltip",
-      "[class*='map-val']",
-      "[class*='marker-val']",
-      "[id*='map-val']",
-      "[id*='marker-val']"
-    ];
+    const rawText = (btn.textContent || "").trim();
+    const titleAttr = (btn.getAttribute("title") || "").trim();
+    const cleanName = rawText.replace(/\s*\([^)]+\)\s*$/, "").trim() || rawText;
+    const codeMatch = titleAttr.match(/\(([a-zA-Z0-9_]+)\)/) || titleAttr.match(/—\s*([a-zA-Z0-9_]+)\s*\[/);
+    const code = codeMatch ? codeMatch[1] : "";
+    const targetLabel = code ? `${cleanName} (${code}):` : `${cleanName}:`;
 
-    document.querySelectorAll(selectors.join(",")).forEach((el) => {
-      if (!el || el.closest("#ew-time-bar")) return;
-      const txtVal = (el.textContent || "").trim();
-      if (!txtVal || txtVal === "Veri yok") return;
-      // Sayisal deger veya birim iceren harita etiketlerini "Veri yok" yap
-      if (/(-?\d+(?:[.,]\d+)?)\s*(°C|°|mm|cm|hPa|km\/h|m\/s|%)/i.test(txtVal) || /yağış|sıcaklık|basınç|rüzgar/i.test(txtVal)) {
+    let vnEl = document.getElementById("ews-vname");
+    if (!vnEl) {
+      const row = vvEl.closest(".ews-row");
+      if (row) vnEl = row.querySelector(".ews-k") || row.firstElementChild;
+    }
+    if (vnEl && cleanName && vnEl.textContent.trim() !== targetLabel) {
+      vnEl.textContent = targetLabel;
+    }
+  };
+
+  const enforceAcrossAllVariables = () => {
+    syncAllVariablesLabel();
+    if (!isUnavailable()) return;
+
+    const vvEl = document.getElementById("ews-vval");
+    if (vvEl && vvEl.textContent.trim() !== "Veri yok") {
+      vvEl.textContent = "Veri yok";
+      vvEl.dataset.ewState = "no-data";
+    }
+
+    const marker = document.querySelector("#cbar-box [data-ew-marker='1']");
+    if (marker) marker.style.display = "none";
+
+    const cvs = document.getElementById("ew-cbar-canvas");
+    if (cvs) {
+      const ctx = cvs.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, cvs.width, cvs.height);
+    }
+
+    // Harita uzerindeki tum degiskenlere ait acik popup, tooltip ve deger etiketlerini temizle
+    const domTargets = document.querySelectorAll(
+      ".leaflet-popup-content, .leaflet-tooltip, [class*='map-val'], [class*='marker-val'], [id*='map-val'], [id*='marker-val']"
+    );
+    domTargets.forEach((el) => {
+      if (!el || el.closest("#ew-time-bar") || el.closest("#ews-vars")) return;
+      const t = (el.textContent || "").trim();
+      if (!t || t === "Veri yok") return;
+      if (/(-?\d+(?:[.,]\d+)?)/.test(t)) {
         el.textContent = "Veri yok";
       }
     });
 
-    // Leaflet acik popup / tooltip nesneleri varsa icerigini guncelle
     const m = window.map;
     if (m && typeof m.eachLayer === "function") {
       try {
@@ -2159,26 +2194,29 @@
           if (!layer) return;
           if (typeof layer.getPopup === "function") {
             const pop = layer.getPopup();
-            if (pop && pop.isOpen && pop.isOpen()) {
-              pop.setContent("Veri yok");
-            }
+            if (pop && pop.isOpen && pop.isOpen()) pop.setContent("Veri yok");
           }
           if (typeof layer.getTooltip === "function") {
             const tip = layer.getTooltip();
-            if (tip) {
-              tip.setContent("Veri yok");
-            }
+            if (tip) tip.setContent("Veri yok");
           }
         });
       } catch (_) {}
     }
   };
 
-  scrubMapDomElements();
-  setInterval(scrubMapDomElements, 250);
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.closest && e.target.closest("#ews-vars")) {
+      setTimeout(enforceAcrossAllVariables, 0);
+      setTimeout(enforceAcrossAllVariables, 120);
+    }
+  }, true);
+
+  enforceAcrossAllVariables();
+  setInterval(enforceAcrossAllVariables, 250);
 })();
 </script>
-<!-- EKEN MAP NO-DATA SYNC END -->
+<!-- EKEN ALL VARS NO-DATA SYNC END -->
 
 </body>
 </html>
