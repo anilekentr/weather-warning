@@ -329,7 +329,10 @@
 
 
 
-/* === EKEN WEATHER SINGLE PANEL & LIVE LAYER === */
+
+
+
+/* === EKEN WEATHER CLEAN FINAL === */
 #brand-logo {
   position: fixed !important;
   top: 10px !important;
@@ -365,7 +368,6 @@
   z-index: 1250 !important;
 }
 
-/* Ayrı duran eski/ikincil panelleri gizle; her şey tek panelde toplansın */
 .panel:not(#ew-single-panel),
 .info-panel:not(#ew-single-panel),
 #ecmwf-panel:not(#ew-single-panel),
@@ -475,15 +477,6 @@ canvas.ew-live-field {
   left: auto !important;
   top: auto !important;
   z-index: 1350 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  padding: 5px 10px !important;
-  border-radius: 999px !important;
-  background: rgba(9, 17, 34, 0.92) !important;
-  border: 1px solid rgba(56, 189, 248, 0.35) !important;
-  color: #fff !important;
-  font-size: 11px !important;
 }
 
 .leaflet-control-attribution {
@@ -616,7 +609,7 @@ canvas.ew-live-field {
 
     function buildVarRow() {
       const row = document.getElementById("var-row");
-      row.innerHTML = "";
+      if (row) row.innerHTML = "";
       VARS.forEach((v, idx) => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -653,7 +646,7 @@ canvas.ew-live-field {
 
       const dayTimes = times.filter(t => t.startsWith(dIn.value));
       const prevHour = hSel.value;
-      hSel.innerHTML = "";
+      if (hSel) hSel.innerHTML = "";
       dayTimes.forEach(t => {
         const hh = t.slice(11, 16);
         const opt = document.createElement("option");
@@ -868,6 +861,9 @@ canvas.ew-live-field {
 
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="brand-logo">
   <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
@@ -917,6 +913,24 @@ canvas.ew-live-field {
     panel.addEventListener("mousedown", e => e.stopPropagation());
   }
 
+  const isLeafletMap = (x) => Boolean(
+    x && typeof x.on === "function" && typeof x.getBounds === "function" && typeof x.containerPointToLatLng === "function"
+  );
+
+  const findLeafletMap = () => {
+    if (isLeafletMap(window.map)) return window.map;
+    for (const k of Object.keys(window)) {
+      try {
+        const v = window[k];
+        if (isLeafletMap(v)) {
+          window.map = v;
+          return v;
+        }
+      } catch (_) {}
+    }
+    return null;
+  };
+
   const stops = [
     [0.0,  [29, 78, 216]],
     [0.25, [6, 182, 212]],
@@ -964,7 +978,7 @@ canvas.ew-live-field {
   };
 
   const ensureCanvas = (m) => {
-    const container = m.getContainer();
+    const container = m.getContainer && m.getContainer();
     if (!container) return null;
     if (!fieldCanvas) {
       fieldCanvas = document.createElement("canvas");
@@ -985,7 +999,7 @@ canvas.ew-live-field {
   };
 
   const renderField = () => {
-    const m = window.map;
+    const m = findLeafletMap();
     if (!m || !gridSamples.length) return;
     const cvs = ensureCanvas(m);
     if (!cvs) return;
@@ -1021,8 +1035,8 @@ canvas.ew-live-field {
   };
 
   const loadGrid = async () => {
-    const m = window.map;
-    if (!m || !m.getBounds) return;
+    const m = findLeafletMap();
+    if (!m) return;
     const b = m.getBounds();
     const s = Math.max(35.0, b.getSouth()), n = Math.min(43.5, b.getNorth());
     const w = Math.max(25.0, b.getWest()), e = Math.min(45.0, b.getEast());
@@ -1050,6 +1064,7 @@ canvas.ew-live-field {
   };
 
   const queryPoint = async (lat, lng) => {
+    const m = findLeafletMap();
     const cEl = document.getElementById("ews-coord"), ilEl = document.getElementById("ews-il"),
           ilceEl = document.getElementById("ews-ilce"), mahEl = document.getElementById("ews-mah"),
           vnEl = document.getElementById("ews-vname"), vvEl = document.getElementById("ews-vval");
@@ -1064,8 +1079,8 @@ canvas.ew-live-field {
       }
       const label = (typeof val === "number" && Number.isFinite(val)) ? `${val.toFixed(2)} ${cur.unit}` : "Veri yok";
       if (vvEl) vvEl.textContent = label;
-      if (window.map && window.L) {
-        if (!pointMarker) pointMarker = window.L.circleMarker([lat, lng], { radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2 }).addTo(window.map);
+      if (m && window.L) {
+        if (!pointMarker) pointMarker = window.L.circleMarker([lat, lng], { radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2 }).addTo(m);
         else pointMarker.setLatLng([lat, lng]);
         pointMarker.bindTooltip(`${cur.name}: ${label}`, { permanent: false, direction: "top" }).openTooltip();
       }
@@ -1101,11 +1116,11 @@ canvas.ew-live-field {
     });
   };
 
-  const attachMap = () => {
-    const m = window.map;
-    if (!m || typeof m.on !== "function") return;
-    if (!m._ewsAttached) {
-      m._ewsAttached = true;
+  const bindSafeMap = () => {
+    const m = findLeafletMap();
+    if (!isLeafletMap(m)) return;
+    if (!m._ewsSafeBound) {
+      m._ewsSafeBound = true;
       m.on("click", (e) => { if (e?.latlng) { lastPt = { lat: e.latlng.lat, lng: e.latlng.lng }; queryPoint(lastPt.lat, lastPt.lng); } });
       m.on("moveend zoomend resize", () => { renderField(); loadGrid(); });
       loadGrid();
@@ -1115,25 +1130,11 @@ canvas.ew-live-field {
 
   renderVars();
   paintSampledCbar(cur, []);
-  const tmr = setInterval(() => { attachMap(); if (window.map && window.map._ewsAttached) clearInterval(tmr); }, 300);
-  window.addEventListener("load", attachMap);
-
-  const audio = document.getElementById("bg-music");
-  const mBtn = document.getElementById("music-toggle");
-  const mTitle = document.getElementById("music-title");
-  if (audio && mBtn && mTitle) {
-    audio.volume = 0.35;
-    const sync = () => {
-      const ok = !audio.paused && !audio.muted;
-      mBtn.textContent = ok ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
-      mTitle.style.display = ok ? "inline" : "none";
-    };
-    const play = async () => { try { audio.muted = false; await audio.play(); } catch (_) {} sync(); };
-    mBtn.addEventListener("click", async e => { e.stopPropagation(); if (audio.paused || audio.muted) await play(); else { audio.pause(); sync(); } });
-    play();
-    window.addEventListener("pointerdown", play, { once: true });
-    sync();
-  }
+  const iv = setInterval(() => {
+    bindSafeMap();
+    if (window.map && window.map._ewsSafeBound) clearInterval(iv);
+  }, 350);
+  window.addEventListener("load", bindSafeMap);
 })();
 </script>
 <!-- EKEN WEATHER CLEAN END -->
