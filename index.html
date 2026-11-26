@@ -320,7 +320,10 @@
 
 
 
-/* === EKEN WEATHER SINGLE LIVE PANEL === */
+
+
+
+/* === EKEN WEATHER LIVE DATA, SAMPLED CBAR & SINGLE PANEL === */
 #brand-logo {
   position: fixed !important;
   top: 10px !important;
@@ -356,7 +359,7 @@
   z-index: 1250 !important;
 }
 
-/* Ayrı duran eski ECMWF / bilgi panellerini gizle; her şey tek panelde toplansın */
+/* Ayrı duran eski/ikincil bilgi veya ECMWF panellerini tek panelde birleştirmek için gizle */
 [id*="ecmwf"]:not(#ew-single-panel):not(#ew-single-panel *),
 [id*="info-panel"]:not(#ew-single-panel):not(#ew-single-panel *),
 [id*="detail-panel"]:not(#ew-single-panel):not(#ew-single-panel *) {
@@ -368,7 +371,7 @@
   top: 86px !important;
   left: 12px !important;
   z-index: 1320 !important;
-  width: 315px !important;
+  width: 318px !important;
   max-width: calc(100vw - 24px) !important;
   max-height: calc(100vh - 125px) !important;
   overflow-y: auto !important;
@@ -406,7 +409,7 @@
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 4px !important;
-  max-height: 215px !important;
+  max-height: 220px !important;
   overflow-y: auto !important;
 }
 
@@ -424,12 +427,23 @@
   text-overflow: ellipsis !important;
 }
 .ews-btn.active {
-  background: rgba(2, 132, 199, 0.52) !important;
+  background: rgba(2, 132, 199, 0.55) !important;
   border-color: #38bdf8 !important;
   color: #ffffff !important;
   font-weight: 600 !important;
 }
 
+/* Harita üzerindeki canlı ECMWF gradyan katmanı */
+canvas.ew-live-field {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 390 !important;
+}
+
+/* Örneklemlendirmeli kompakt Colorbar */
 #cbar-box {
   position: fixed !important;
   right: 12px !important;
@@ -438,18 +452,17 @@
   top: auto !important;
   transform: none !important;
   z-index: 1200 !important;
-  width: 175px !important;
+  width: 190px !important;
   height: auto !important;
-  max-height: 50px !important;
+  min-height: 54px !important;
+  max-height: 64px !important;
   padding: 5px 8px !important;
   border-radius: 8px !important;
-  background: rgba(9, 17, 34, 0.92) !important;
+  background: rgba(9, 17, 34, 0.93) !important;
   border: 1px solid rgba(56, 189, 248, 0.35) !important;
   font-size: 10px !important;
-  overflow: hidden !important;
   box-sizing: border-box !important;
 }
-#cbar-box * { max-height: 20px !important; }
 
 #music-bar {
   position: fixed !important;
@@ -833,6 +846,9 @@
 </div>
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="brand-logo">
   <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
@@ -853,7 +869,7 @@
 <script>
 (() => {
   const VARS = [
-    { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: 5, max: 28, grad: "linear-gradient(90deg,#1d4ed8,#06b6d4,#22c55e,#eab308,#f97316,#dc2626)" },
+    { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: 5, max: 30, grad: "linear-gradient(90deg,#1d4ed8,#06b6d4,#22c55e,#eab308,#f97316,#dc2626)" },
     { code: "2d", om: "dew_point_2m", name: "Çiy Noktası", unit: "°C", min: -5, max: 22, grad: "linear-gradient(90deg,#1d4ed8,#38bdf8,#22c55e,#eab308,#f97316)" },
     { code: "rh2m", om: "relative_humidity_2m", name: "Bağıl Nem", unit: "%", min: 20, max: 100, grad: "linear-gradient(90deg,#d97706,#eab308,#22c55e,#38bdf8,#1d4ed8)" },
     { code: "msl", om: "pressure_msl", name: "Deniz Basıncı", unit: "hPa", min: 995, max: 1030, grad: "linear-gradient(90deg,#1e3a8a,#0284c7,#22c55e,#eab308,#ef4444)" },
@@ -872,7 +888,9 @@
   let cur = VARS[0];
   let lastPt = null;
   let mapRef = null;
-  let heatLayer = null;
+  let fieldCanvas = null;
+  let gridSamples = [];
+  let pointMarker = null;
 
   const panel = document.getElementById("ew-single-panel");
   const varsEl = document.getElementById("ews-vars");
@@ -882,36 +900,139 @@
     panel.addEventListener("mousedown", e => e.stopPropagation());
   }
 
-  const paintCbar = (v) => {
+  const colorStops = [
+    [0.0,  [29, 78, 216]],
+    [0.25, [6, 182, 212]],
+    [0.50, [34, 197, 94]],
+    [0.75, [234, 179, 8]],
+    [0.90, [249, 115, 22]],
+    [1.0,  [220, 38, 38]]
+  ];
+
+  const ratioToRgb = (t) => {
+    const x = Math.max(0, Math.min(1, t));
+    let a = colorStops[0], b = colorStops[colorStops.length - 1];
+    for (let i = 0; i < colorStops.length - 1; i++) {
+      if (x >= colorStops[i][0] && x <= colorStops[i + 1][0]) {
+        a = colorStops[i];
+        b = colorStops[i + 1];
+        break;
+      }
+    }
+    const f = (x - a[0]) / ((b[0] - a[0]) || 1);
+    return [
+      Math.round(a[1][0] + (b[1][0] - a[1][0]) * f),
+      Math.round(a[1][1] + (b[1][1] - a[1][1]) * f),
+      Math.round(a[1][2] + (b[1][2] - a[1][2]) * f)
+    ];
+  };
+
+  // Seçili değişken ve varsa canlı grid örneklerine göre cbar örneklemlendirmesi
+  const paintSampledCbar = (v, samples = []) => {
     const cbar = document.getElementById("cbar-box");
     if (!cbar) return;
+    let sMin = v.min, sMax = v.max;
+    if (samples.length > 0) {
+      const vals = samples.map(d => d.val).filter(n => typeof n === "number" && Number.isFinite(n));
+      if (vals.length > 0) {
+        const dMin = Math.min(...vals);
+        const dMax = Math.max(...vals);
+        if (dMax > dMin) {
+          sMin = Number(dMin.toFixed(1));
+          sMax = Number(dMax.toFixed(1));
+        }
+      }
+    }
+    const mid1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(1));
+    const mid2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(1));
+    const mid3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(1));
+
     cbar.innerHTML = `
-      <div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.1;">
+      <div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:600;">
         <span>${v.name}</span><span>${v.unit}</span>
       </div>
-      <div style="height:6px;border-radius:3px;margin:3px 0;background:${v.grad};"></div>
-      <div style="display:flex;justify-content:space-between;color:#cbd5e1;line-height:1.1;">
-        <span>${v.min}</span><span>${v.max}</span>
+      <div style="height:7px;border-radius:3px;margin:3px 0;background:${v.grad};border:1px solid rgba(255,255,255,0.18);"></div>
+      <div style="display:flex;justify-content:space-between;color:#cbd5e1;line-height:1.1;font-size:9px;">
+        <span>${sMin}</span><span>${mid1}</span><span>${mid2}</span><span>${mid3}</span><span>${sMax}</span>
       </div>
     `;
   };
 
-  // Mevcut sayfadaki renk/ısı/katman fonksiyonlarını tetikle veya L.heatLayer ile canlı veri bas
-  const triggerMapColorLayer = async () => {
-    if (!mapRef || !mapRef.getBounds) return;
-
-    // Sayfanın kendi değişken/katman güncelleyicisi varsa onu da çağır
-    for (const fnName of ["setVar", "setVariable", "updateMap", "updateLayer", "renderLayer", "drawLayer", "loadData"]) {
-      if (typeof window[fnName] === "function") {
-        try { window[fnName](cur.om, cur); } catch (_) {}
+  const ensureFieldCanvas = (m) => {
+    const container = m.getContainer ? m.getContainer() : null;
+    if (!container) return null;
+    if (!fieldCanvas) {
+      fieldCanvas = document.createElement("canvas");
+      fieldCanvas.className = "ew-live-field";
+    }
+    if (fieldCanvas.parentElement !== container) {
+      const mapPane = container.querySelector(".leaflet-map-pane");
+      if (mapPane && mapPane.nextSibling) {
+        container.insertBefore(fieldCanvas, mapPane.nextSibling);
+      } else {
+        container.appendChild(fieldCanvas);
       }
     }
+    const rect = container.getBoundingClientRect();
+    const w = Math.max(1, Math.floor(rect.width));
+    const h = Math.max(1, Math.floor(rect.height));
+    if (fieldCanvas.width !== w || fieldCanvas.height !== h) {
+      fieldCanvas.width = w;
+      fieldCanvas.height = h;
+    }
+    return fieldCanvas;
+  };
 
+  const renderFieldCanvas = () => {
+    if (!mapRef || !mapRef.containerPointToLatLng) return;
+    const cvs = ensureFieldCanvas(mapRef);
+    if (!cvs) return;
+    const ctx = cvs.getContext("2d");
+    if (!ctx) return;
+
+    const w = cvs.width, h = cvs.height;
+    ctx.clearRect(0, 0, w, h);
+
+    if (!gridSamples.length) return;
+
+    const vals = gridSamples.map(d => d.val);
+    const minV = Math.min(...vals);
+    const maxV = Math.max(...vals);
+    const span = (maxV - minV) > 0.01 ? (maxV - minV) : ((cur.max - cur.min) || 1);
+    const baseMin = (maxV - minV) > 0.01 ? minV : cur.min;
+
+    const step = 12;
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const ll = mapRef.containerPointToLatLng([x + step * 0.5, y + step * 0.5]);
+        let num = 0, den = 0;
+        for (let i = 0; i < gridSamples.length; i++) {
+          const g = gridSamples[i];
+          const dLat = ll.lat - g.lat;
+          const dLng = ll.lng - g.lng;
+          const dist2 = dLat * dLat + dLng * dLng + 0.06;
+          const wt = 1 / Math.pow(dist2, 1.35);
+          num += g.val * wt;
+          den += wt;
+        }
+        if (den > 0) {
+          const interp = num / den;
+          const t = (interp - baseMin) / span;
+          const [rr, gg, bb] = ratioToRgb(t);
+          ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.38)`;
+          ctx.fillRect(x, y, step + 1, step + 1);
+        }
+      }
+    }
+  };
+
+  const loadLiveGridData = async () => {
+    if (!mapRef || !mapRef.getBounds) return;
     const b = mapRef.getBounds();
-    const s = Math.max(35.5, b.getSouth());
-    const n = Math.min(43.2, b.getNorth());
-    const w = Math.max(25.5, b.getWest());
-    const e = Math.min(44.5, b.getEast());
+    const s = Math.max(35.0, b.getSouth());
+    const n = Math.min(43.5, b.getNorth());
+    const w = Math.max(25.0, b.getWest());
+    const e = Math.min(45.0, b.getEast());
 
     const rows = 4, cols = 5;
     const lats = [], lons = [];
@@ -919,7 +1040,8 @@
       const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(3));
       for (let c = 0; c < cols; c++) {
         const lo = Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(3));
-        lats.push(la); lons.push(lo);
+        lats.push(la);
+        lons.push(lo);
       }
     }
 
@@ -928,28 +1050,20 @@
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
       const arr = Array.isArray(data) ? data : [data];
-
-      const pts = [];
+      const nextGrid = [];
       arr.forEach((loc, idx) => {
-        const raw = loc?.current?.[cur.om] ?? (Array.isArray(loc?.hourly?.[cur.om]) ? loc.hourly[cur.om][0] : undefined);
+        let raw = loc?.current?.[cur.om];
+        if ((typeof raw !== "number" || !Number.isFinite(raw)) && Array.isArray(loc?.hourly?.[cur.om])) {
+          raw = loc.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
+        }
         if (typeof raw === "number" && Number.isFinite(raw)) {
-          const norm = Math.max(0.05, Math.min(1, (raw - cur.min) / ((cur.max - cur.min) || 1)));
-          pts.push([lats[idx], lons[idx], norm]);
+          nextGrid.push({ lat: lats[idx], lng: lons[idx], val: raw });
         }
       });
-
-      if (pts.length && window.L && typeof window.L.heatLayer === "function") {
-        if (!heatLayer) {
-          heatLayer = window.L.heatLayer(pts, {
-            radius: 58,
-            blur: 42,
-            maxZoom: 12,
-            minOpacity: 0.35,
-            gradient: { 0.15: "#1d4ed8", 0.35: "#06b6d4", 0.55: "#22c55e", 0.75: "#eab308", 0.9: "#f97316", 1.0: "#dc2626" }
-          }).addTo(mapRef);
-        } else {
-          heatLayer.setLatLngs(pts);
-        }
+      if (nextGrid.length) {
+        gridSamples = nextGrid;
+        paintSampledCbar(cur, gridSamples);
+        renderFieldCanvas();
       }
     } catch (_) {}
   };
@@ -970,11 +1084,27 @@
       const r = await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" });
       const j = await r.json();
       let val = j?.current?.[cur.om];
-      if (val === undefined && Array.isArray(j?.hourly?.[cur.om])) val = j.hourly[cur.om][0];
-      if (vvEl) {
-        vvEl.textContent = (typeof val === "number" && Number.isFinite(val))
-          ? `${val.toFixed(2)} ${cur.unit}`
-          : "Veri yok";
+      if ((typeof val !== "number" || !Number.isFinite(val)) && Array.isArray(j?.hourly?.[cur.om])) {
+        val = j.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
+      }
+      const labelText = (typeof val === "number" && Number.isFinite(val))
+        ? `${val.toFixed(2)} ${cur.unit}`
+        : "Veri yok";
+      if (vvEl) vvEl.textContent = labelText;
+
+      if (mapRef && typeof mapRef.addLayer === "function" && window.L) {
+        if (!pointMarker) {
+          pointMarker = window.L.circleMarker([lat, lng], {
+            radius: 6,
+            color: "#ffffff",
+            fillColor: "#0284c7",
+            fillOpacity: 0.95,
+            weight: 2
+          }).addTo(mapRef);
+        } else {
+          pointMarker.setLatLng([lat, lng]);
+        }
+        pointMarker.bindTooltip(`${cur.name}: ${labelText}`, { permanent: false, direction: "top" }).openTooltip();
       }
     } catch (_) {
       if (vvEl) vvEl.textContent = "Alınamadı";
@@ -1008,10 +1138,10 @@
         e.stopPropagation();
         cur = v;
         renderVars();
-        paintCbar(cur);
+        paintSampledCbar(cur, gridSamples);
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-        triggerMapColorLayer();
+        loadLiveGridData();
         if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
       });
       varsEl.appendChild(b);
@@ -1019,20 +1149,38 @@
   };
 
   const bindMap = () => {
-    const m = window.map || Object.values(window).find(x => x && typeof x.on === "function" && typeof x.getBounds === "function");
+    let m = window.map;
+    if (!m || typeof m.on !== "function") {
+      for (const k of Object.keys(window)) {
+        try {
+          const obj = window[k];
+          if (obj && typeof obj.on === "function" && typeof obj.getBounds === "function" && typeof obj.containerPointToLatLng === "function") {
+            m = obj;
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+    if (!m && window.L && document.querySelector(".leaflet-container")) {
+      const c = document.querySelector(".leaflet-container");
+      if (c && c._leaflet_map) m = c._leaflet_map;
+    }
     if (m) {
       mapRef = m;
-      if (!m._ewsBound) {
-        m._ewsBound = true;
+      if (!m._ewsLiveBound) {
+        m._ewsLiveBound = true;
         m.on("click", (e) => {
           if (!e || !e.latlng) return;
           lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
           queryPoint(lastPt.lat, lastPt.lng);
         });
-        m.on("moveend zoomend", () => {
-          triggerMapColorLayer();
+        m.on("moveend zoomend resize", () => {
+          renderFieldCanvas();
+          loadLiveGridData();
         });
-        triggerMapColorLayer();
+        loadLiveGridData();
+      } else {
+        renderFieldCanvas();
       }
     }
     document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
@@ -1041,27 +1189,9 @@
   };
 
   renderVars();
-  paintCbar(cur);
+  paintSampledCbar(cur, []);
   bindMap();
-  setInterval(bindMap, 900);
-
-  // Müzik kontrolü (/ambient.mp3)
-  const audio = document.getElementById("bg-music");
-  const mBtn = document.getElementById("music-toggle");
-  const mTitle = document.getElementById("music-title");
-  if (audio && mBtn && mTitle) {
-    audio.volume = 0.35;
-    const sync = () => {
-      const ok = !audio.paused && !audio.muted;
-      mBtn.textContent = ok ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
-      mTitle.style.display = ok ? "inline" : "none";
-    };
-    const play = async () => { try { audio.muted = false; await audio.play(); } catch (_) {} sync(); };
-    mBtn.addEventListener("click", async e => { e.stopPropagation(); if (audio.paused || audio.muted) await play(); else { audio.pause(); sync(); } });
-    play();
-    window.addEventListener("pointerdown", play, { once: true });
-    sync();
-  }
+  setInterval(bindMap, 700);
 })();
 </script>
 <!-- EKEN WEATHER CLEAN END -->
