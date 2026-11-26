@@ -1758,248 +1758,199 @@
 
 
 
-<!-- EKEN SINGLE TRUTH SYNC START -->
+
+
+
+<!-- EKEN FINAL LOCK START -->
 <script>
 (() => {
-  const PRECIP_CODES = {
+  const PRECIP_DEFS = {
     "tp": { om: "precipitation", unit: "mm" },
     "rain": { om: "rain", unit: "mm" },
     "shw": { om: "showers", unit: "mm" },
     "sf": { om: "snowfall", unit: "cm" }
   };
 
-  const STOPS = [
-    [29, 78, 216],
-    [6, 182, 212],
-    [34, 197, 94],
-    [132, 204, 22],
-    [234, 179, 8],
-    [249, 115, 22],
-    [220, 38, 38]
-  ];
+  let lockedCoord = null;
+  let lastAppliedSig = "";
+  let inFlight = false;
 
-  let latestCoord = null;
-  let syncSeq = 0;
-
-  const parseCoordFromDom = () => {
-    const cTxt = document.getElementById("ews-coord")?.textContent || "";
-    const m = cTxt.match(/(-?\d+(?:\.\d+)?)°K,\s*(-?\d+(?:\.\d+)?)°D/);
-    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-    return latestCoord;
+  const readCoord = () => {
+    const el = document.getElementById("ews-coord");
+    const m = (el?.textContent || "").match(/(-?\d+(?:\.\d+)?)°K,\s*(-?\d+(?:\.\d+)?)°D/);
+    if (m) {
+      lockedCoord = { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+    }
+    return lockedCoord;
   };
 
-  const getActiveSpec = () => {
-    const activeBtn = document.querySelector("#ews-vars .ews-btn.active");
-    const titleAttr = activeBtn ? (activeBtn.getAttribute("title") || "") : "";
-    for (const [code, spec] of Object.entries(PRECIP_CODES)) {
-      if (new RegExp(`\b${spec.om}\b`, "i").test(titleAttr) || new RegExp(`\(${code}\)`, "i").test(titleAttr)) {
-        return { code, om: spec.om, unit: spec.unit, isPrecip: true, title: titleAttr };
+  const readActiveVar = () => {
+    const btn = document.querySelector("#ews-vars .ews-btn.active");
+    const title = btn ? (btn.getAttribute("title") || "") : "";
+    const label = btn ? (btn.textContent || "") : "";
+
+    for (const [code, def] of Object.entries(PRECIP_DEFS)) {
+      if (new RegExp(`\b${def.om}\b`, "i").test(title) || new RegExp(`\(${code}\)`, "i").test(title)) {
+        return { code, om: def.om, unit: def.unit, isPrecip: true };
       }
     }
-    const omMatch = titleAttr.match(/—\s*([a-zA-Z0-9_]+)\s*\[/);
-    const unitMatch = titleAttr.match(/\[([^\]]+)\]/);
-    if (omMatch) {
-      return {
-        code: omMatch[1],
-        om: omMatch[1],
-        unit: unitMatch ? unitMatch[1] : "",
-        isPrecip: false,
-        title: titleAttr
-      };
+    const omM = title.match(/—\s*([a-zA-Z0-9_]+)\s*\[/);
+    const uM = title.match(/\[([^\]]+)\]/);
+    if (omM) {
+      return { code: omM[1], om: omM[1], unit: uM ? uM[1] : "", isPrecip: false };
     }
-    return { code: "2t", om: "temperature_2m", unit: "°C", isPrecip: false, title: "2m Sıcaklık — temperature_2m [°C]" };
+    if (/yağış/i.test(label)) return { code: "tp", om: "precipitation", unit: "mm", isPrecip: true };
+    return { code: "2t", om: "temperature_2m", unit: "°C", isPrecip: false };
   };
 
-  const getHourOffset = () => {
-    const sEl = document.getElementById("ewt-slider");
-    return sEl ? (parseInt(sEl.value, 10) || 0) : 0;
+  const readHourOffset = () => {
+    const sl = document.getElementById("ewt-slider");
+    return sl ? (parseInt(sl.value, 10) || 0) : 0;
   };
 
   const fmtUtc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ") + " UTC";
 
-  const paintVisuals = (val, isValid, titleAttr) => {
-    const canvas = document.getElementById("ew-cbar-canvas");
-    const cbar = document.getElementById("cbar-box");
-    const marker = cbar ? cbar.querySelector("[data-ew-marker='1']") : null;
-
-    if (canvas) {
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (isValid && typeof val === "number" && Number.isFinite(val)) {
-          let minV = -5, maxV = 35;
-          if (/wind_speed|rüzgar hız/i.test(titleAttr)) { minV = 0; maxV = 80; }
-          else if (/humidity|nem|cloud/i.test(titleAttr)) { minV = 0; maxV = 100; }
-          else if (/pressure|basınç/i.test(titleAttr)) { minV = 990; maxV = 1030; }
-          else if (/precipitation|yağış|yağmur|sağanak/i.test(titleAttr)) { minV = 0; maxV = 15; }
-          else if (/snowfall|kar/i.test(titleAttr)) { minV = 0; maxV = 15; }
-
-          const ratio = Math.max(0, Math.min(1, (val - minV) / Math.max(1e-6, maxV - minV)));
-          const x = ratio * (STOPS.length - 1);
-          const i0 = Math.floor(x);
-          const i1 = Math.min(STOPS.length - 1, i0 + 1);
-          const f = x - i0;
-          const r = Math.round(STOPS[i0][0] + (STOPS[i1][0] - STOPS[i0][0]) * f);
-          const g = Math.round(STOPS[i0][1] + (STOPS[i1][1] - STOPS[i0][1]) * f);
-          const b = Math.round(STOPS[i0][2] + (STOPS[i1][2] - STOPS[i0][2]) * f);
-
-          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.34)`;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          if (marker) {
-            marker.style.left = `${(ratio * 100).toFixed(1)}%`;
-            marker.style.display = "block";
-          }
-          return;
-        }
-      }
+  const applyVeriYok = (vvEl, winEl, startMs, endMs, hours, note) => {
+    vvEl.textContent = "Veri yok";
+    vvEl.dataset.ewState = "no-data";
+    if (winEl) {
+      winEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${hours} sa · ${note}`;
     }
+    const marker = document.querySelector("#cbar-box [data-ew-marker='1']");
     if (marker) marker.style.display = "none";
+    const cvs = document.getElementById("ew-cbar-canvas");
+    if (cvs) {
+      const ctx = cvs.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, cvs.width, cvs.height);
+    }
   };
 
-  const applySingleTruth = async (overrideCoord) => {
-    const seq = ++syncSeq;
-    const coord = overrideCoord || parseCoordFromDom();
-    const spec = getActiveSpec();
+  const runStrictEcmwfCheck = async (force = false) => {
+    if (inFlight) return;
+    const coord = readCoord();
+    const vInfo = readActiveVar();
     const vvEl = document.getElementById("ews-vval");
-    const winValEl = document.getElementById("ews-time-window-val");
-    if (!coord || !spec || !vvEl) return;
+    const winEl = document.getElementById("ews-time-window-val");
+    if (!coord || !vInfo || !vvEl) return;
 
-    latestCoord = { lat: coord.lat, lng: coord.lng };
-    const off = getHourOffset();
+    const off = readHourOffset();
+    const sig = `${coord.lat.toFixed(4)}|${coord.lng.toFixed(4)}|${vInfo.om}|${off}`;
+    if (!force && sig === lastAppliedSig) return;
+
+    inFlight = true;
     const nowMs = Date.now();
     const targetMs = nowMs + off * 3600 * 1000;
     const startMs = Math.min(nowMs, targetMs);
     const endMs = Math.max(nowMs, targetMs);
     const spanHours = Math.max(1, Math.round((endMs - startMs) / 3600000) || Math.abs(off) || 1);
 
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${coord.lat.toFixed(4)}&longitude=${coord.lng.toFixed(4)}&hourly=${encodeURIComponent(spec.om)}&past_days=2&forecast_days=3&timezone=UTC`;
-
-    let data = null;
     try {
-      const resp = await fetch(url, { cache: "no-store" });
-      if (!resp.ok || seq !== syncSeq) {
-        if (seq === syncSeq) {
-          vvEl.textContent = "Veri yok";
-          if (winValEl) winValEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${spanHours} sa · ECMWF yanıt yok`;
-          paintVisuals(null, false, spec.title);
-        }
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${coord.lat.toFixed(4)}&longitude=${coord.lng.toFixed(4)}&hourly=${encodeURIComponent(vInfo.om)}&past_days=2&forecast_days=3&timezone=UTC`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        lastAppliedSig = sig;
+        applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, `ECMWF ${res.status}`);
         return;
       }
-      data = await resp.json();
-    } catch (_) {
-      if (seq === syncSeq) {
-        vvEl.textContent = "Veri yok";
-        if (winValEl) winValEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${spanHours} sa · Bağlantı yok`;
-        paintVisuals(null, false, spec.title);
+      const j = await res.json();
+      const times = j?.hourly?.time;
+      const arr = j?.hourly?.[vInfo.om];
+
+      if (!Array.isArray(times) || !Array.isArray(arr) || !times.length || !arr.length) {
+        lastAppliedSig = sig;
+        applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, "ECMWF alan yok");
+        return;
       }
-      return;
-    }
 
-    if (seq !== syncSeq) return;
-
-    const times = data?.hourly?.time;
-    const series = data?.hourly?.[spec.om];
-    if (!Array.isArray(times) || !Array.isArray(series) || !times.length || !series.length) {
-      vvEl.textContent = "Veri yok";
-      if (winValEl) winValEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${spanHours} sa · ECMWF alanı yok`;
-      paintVisuals(null, false, spec.title);
-      return;
-    }
-
-    if (spec.isPrecip) {
-      let sum = 0;
-      let count = 0;
-      let firstMs = null;
-      let lastMs = null;
-      const n = Math.min(times.length, series.length);
-      for (let i = 0; i < n; i++) {
-        const tMs = Date.parse(times[i]);
-        if (!Number.isFinite(tMs)) continue;
-        if (tMs >= startMs && tMs <= endMs) {
-          const v = series[i];
-          if (typeof v === "number" && Number.isFinite(v)) {
-            sum += v;
-            count += 1;
-            if (firstMs === null || tMs < firstMs) firstMs = tMs;
-            if (lastMs === null || tMs > lastMs) lastMs = tMs;
+      if (vInfo.isPrecip) {
+        let sum = 0;
+        let count = 0;
+        let minT = null;
+        let maxT = null;
+        const n = Math.min(times.length, arr.length);
+        for (let i = 0; i < n; i++) {
+          const tMs = Date.parse(times[i]);
+          if (!Number.isFinite(tMs)) continue;
+          if (tMs >= startMs && tMs <= endMs) {
+            const val = arr[i];
+            if (typeof val === "number" && Number.isFinite(val)) {
+              sum += val;
+              count += 1;
+              if (minT === null || tMs < minT) minT = tMs;
+              if (maxT === null || tMs > maxT) maxT = tMs;
+            }
           }
         }
-      }
-      if (count === 0 || firstMs === null || lastMs === null) {
-        vvEl.textContent = "Veri yok";
-        if (winValEl) winValEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${spanHours} sa · Aralıkta veri yok`;
-        paintVisuals(null, false, spec.title);
+        lastAppliedSig = sig;
+        if (count === 0 || minT === null || maxT === null) {
+          applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, "Aralıkta veri yok");
+          return;
+        }
+        const total = Number(sum.toFixed(2));
+        vvEl.textContent = `${total.toFixed(2)} ${vInfo.unit}`.trim();
+        vvEl.dataset.ewState = "ok";
+        if (winEl) {
+          winEl.textContent = `${fmtUtc(minT)} → ${fmtUtc(maxT)} · Süre: ${count} sa · ECMWF`;
+        }
         return;
       }
-      const totalVal = Number(sum.toFixed(2));
-      const formatted = `${totalVal.toFixed(2)} ${spec.unit}`.trim();
-      vvEl.textContent = formatted;
-      if (winValEl) {
-        winValEl.textContent = `${fmtUtc(firstMs)} → ${fmtUtc(lastMs)} · Süre: ${count} sa · ECMWF`;
+
+      let bestIdx = -1;
+      let bestDiff = Infinity;
+      for (let i = 0; i < times.length; i++) {
+        const tMs = Date.parse(times[i]);
+        if (!Number.isFinite(tMs)) continue;
+        const d = Math.abs(tMs - targetMs);
+        if (d < bestDiff) {
+          bestDiff = d;
+          bestIdx = i;
+        }
       }
-      paintVisuals(totalVal, true, spec.title);
-      return;
-    }
 
-    let bestIdx = -1;
-    let bestDiff = Infinity;
-    for (let i = 0; i < times.length; i++) {
-      const tMs = Date.parse(times[i]);
-      if (!Number.isFinite(tMs)) continue;
-      const diff = Math.abs(tMs - targetMs);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        bestIdx = i;
+      const ptVal = bestIdx >= 0 ? arr[bestIdx] : null;
+      lastAppliedSig = sig;
+      if (typeof ptVal !== "number" || !Number.isFinite(ptVal)) {
+        applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, "Bu saatte veri yok");
+        return;
       }
-    }
 
-    const ptVal = bestIdx >= 0 ? series[bestIdx] : null;
-    if (typeof ptVal !== "number" || !Number.isFinite(ptVal)) {
-      vvEl.textContent = "Veri yok";
-      if (winValEl) winValEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${spanHours} sa · Bu saatte veri yok`;
-      paintVisuals(null, false, spec.title);
-      return;
+      vvEl.textContent = `${ptVal.toFixed(2)} ${vInfo.unit}`.trim();
+      vvEl.dataset.ewState = "ok";
+      if (winEl) {
+        winEl.textContent = `${fmtUtc(Date.parse(times[bestIdx]))} · Pencere: ${fmtUtc(startMs)} → ${fmtUtc(endMs)} (${spanHours} sa) · ECMWF`;
+      }
+    } catch (_) {
+      lastAppliedSig = sig;
+      applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, "ECMWF hata");
+    } finally {
+      inFlight = false;
     }
-
-    const formatted = `${ptVal.toFixed(2)} ${spec.unit}`.trim();
-    vvEl.textContent = formatted;
-    if (winValEl) {
-      winValEl.textContent = `${fmtUtc(Date.parse(times[bestIdx]))} · Pencere: ${fmtUtc(startMs)} → ${fmtUtc(endMs)} (${spanHours} sa) · ECMWF`;
-    }
-    paintVisuals(ptVal, true, spec.title);
   };
 
-  // Harita tiklamasini dogrudan yakala ve tek kaynakla esitle
-  const hookLeafletClick = () => {
+  // Harita tiklamasinda koordinati al ve tek kontrolu tetikle
+  const attachClick = () => {
     const m = window.map;
-    if (m && typeof m.on === "function" && !m._ewSingleTruthHooked) {
-      m._ewSingleTruthHooked = true;
+    if (m && typeof m.on === "function" && !m._ewFinalLockClick) {
+      m._ewFinalLockClick = true;
       m.on("click", (ev) => {
-        if (ev?.latlng && typeof ev.latlng.lat === "number" && typeof ev.latlng.lng === "number") {
+        if (ev?.latlng) {
+          lockedCoord = { lat: ev.latlng.lat, lng: ev.latlng.lng };
           const cEl = document.getElementById("ews-coord");
           if (cEl) cEl.textContent = `${ev.latlng.lat.toFixed(4)}°K, ${ev.latlng.lng.toFixed(4)}°D`;
-          applySingleTruth({ lat: ev.latlng.lat, lng: ev.latlng.lng });
+          lastAppliedSig = "";
+          runStrictEcmwfCheck(true);
         }
       });
     }
   };
 
-  let lastSig = "";
   setInterval(() => {
-    hookLeafletClick();
-    const spec = getActiveSpec();
-    const coord = parseCoordFromDom();
-    const off = getHourOffset();
-    const sig = `${spec ? spec.om : "none"}|${coord ? coord.lat.toFixed(4) + "," + coord.lng.toFixed(4) : "none"}|${off}`;
-    if (coord && spec && sig !== lastSig) {
-      lastSig = sig;
-      applySingleTruth(coord);
-    }
-  }, 300);
+    attachClick();
+    runStrictEcmwfCheck(false);
+  }, 400);
 })();
 </script>
-<!-- EKEN SINGLE TRUTH SYNC END -->
+<!-- EKEN FINAL LOCK END -->
 
 </body>
 </html>
