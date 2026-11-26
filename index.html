@@ -571,86 +571,36 @@
 /* === END EKEN TIME BAR === */
 
 </style>
-<!-- EKEN EARLY NOMINATIM & FAVICON FIX START -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%2338bdf8'/></svg>" />
-<script>
-(() => {
-  const origFetch = window.fetch ? window.fetch.bind(window) : null;
-  if (!origFetch) return;
 
-  const geoCache = new Map();
-
-  const applyGeoToDom = (info) => {
-    if (!info) return;
-    const ilEl = document.getElementById("ews-city") || document.getElementById("ews-il");
-    const ilceEl = document.getElementById("ews-district") || document.getElementById("ews-ilce");
-    const mahEl = document.getElementById("ews-neighborhood") || document.getElementById("ews-mah");
-    if (ilEl && info.city) ilEl.textContent = info.city;
-    if (ilceEl && info.district) ilceEl.textContent = info.district;
-    if (mahEl && info.neighborhood) mahEl.textContent = info.neighborhood;
-  };
-
-  const fetchBigDataCloud = async (lat, lon) => {
-    const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
-    if (geoCache.has(key)) return geoCache.get(key);
-
-    try {
-      const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=tr`;
-      const r = await origFetch(url, { cache: "force-cache" });
-      if (!r.ok) return null;
-      const j = await r.json();
-      const city = j.principalSubdivision || j.city || "—";
-      const district = j.locality || j.city || "—";
-      const neighborhood =
-        j.neighbourhood ||
-        (j.localityInfo && j.localityInfo.informative && j.localityInfo.informative[0] && j.localityInfo.informative[0].name) ||
-        "—";
-      const out = { city, district, neighborhood };
-      geoCache.set(key, out);
-      return out;
-    } catch (_) {
-      return null;
-    }
-  };
-
-  window.fetch = async (input, init) => {
-    const urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
-
-    if (urlStr.includes("nominatim.openstreetmap.org")) {
-      const mLat = urlStr.match(/[?&]lat=(-?\d+(?:\.\d+)?)/);
-      const mLon = urlStr.match(/[?&]lon=(-?\d+(?:\.\d+)?)/);
-      if (mLat && mLon) {
-        const lat = parseFloat(mLat[1]);
-        const lon = parseFloat(mLon[1]);
-        const info = await fetchBigDataCloud(lat, lon);
-        if (info) {
-          setTimeout(() => applyGeoToDom(info), 50);
-          return new Response(
-            JSON.stringify({
-              address: {
-                province: info.city,
-                city: info.city,
-                town: info.district,
-                county: info.district,
-                neighbourhood: info.neighborhood,
-                suburb: info.neighborhood
-              }
-            }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
-        }
-      }
-      return new Response(JSON.stringify({ address: {} }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
-    return origFetch(input, init);
-  };
-})();
-</script>
-<!-- EKEN EARLY NOMINATIM & FAVICON FIX END -->
+<!-- EKEN WEATHER OFFICIAL LOGO START -->
+<link rel="icon" type="image/png" href="./assets/eken-weather-logo.png" />
+<style>
+  #eken-official-brand {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 9999;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 10px;
+    background: rgba(11, 20, 32, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+  #eken-official-brand img {
+    height: 36px;
+    width: auto;
+    display: block;
+    border-radius: 6px;
+  }
+  [class*="brand-logo"], [class*="app-logo"], [id*="brand-logo"], [id*="app-logo"], .ews-brand-icon, .ew-logo-svg {
+    display: none !important;
+  }
+</style>
+<!-- EKEN WEATHER OFFICIAL LOGO END -->
 </head>
 <body>
   <div id="map"></div>
@@ -2407,5 +2357,41 @@
 </script>
 <!-- EKEN CORS AND 429 SHIELD END -->
 
+<!-- EKEN WEATHER OFFICIAL LOGO START -->
+<div id="eken-official-brand" aria-label="Eken Weather">
+  <img src="./assets/eken-weather-logo.png" alt="Eken Weather Logo" />
+</div>
+<script>
+(() => {
+  const TARGET_SRC = "./assets/eken-weather-logo.png";
+
+  const applyOfficialLogo = () => {
+    // Mevcut logo img etiketlerini yeni logoya cevir
+    document.querySelectorAll("img").forEach((img) => {
+      if (img.id === "eken-official-brand-img") return;
+      const src = (img.getAttribute("src") || "").toLowerCase();
+      const alt = (img.getAttribute("alt") || "").toLowerCase();
+      const cls = (img.className || "").toString().toLowerCase();
+      if (src.includes("logo") || alt.includes("logo") || cls.includes("logo")) {
+        img.src = TARGET_SRC;
+        img.alt = "Eken Weather Logo";
+      }
+    });
+
+    // Baslik veya sol ust paneldeki eski kucuk logo svg/ikonlarini kaldir
+    document.querySelectorAll("svg").forEach((svg) => {
+      if (svg.closest(".leaflet-container") || svg.closest("#cbar-box") || svg.closest("#ew-cbar-canvas")) return;
+      const box = svg.getBoundingClientRect();
+      if (box.top >= 0 && box.top < 120 && box.left >= 0 && box.left < 260 && box.width > 0 && box.width <= 120) {
+        svg.style.display = "none";
+      }
+    });
+  };
+
+  applyOfficialLogo();
+  setInterval(applyOfficialLogo, 400);
+})();
+</script>
+<!-- EKEN WEATHER OFFICIAL LOGO END -->
 </body>
 </html>
