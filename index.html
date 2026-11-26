@@ -601,20 +601,7 @@
   }
 </style>
 <!-- EKEN WEATHER OFFICIAL LOGO END -->
-<!-- EKEN AUTO CLEAR LOCK START -->
-<script>
-(() => {
-  try {
-    const ONCE_KEY = "ew_429_lock_cleared_once";
-    localStorage.removeItem("ew_ecmwf_daily_429_until");
-    if (!sessionStorage.getItem(ONCE_KEY)) {
-      sessionStorage.setItem(ONCE_KEY, "1");
-      setTimeout(() => window.location.reload(), 150);
-    }
-  } catch (_) {}
-})();
-</script>
-<!-- EKEN AUTO CLEAR LOCK END -->
+
 </head>
 <body>
   <div id="map"></div>
@@ -1808,218 +1795,7 @@
 
 
 
-<!-- EKEN DAILY 429 GUARD START -->
-<script>
-(() => {
-  const PRECIP_DEFS = {
-    "tp": { om: "precipitation", unit: "mm" },
-    "rain": { om: "rain", unit: "mm" },
-    "shw": { om: "showers", unit: "mm" },
-    "sf": { om: "snowfall", unit: "cm" }
-  };
 
-  const DAILY_LOCK_KEY = "ew_ecmwf_daily_429_until";
-  let dailyLockedUntil = Number(localStorage.getItem(DAILY_LOCK_KEY) || 0) || 0;
-  let lastCoord = null;
-  let lastSig = "";
-  let inFlight = false;
-  const payloadCache = new Map();
-
-  const getCoord = () => {
-    const el = document.getElementById("ews-coord");
-    const m = (el?.textContent || "").match(/(-?\d+(?:\.\d+)?)°K,\s*(-?\d+(?:\.\d+)?)°D/);
-    if (m) lastCoord = { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-    return lastCoord;
-  };
-
-  const getActiveVar = () => {
-    const btn = document.querySelector("#ews-vars .ews-btn.active");
-    const title = btn ? (btn.getAttribute("title") || "") : "";
-    const label = btn ? (btn.textContent || "") : "";
-
-    for (const [code, def] of Object.entries(PRECIP_DEFS)) {
-      if (new RegExp(`\b${def.om}\b`, "i").test(title) || new RegExp(`\(${code}\)`, "i").test(title)) {
-        return { code, om: def.om, unit: def.unit, isPrecip: true };
-      }
-    }
-    const omM = title.match(/—\s*([a-zA-Z0-9_]+)\s*\[/);
-    const uM = title.match(/\[([^\]]+)\]/);
-    if (omM) return { code: omM[1], om: omM[1], unit: uM ? uM[1] : "", isPrecip: false };
-    if (/yağış/i.test(label)) return { code: "tp", om: "precipitation", unit: "mm", isPrecip: true };
-    return { code: "2t", om: "temperature_2m", unit: "°C", isPrecip: false };
-  };
-
-  const getOffsetHours = () => {
-    const sl = document.getElementById("ewt-slider");
-    return sl ? (parseInt(sl.value, 10) || 0) : 0;
-  };
-
-  const fmtUtc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ") + " UTC";
-
-  const clearOverlaysAndSetNoData = (vvEl, winEl, startMs, endMs, hours, reason) => {
-    vvEl.textContent = "Veri yok";
-    vvEl.dataset.ewState = "no-data";
-    if (winEl) {
-      winEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${hours} sa · ${reason}`;
-    }
-    const marker = document.querySelector("#cbar-box [data-ew-marker='1']");
-    if (marker) marker.style.display = "none";
-    const cvs = document.getElementById("ew-cbar-canvas");
-    if (cvs) {
-      const ctx = cvs.getContext("2d");
-      if (ctx) ctx.clearRect(0, 0, cvs.width, cvs.height);
-    }
-  };
-
-  // Ayni koordinat icin tum degiskenleri tek cagrida cek ve bellekte tut
-  const getCoordPayload = async (lat, lng) => {
-    const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
-    const mem = payloadCache.get(key);
-    if (mem && (Date.now() - mem.ts < 900000)) {
-      return { ok: true, hourly: mem.hourly, reason: "önbellek" };
-    }
-
-    if (Date.now() < dailyLockedUntil) {
-      return { ok: false, hourly: null, reason: "ECMWF günlük 429 kotası doldu" };
-    }
-
-    const allFields = [
-      "temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature",
-      "pressure_msl", "surface_pressure", "precipitation", "rain", "showers", "snowfall",
-      "cloud_cover", "wind_speed_10m", "wind_direction_10m", "wind_gusts_10m", "cape", "visibility"
-    ];
-
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${allFields.join(",")}&past_days=2&forecast_days=3&timezone=UTC`;
-
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (res.status === 429) {
-        const retryHdr = Number(res.headers.get("Retry-After") || 0);
-        const lockSec = retryHdr > 0 ? Math.min(retryHdr, 43200) : 3600;
-        dailyLockedUntil = Date.now() + lockSec * 1000;
-        try { localStorage.setItem(DAILY_LOCK_KEY, String(dailyLockedUntil)); } catch (_) {}
-        return { ok: false, hourly: null, reason: "ECMWF günlük 429 kotası doldu" };
-      }
-      if (!res.ok) {
-        return { ok: false, hourly: null, reason: `ECMWF HTTP ${res.status}` };
-      }
-      const j = await res.json();
-      if (!j || j.error || !j.hourly || !Array.isArray(j.hourly.time)) {
-        return { ok: false, hourly: null, reason: "ECMWF veri yok" };
-      }
-      payloadCache.set(key, { ts: Date.now(), hourly: j.hourly });
-      return { ok: true, hourly: j.hourly, reason: "ECMWF" };
-    } catch (_) {
-      return { ok: false, hourly: null, reason: "ECMWF bağlantı yok" };
-    }
-  };
-
-  const evaluate = async (force = false) => {
-    if (inFlight) return;
-    const coord = getCoord();
-    const vInfo = getActiveVar();
-    const vvEl = document.getElementById("ews-vval");
-    const winEl = document.getElementById("ews-time-window-val");
-    if (!coord || !vInfo || !vvEl) return;
-
-    const off = getOffsetHours();
-    const sig = `${coord.lat.toFixed(4)}|${coord.lng.toFixed(4)}|${vInfo.om}|${off}`;
-    if (!force && sig === lastSig) return;
-
-    inFlight = true;
-    const nowMs = Date.now();
-    const targetMs = nowMs + off * 3600 * 1000;
-    const startMs = Math.min(nowMs, targetMs);
-    const endMs = Math.max(nowMs, targetMs);
-    const spanHours = Math.max(1, Math.round((endMs - startMs) / 3600000) || Math.abs(off) || 1);
-
-    try {
-      const pack = await getCoordPayload(coord.lat, coord.lng);
-      lastSig = sig;
-
-      if (!pack.ok || !pack.hourly) {
-        clearOverlaysAndSetNoData(vvEl, winEl, startMs, endMs, spanHours, pack.reason);
-        return;
-      }
-
-      const times = pack.hourly.time;
-      const arr = pack.hourly[vInfo.om];
-      if (!Array.isArray(arr) || !times.length || !arr.length) {
-        clearOverlaysAndSetNoData(vvEl, winEl, startMs, endMs, spanHours, "Bu değişken ECMWF yanıtında yok");
-        return;
-      }
-
-      if (vInfo.isPrecip) {
-        let sum = 0;
-        let count = 0;
-        let minT = null;
-        let maxT = null;
-        const n = Math.min(times.length, arr.length);
-        for (let i = 0; i < n; i++) {
-          const tMs = Date.parse(times[i]);
-          if (!Number.isFinite(tMs)) continue;
-          if (tMs >= startMs && tMs <= endMs && typeof arr[i] === "number" && Number.isFinite(arr[i])) {
-            sum += arr[i];
-            count += 1;
-            if (minT === null || tMs < minT) minT = tMs;
-            if (maxT === null || tMs > maxT) maxT = tMs;
-          }
-        }
-        if (count === 0 || minT === null || maxT === null) {
-          clearOverlaysAndSetNoData(vvEl, winEl, startMs, endMs, spanHours, "Seçili aralıkta veri yok");
-          return;
-        }
-        vvEl.textContent = `${Number(sum).toFixed(2)} ${vInfo.unit}`.trim();
-        vvEl.dataset.ewState = "ok";
-        if (winEl) winEl.textContent = `${fmtUtc(minT)} → ${fmtUtc(maxT)} · Süre: ${count} sa · ${pack.reason}`;
-        return;
-      }
-
-      let bestIdx = -1;
-      let bestDiff = Infinity;
-      for (let i = 0; i < times.length; i++) {
-        const tMs = Date.parse(times[i]);
-        if (!Number.isFinite(tMs)) continue;
-        const diff = Math.abs(tMs - targetMs);
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          bestIdx = i;
-        }
-      }
-
-      const ptVal = bestIdx >= 0 ? arr[bestIdx] : null;
-      if (typeof ptVal !== "number" || !Number.isFinite(ptVal)) {
-        clearOverlaysAndSetNoData(vvEl, winEl, startMs, endMs, spanHours, "Bu saatte veri yok");
-        return;
-      }
-
-      vvEl.textContent = `${ptVal.toFixed(2)} ${vInfo.unit}`.trim();
-      vvEl.dataset.ewState = "ok";
-      if (winEl) winEl.textContent = `${fmtUtc(Date.parse(times[bestIdx]))} · Süre: ${spanHours} sa · ${pack.reason}`;
-    } finally {
-      inFlight = false;
-    }
-  };
-
-  setInterval(() => {
-    const m = window.map;
-    if (m && typeof m.on === "function" && !m._ewDailyGuardClick) {
-      m._ewDailyGuardClick = true;
-      m.on("click", (ev) => {
-        if (ev?.latlng) {
-          lastCoord = { lat: ev.latlng.lat, lng: ev.latlng.lng };
-          const cEl = document.getElementById("ews-coord");
-          if (cEl) cEl.textContent = `${ev.latlng.lat.toFixed(4)}°K, ${ev.latlng.lng.toFixed(4)}°D`;
-          lastSig = "";
-          evaluate(true);
-        }
-      });
-    }
-    evaluate(false);
-  }, 450);
-})();
-</script>
-<!-- EKEN DAILY 429 GUARD END -->
 
 
 
@@ -2263,113 +2039,7 @@
 <!-- EKEN ALL VARS NO-DATA SYNC END -->
 
 
-<!-- EKEN CORS AND 429 SHIELD START -->
-<script>
-(() => {
-  const LOCK_KEY = "ew_ecmwf_daily_429_until";
-  const origFetch = window.fetch ? window.fetch.bind(window) : null;
-  if (!origFetch) return;
 
-  const failedGeoKeys = new Set();
-  const geoCache = new Map();
-
-  const setLock = (sec = 3600) => {
-    const until = Date.now() + Math.max(60, Math.min(sec, 43200)) * 1000;
-    try { localStorage.setItem(LOCK_KEY, String(until)); } catch (_) {}
-  };
-
-  const isLocked = () => Date.now() < (Number(localStorage.getItem(LOCK_KEY) || 0) || 0);
-
-  const applyGeoToDom = (info) => {
-    if (!info) return;
-    const ilEl = document.getElementById("ews-city") || document.getElementById("ews-il");
-    const ilceEl = document.getElementById("ews-district") || document.getElementById("ews-ilce");
-    const mahEl = document.getElementById("ews-neighborhood") || document.getElementById("ews-mah");
-    if (ilEl && info.city) ilEl.textContent = info.city;
-    if (ilceEl && info.district) ilceEl.textContent = info.district;
-    if (mahEl && info.neighborhood) mahEl.textContent = info.neighborhood;
-  };
-
-  const resolveGeoFallback = async (lat, lon) => {
-    const k = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
-    if (geoCache.has(k)) return geoCache.get(k);
-    if (failedGeoKeys.has(k)) return null;
-
-    try {
-      const u = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=tr`;
-      const r = await origFetch(u, { cache: "force-cache" });
-      if (!r.ok) {
-        failedGeoKeys.add(k);
-        return null;
-      }
-      const j = await r.json();
-      const city = j.principalSubdivision || j.city || "—";
-      const district = j.locality || j.city || "—";
-      const neighborhood = j.neighbourhood || (j.localityInfo && j.localityInfo.informative && j.localityInfo.informative[0] && j.localityInfo.informative[0].name) || "—";
-      const out = { city, district, neighborhood };
-      geoCache.set(k, out);
-      return out;
-    } catch (_) {
-      failedGeoKeys.add(k);
-      return null;
-    }
-  };
-
-  window.fetch = async (input, init) => {
-    const urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
-
-    // 1) Nominatim CORS hatalarini sessizce yakala ve BigDataCloud yedege yonlendir
-    if (urlStr.includes("nominatim.openstreetmap.org/reverse")) {
-      const mLat = urlStr.match(/[?&]lat=(-?\d+(?:\.\d+)?)/);
-      const mLon = urlStr.match(/[?&]lon=(-?\d+(?:\.\d+)?)/);
-      const lat = mLat ? parseFloat(mLat[1]) : null;
-      const lon = mLon ? parseFloat(mLon[1]) : null;
-      const key = `${lat !== null ? lat.toFixed(3) : ""},${lon !== null ? lon.toFixed(3) : ""}`;
-
-      if (failedGeoKeys.has(key)) {
-        return new Response(JSON.stringify({ address: {} }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-
-      try {
-        const res = await origFetch(input, init);
-        if (res.ok) return res;
-        failedGeoKeys.add(key);
-      } catch (_) {
-        failedGeoKeys.add(key);
-      }
-
-      if (lat !== null && lon !== null) {
-        const fb = await resolveGeoFallback(lat, lon);
-        if (fb) applyGeoToDom(fb);
-      }
-
-      return new Response(JSON.stringify({ address: {} }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
-    // 2) ECMWF 429 kota kilidi aktifse gereksiz ag isteklerini durdur
-    if (urlStr.includes("api.open-meteo.com/v1/ecmwf") && isLocked()) {
-      return new Response(JSON.stringify({ error: true, reason: "Daily API request limit exceeded" }), {
-        status: 429,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
-    const res = await origFetch(input, init);
-    if (urlStr.includes("api.open-meteo.com/v1/ecmwf") && res.status === 429) {
-      const ra = Number(res.headers.get("Retry-After") || 0);
-      setLock(ra > 0 ? ra : 3600);
-    }
-    return res;
-  };
-})();
-</script>
-<!-- EKEN CORS AND 429 SHIELD END -->
 
 <!-- EKEN WEATHER OFFICIAL LOGO START -->
 <div id="eken-official-brand" aria-label="Eken Weather">
@@ -2411,154 +2081,49 @@
 
 
 
-<!-- EKEN BG MUSIC FIX START -->
-<script>
-(() => {
-  const getAudio = () => document.getElementById("bg-music");
-  let userMuted = false;
 
-  const playBgMusic = async () => {
-    const aud = getAudio();
-    if (!aud || userMuted) return;
-    try {
-      if (!aud.getAttribute("src")) {
-        aud.src = "./ambient.mp3";
-      }
-      aud.muted = false;
-      aud.volume = aud.volume > 0 ? aud.volume : 0.65;
-      if (aud.paused) {
-        await aud.play();
-      }
-    } catch (_) {}
-  };
 
-  // Sayfadaki ilk tiklama, dokunma veya tus basiminda ambient.mp3 baslat
-  const onFirstGesture = () => {
-    playBgMusic();
-  };
 
-  ["pointerdown", "click", "keydown", "touchstart"].forEach((ev) => {
-    window.addEventListener(ev, onFirstGesture, { passive: true });
-  });
-
-  // Sayfa acilir acilmaz da bir kez dene (izin varsa hemen calar)
-  playBgMusic();
-  window.__ekenPlayMusic = playBgMusic;
-})();
-</script>
-<!-- EKEN BG MUSIC FIX END -->
-<!-- EKEN AUTO POLL MAP START -->
-<script>
-(() => {
-  const POLL_MS = 120000; // 2 dakikada bir kota acildi mi kontrol et
-  const PROBE_URL = "https://api.open-meteo.com/v1/ecmwf?latitude=41.0082&longitude=28.9784&hourly=temperature_2m&forecast_days=1&timezone=UTC";
-  const RELOAD_FLAG = "ew_auto_refreshed_on_200";
-  let timerId = null;
-  let checking = false;
-
-  const triggerMapRefresh = () => {
-    try {
-      localStorage.removeItem("ew_ecmwf_daily_429_until");
-    } catch (_) {}
-
-    const fnNames = [
-      "refreshAll", "updateAll", "loadWeather", "fetchWeather",
-      "fetchEcmwf", "updateMap", "renderMap", "redrawMap", "initApp"
-    ];
-    let calledAny = false;
-    for (const name of fnNames) {
-      if (typeof window[name] === "function") {
-        try {
-          window[name]();
-          calledAny = true;
-        } catch (_) {}
-      }
-    }
-
-    if (window.map && typeof window.map.fire === "function") {
-      try { window.map.fire("moveend"); } catch (_) {}
-    }
-
-    // Fonksiyon tetiklemesi yeterli olmazsa tek seferlik taze yukleme yap
-    try {
-      if (!sessionStorage.getItem(RELOAD_FLAG)) {
-        sessionStorage.setItem(RELOAD_FLAG, "1");
-        setTimeout(() => window.location.reload(), calledAny ? 1200 : 300);
-      }
-    } catch (_) {}
-  };
-
-  const pollQuota = async () => {
-    if (checking) return;
-    checking = true;
-    try {
-      const res = await fetch(PROBE_URL, { cache: "no-store" });
-      if (res && res.status === 200) {
-        if (timerId) {
-          clearInterval(timerId);
-          timerId = null;
-        }
-        triggerMapRefresh();
-      }
-    } catch (_) {}
-    finally {
-      checking = false;
-    }
-  };
-
-  // Sayfa acildiktan 15 sn sonra ilk kontrolu yap, sonra 2 dakikada bir surdur
-  setTimeout(pollQuota, 15000);
-  timerId = setInterval(pollQuota, POLL_MS);
-})();
-</script>
-<!-- EKEN AUTO POLL MAP END -->
-<!-- EKEN TR FLAG FORCE VISIBLE START -->
+<!-- EKEN CLEAN UNBLOCK & FLAG START -->
 <style>
   .leaflet-control-attribution,
   .leaflet-bottom.leaflet-right .leaflet-control-attribution {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
-    pointer-events: none !important;
   }
 
-  #eken-tr-flag-force {
+  #eken-tr-flag-badge {
     position: fixed !important;
     right: 16px !important;
     bottom: 16px !important;
     z-index: 2147483647 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
     width: 42px !important;
-    height: 30px !important;
+    height: 28px !important;
     padding: 2px !important;
-    border-radius: 6px !important;
-    background: rgba(11, 20, 32, 0.95) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55) !important;
+    border-radius: 5px !important;
+    background: rgba(10, 18, 30, 0.92) !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important;
     pointer-events: none !important;
     user-select: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     visibility: visible !important;
     opacity: 1 !important;
-    transform: none !important;
   }
 
-  #eken-tr-flag-force img,
-  #eken-tr-flag-force svg {
+  #eken-tr-flag-badge svg {
     width: 36px !important;
-    height: 24px !important;
+    height: 22px !important;
     display: block !important;
     border-radius: 2px !important;
-    visibility: visible !important;
-    opacity: 1 !important;
   }
 </style>
 
-<script>
-(() => {
-  const FLAG_ID = "eken-tr-flag-force";
-  const SVG_MARKUP = `<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Türk Bayrağı">
+<div id="eken-tr-flag-badge" aria-label="Türkiye" title="Türkiye">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Türk Bayrağı">
     <rect width="1200" height="800" fill="#E30A17"/>
     <circle cx="425" cy="400" r="200" fill="#FFFFFF"/>
     <circle cx="475" cy="400" r="160" fill="#E30A17"/>
@@ -2566,61 +2131,71 @@
       fill="#FFFFFF"
       points="583.33333,400 764.23593,458.77853 652.53263,305.05485 652.53263,494.94515 764.23593,341.22147"
     />
-  </svg>`;
+  </svg>
+</div>
 
-  const ensureFlag = () => {
-    if (!document.body) return;
+<script>
+(() => {
+  try {
+    localStorage.removeItem("ew_ecmwf_daily_429_until");
+    sessionStorage.removeItem("ew_429_lock_cleared_once");
+    sessionStorage.removeItem("ew_auto_refreshed_on_200");
+  } catch (_) {}
 
-    let el = document.getElementById(FLAG_ID);
-    if (!el) {
-      el = document.createElement("div");
-      el.id = FLAG_ID;
-      el.setAttribute("aria-label", "Türkiye");
-      el.setAttribute("title", "Türkiye");
-      el.innerHTML = SVG_MARKUP;
-      document.body.appendChild(el);
-    } else if (el.parentElement !== document.body) {
-      document.body.appendChild(el);
-    }
+  const ECMWF_URL = "https://api.open-meteo.com/v1/ecmwf?latitude=41.0082&longitude=28.9784&hourly=temperature_2m,wind_speed_10m,precipitation&forecast_days=2&timezone=Europe%2FIstanbul";
 
-    if (!el.querySelector("svg")) {
-      el.innerHTML = SVG_MARKUP;
-    }
-
-    // Sag-alt kosede muzik/ses kontrolu varsa bayragi ustune binmeyecek sekilde sola kaydir
-    let shiftRight = 16;
-    const controls = document.querySelectorAll(
-      "audio, button[id*='music'], button[class*='music'], button[id*='audio'], button[class*='audio'], [id*='music'], [class*='music'], [id*='audio'], [class*='audio'], [id*='sound'], [class*='sound']"
-    );
-    controls.forEach((ctrl) => {
-      if (!ctrl || ctrl.id === FLAG_ID || ctrl.contains(el)) return;
-      const r = ctrl.getBoundingClientRect();
-      const cs = window.getComputedStyle(ctrl);
-      if (cs.display === "none" || cs.visibility === "hidden" || r.width === 0 || r.height === 0) return;
-      const nearBottom = (window.innerHeight - r.bottom) < 100;
-      const nearRight = (window.innerWidth - r.right) < 280;
-      if (nearBottom && nearRight) {
-        shiftRight = Math.max(shiftRight, Math.round(window.innerWidth - r.left + 12));
+  const triggerLiveEcmwfFetch = async () => {
+    try {
+      const resp = await fetch(ECMWF_URL, { cache: "no-store" });
+      window.__ekenLastEcmwfStatus = resp.status;
+      if (resp.ok) {
+        const json = await resp.json();
+        window.__ekenLastEcmwfData = json;
+        for (const fn of ["refreshAll", "updateAll", "loadWeather", "fetchWeather", "fetchEcmwf", "updateMap", "renderMap"]) {
+          if (typeof window[fn] === "function") {
+            try { window[fn](json); } catch (_) {}
+          }
+        }
       }
-    });
-
-    el.style.setProperty("right", `${shiftRight}px`, "important");
-    el.style.setProperty("bottom", "16px", "important");
-    el.style.setProperty("z-index", "2147483647", "important");
-    el.style.setProperty("display", "inline-flex", "important");
-    el.style.setProperty("visibility", "visible", "important");
-    el.style.setProperty("opacity", "1", "important");
+    } catch (err) {
+      window.__ekenLastEcmwfStatus = "error:" + (err && err.message ? err.message : "network");
+    }
   };
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", ensureFlag, { once: true });
-  } else {
-    ensureFlag();
-  }
-  window.addEventListener("load", ensureFlag);
-  setInterval(ensureFlag, 500);
+  const syncFlagPosition = () => {
+    const badge = document.getElementById("eken-tr-flag-badge");
+    if (!badge) return;
+    if (badge.parentElement !== document.body) {
+      document.body.appendChild(badge);
+    }
+    let rightOffset = 16;
+    const nodes = document.querySelectorAll("button, a, div, audio");
+    for (const node of nodes) {
+      if (!node || node.id === "eken-tr-flag-badge" || node.contains(badge)) continue;
+      const rect = node.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      const nearBottom = (window.innerHeight - rect.bottom) < 80;
+      const nearRight = (window.innerWidth - rect.right) < 240;
+      const looksAudio = /music|audio|sound|müzik|ses/i.test((node.id || "") + " " + (node.className || "") + " " + (node.textContent || ""));
+      if (nearBottom && nearRight && looksAudio && rect.width < 320) {
+        rightOffset = Math.max(rightOffset, Math.round(window.innerWidth - rect.left + 10));
+      }
+    }
+    badge.style.setProperty("right", rightOffset + "px", "important");
+    badge.style.setProperty("bottom", "16px", "important");
+    badge.style.setProperty("z-index", "2147483647", "important");
+  };
+
+  window.addEventListener("DOMContentLoaded", () => {
+    syncFlagPosition();
+    triggerLiveEcmwfFetch();
+  });
+  syncFlagPosition();
+  triggerLiveEcmwfFetch();
+  setInterval(syncFlagPosition, 1000);
+  setInterval(triggerLiveEcmwfFetch, 120000);
 })();
 </script>
-<!-- EKEN TR FLAG FORCE VISIBLE END -->
+<!-- EKEN CLEAN UNBLOCK & FLAG END -->
 </body>
 </html>
