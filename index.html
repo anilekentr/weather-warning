@@ -309,82 +309,29 @@
     }
 
   
-    /* === EKEN WEATHER LAYOUT: POINT TOP-LEFT & HORIZONTAL CBAR UNDER TOP LOGO === */
+    
+    /* === SOL ÜST DİKEY DİZİLİM (ÇAKIŞMASIZ) & SAĞ ALT MÜZİK & TÜRK BAYRAĞI === */
     :root {
-      --ew-bg: rgba(9, 17, 34, 0.92);
+      --ew-bg: rgba(9, 17, 34, 0.93);
       --ew-border: rgba(56, 189, 248, 0.34);
       --ew-accent: #38bdf8;
       --ew-text: #f8fafc;
       --ew-muted: #94a3b8;
     }
 
-    /* Üst Orta: Eken Weather Logo */
-    #brand-logo {
-      position: fixed !important;
-      top: 12px !important;
-      left: 50% !important;
-      right: auto !important;
-      transform: translateX(-50%) !important;
-      z-index: 1250 !important;
-      height: 42px;
-      padding: 4px 15px 4px 9px;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      border-radius: 999px;
-      background: var(--ew-bg);
-      border: 1px solid var(--ew-border);
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
-      backdrop-filter: blur(10px);
-      user-select: none;
-      pointer-events: none;
-    }
-    #brand-logo img {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    #brand-logo .logo-text {
-      font-size: 13.5px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-      color: var(--ew-text);
-      white-space: nowrap;
-    }
-
-    /* Üst Orta Logonun Altında Yatay Colorbar (#cbar-box) */
-    #cbar-box {
-      position: fixed !important;
-      top: 62px !important;
-      bottom: auto !important;
-      left: 50% !important;
-      right: auto !important;
-      transform: translateX(-50%) !important;
-      z-index: 1190 !important;
-      width: min(440px, calc(100vw - 560px)) !important;
-      min-width: 240px !important;
-      max-width: calc(100vw - 24px) !important;
-      padding: 6px 11px !important;
-      border-radius: 10px !important;
-      background: var(--ew-bg) !important;
-      border: 1px solid var(--ew-border) !important;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.34) !important;
-      backdrop-filter: blur(10px);
-      box-sizing: border-box;
-    }
-
-    /* Sol Üst: Zoom Butonları */
+    /* 1) Sol Üst En Tepe: Zoom Butonları */
     .leaflet-top.leaflet-left {
-      top: 14px !important;
+      top: 12px !important;
       left: 12px !important;
-      z-index: 1150 !important;
+      right: auto !important;
+      bottom: auto !important;
+      z-index: 1200 !important;
     }
     .leaflet-control-zoom {
+      margin: 0 !important;
       border: 1px solid var(--ew-border) !important;
       border-radius: 10px !important;
       overflow: hidden;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
     }
     .leaflet-control-zoom a {
       background: var(--ew-bg) !important;
@@ -392,77 +339,27 @@
       border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
     }
 
-    /* Sol Üst Zoom Panelinin Altında: Nokta Bilgi Paneli */
-    #ew-point-panel {
+    /* 2) Sol Üst İkinci Sıra: ECMWF Paneli */
+    #ew-var-panel {
       position: fixed !important;
-      top: 96px !important;
+      top: 90px !important;
       left: 12px !important;
+      right: auto !important;
       bottom: auto !important;
-      z-index: 1160 !important;
-      width: min(275px, calc(100vw - 24px));
-      max-height: calc(100vh - 140px);
-      overflow-y: auto;
-      padding: 9px 12px;
+      z-index: 1180 !important;
+      width: min(330px, calc(100vw - 24px));
+      max-height: 36vh;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 9px 11px;
       border-radius: 12px;
       background: var(--ew-bg);
       border: 1px solid var(--ew-border);
       color: var(--ew-text);
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 11.5px;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
-      backdrop-filter: blur(10px);
-      box-sizing: border-box;
-    }
-    .ew-pt-title {
-      font-size: 10.5px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--ew-accent);
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-    .ew-pt-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 2px 0;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-    }
-    .ew-pt-row:last-child {
-      border-bottom: none;
-    }
-    .ew-pt-k {
-      color: var(--ew-muted);
-    }
-    .ew-pt-v {
-      font-weight: 600;
-      color: #f8fafc;
-      text-align: right;
-    }
-    .ew-pt-val-highlight {
-      color: #38bdf8;
-      font-size: 12px;
-    }
-
-    /* Sağ Üst: ECMWF Değişken Paneli */
-    #ew-var-panel {
-      position: fixed;
-      top: 14px;
-      right: 12px;
-      z-index: 1180;
-      width: min(365px, calc(100vw - 24px));
-      max-height: calc(100vh - 125px);
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      padding: 10px 12px;
-      border-radius: 13px;
-      background: var(--ew-bg);
-      border: 1px solid var(--ew-border);
-      color: var(--ew-text);
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 12px;
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
       backdrop-filter: blur(10px);
       box-sizing: border-box;
     }
@@ -479,10 +376,6 @@
       justify-content: space-between;
       gap: 8px;
     }
-    .ew-panel-header strong {
-      font-size: 12.5px;
-      color: #e0f2fe;
-    }
     .ew-cat-tabs {
       display: flex;
       flex-wrap: wrap;
@@ -493,28 +386,22 @@
       background: rgba(15, 23, 42, 0.88);
       color: #cbd5e1;
       border-radius: 7px;
-      padding: 4px 8px;
-      font-size: 11px;
+      padding: 4px 7px;
+      font-size: 10.5px;
       cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .ew-cat-btn:hover, .ew-var-btn:hover, .ew-mini-btn:hover {
-      border-color: var(--ew-accent);
-      color: #fff;
     }
     .ew-cat-btn.active, .ew-var-btn.active {
       background: rgba(2, 132, 199, 0.45);
       border-color: var(--ew-accent);
-      color: #ffffff;
+      color: #fff;
       font-weight: 600;
     }
     .ew-var-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 5px;
+      gap: 4px;
       overflow-y: auto;
-      max-height: 225px;
-      padding-right: 2px;
+      max-height: 150px;
     }
     .ew-var-btn {
       text-align: left;
@@ -523,17 +410,60 @@
       text-overflow: ellipsis;
     }
 
-    /* Sağ Alt: Müzik Çubuğu */
+    /* 3) Sol Üst Üçüncü Sıra: Bilgi Paneli */
+    #ew-point-panel {
+      position: fixed !important;
+      top: 310px !important;
+      left: 12px !important;
+      right: auto !important;
+      bottom: auto !important;
+      z-index: 1160 !important;
+      width: min(330px, calc(100vw - 24px));
+      max-height: 28vh;
+      overflow-y: auto;
+      padding: 9px 11px;
+      border-radius: 12px;
+      background: var(--ew-bg);
+      border: 1px solid var(--ew-border);
+      color: var(--ew-text);
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 11.5px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(10px);
+      box-sizing: border-box;
+    }
+    .ew-pt-title {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--ew-accent);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .ew-pt-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 2px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    .ew-pt-row:last-child { border-bottom: none; }
+    .ew-pt-k { color: var(--ew-muted); }
+    .ew-pt-v { font-weight: 600; color: #f8fafc; text-align: right; }
+    .ew-pt-val-highlight { color: var(--ew-accent); }
+
+    /* 4) Sağ Alt: Müzik Butonu */
     #music-bar {
       position: fixed !important;
       right: 12px !important;
-      bottom: 34px !important;
-      z-index: 1200 !important;
-      max-width: calc(100vw - 24px);
+      bottom: 36px !important;
+      left: auto !important;
+      top: auto !important;
+      z-index: 1250 !important;
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 10px;
+      padding: 6px 11px;
       border-radius: 999px;
       border: 1px solid var(--ew-border);
       background: var(--ew-bg);
@@ -543,35 +473,14 @@
       backdrop-filter: blur(8px);
     }
 
-    /* Leaflet Attribution (Türk Bayrağı) */
+    /* 5) Attribution Yerine Sadece Türk Bayrağı */
     .leaflet-control-attribution {
-      background: rgba(9, 17, 34, 0.85) !important;
-      color: #cbd5e1 !important;
-      border-top-left-radius: 8px;
+      background: var(--ew-bg) !important;
+      border: 1px solid var(--ew-border) !important;
+      border-radius: 8px !important;
       padding: 2px 8px !important;
-      font-size: 10.5px !important;
-    }
-    .leaflet-control-attribution a {
-      color: #38bdf8 !important;
-    }
-    .leaflet-attribution-flag {
-      display: none !important;
-    }
-
-    @media (max-width: 1024px) {
-      #cbar-box {
-        top: 60px !important;
-        width: min(340px, calc(100vw - 24px)) !important;
-      }
-      #ew-point-panel {
-        top: 96px !important;
-        width: min(220px, calc(48vw - 14px));
-        font-size: 10.5px;
-      }
-      #ew-var-panel {
-        width: min(280px, calc(48vw - 14px));
-        max-height: 38vh;
-      }
+      font-size: 14px !important;
+      line-height: 1.2 !important;
     }
 
   </style>
@@ -1143,33 +1052,55 @@
 </script>
 
 
+
 <script>
 (() => {
-  const alignPanels = () => {
-    const logo = document.getElementById("brand-logo");
-    const cbar = document.getElementById("cbar-box");
+  const layoutLeftColumn = () => {
     const zoom = document.querySelector(".leaflet-top.leaflet-left");
+    const varPanel = document.getElementById("ew-var-panel");
     const ptPanel = document.getElementById("ew-point-panel");
 
-    if (logo && cbar) {
-      const lr = logo.getBoundingClientRect();
-      const targetCbarTop = Math.max(58, Math.round(lr.bottom + 8));
-      cbar.style.setProperty("top", targetCbarTop + "px", "important");
+    let currentTop = 12;
+    if (zoom) {
+      const zr = zoom.getBoundingClientRect();
+      currentTop = Math.round((zr.height ? zr.bottom : 74) + 10);
     }
 
-    if (zoom && ptPanel) {
-      const zr = zoom.getBoundingClientRect();
-      const targetPtTop = Math.max(96, Math.round(zr.bottom + 10));
-      ptPanel.style.setProperty("top", targetPtTop + "px", "important");
+    if (varPanel) {
+      varPanel.style.setProperty("top", currentTop + "px", "important");
+      varPanel.style.setProperty("left", "12px", "important");
+      const vr = varPanel.getBoundingClientRect();
+      currentTop = Math.round(vr.bottom + 10);
+    }
+
+    if (ptPanel) {
+      ptPanel.style.setProperty("top", currentTop + "px", "important");
+      ptPanel.style.setProperty("left", "12px", "important");
     }
   };
 
-  window.addEventListener("resize", alignPanels);
-  window.addEventListener("load", () => {
-    alignPanels();
-    setTimeout(alignPanels, 250);
+  const setTurkishFlagOnly = () => {
+    document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
+      if (el.innerHTML !== "🇹🇷") {
+        el.innerHTML = "🇹🇷";
+      }
+    });
+  };
+
+  ["resize", "DOMContentLoaded", "load"].forEach(ev => {
+    window.addEventListener(ev, () => {
+      layoutLeftColumn();
+      setTurkishFlagOnly();
+    });
   });
-  alignPanels();
+
+  setInterval(() => {
+    layoutLeftColumn();
+    setTurkishFlagOnly();
+  }, 600);
+
+  layoutLeftColumn();
+  setTurkishFlagOnly();
 })();
 </script>
 
