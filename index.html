@@ -374,7 +374,10 @@
 
 
 
-/* === EKEN WEATHER STRICT REAL DATA & BOTTOM CLEAN === */
+
+
+
+/* === EKEN WEATHER CLEAN REAL & NO-429 === */
 #ew-single-panel {
   display: block !important;
   visibility: visible !important;
@@ -700,11 +703,11 @@
       if (!gridData) {
         const lats = SAMPLE_GRID.map(p => p.lat).join(",");
         const lons = SAMPLE_GRID.map(p => p.lon).join(",");
-        const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
+/* 429 grid fetch disabled */ null && (const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;)
         const res = await fetch(url);
         if (res.ok) gridData = await res.json();
       }
-      const pUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(curCoord.lat)}&longitude=${encodeURIComponent(curCoord.lon)}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
+/* 429 grid fetch disabled */ null && (const pUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(curCoord.lat)}&longitude=${encodeURIComponent(curCoord.lon)}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;)
       const pRes = await fetch(pUrl);
       if (pRes.ok) pointData = await pRes.json();
     }
@@ -928,6 +931,9 @@
 
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="ew-single-panel">
   <div class="ews-box">
@@ -1046,7 +1052,7 @@
     [220, 38, 38]
   ];
   const GRAD_CSS = `linear-gradient(90deg,${STOPS.map(([r, g, b]) => `rgb(${r},${g},${b})`).join(",")})`;
-  const STORAGE_KEY = "ew_real_cache_v1";
+  const STORAGE_KEY = "ew_real_obs_v2";
 
   let cur = VARS[0];
   let filterText = "";
@@ -1057,7 +1063,7 @@
   let rateLimitUntil = 0;
   let lastNetAt = 0;
 
-  const loadStorageCache = () => {
+  const loadStorage = () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : {};
@@ -1065,18 +1071,14 @@
       return {};
     }
   };
-
-  const saveStorageCache = (cacheObj) => {
+  const saveStorage = (obj) => {
     try {
-      const keys = Object.keys(cacheObj);
-      if (keys.length > 250) {
-        keys.slice(0, keys.length - 250).forEach(k => delete cacheObj[k]);
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheObj));
+      const ks = Object.keys(obj);
+      if (ks.length > 200) ks.slice(0, ks.length - 200).forEach(k => delete obj[k]);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
     } catch (_) {}
   };
-
-  const realCache = loadStorageCache();
+  const obsCache = loadStorage();
 
   const panel = document.getElementById("ew-single-panel");
   const varsEl = document.getElementById("ews-vars");
@@ -1093,15 +1095,10 @@
     });
   }
 
-  // Müzik çaları koruyup sayfa içi alt bilgi panellerini gizle
-  const purgeBottomPanels = () => {
-    const selectors = [
-      "#bottom-panel", "#alt-panel", "#ecmwf-panel", "#point-info",
-      "#location-panel", "#info-box", "#click-info", "#detail-panel",
-      "#weather-detail", "#bottom-bar", ".bottom-panel", ".alt-panel",
-      ".info-panel", ".detail-panel"
-    ];
-    document.querySelectorAll(selectors.join(",")).forEach(el => {
+  // Müzik oynatıcıyı koruyup alt bilgi panellerini gizle
+  const hideOldBottom = () => {
+    const ids = ["#bottom-panel", "#alt-panel", "#ecmwf-panel", "#point-info", "#location-panel", "#info-box", "#click-info", "#detail-panel", "#weather-detail", "#bottom-bar", ".bottom-panel", ".alt-panel", ".info-panel", ".detail-panel"];
+    document.querySelectorAll(ids.join(",")).forEach(el => {
       if (el.querySelector("audio, video")) return;
       el.style.setProperty("display", "none", "important");
       el.style.setProperty("visibility", "hidden", "important");
@@ -1116,14 +1113,12 @@
       ) return;
       const st = getComputedStyle(el);
       const r = el.getBoundingClientRect();
-      const txtContent = (el.innerText || "").trim();
+      const t = (el.innerText || "").toLowerCase();
       if (
         (st.position === "fixed" || st.position === "sticky") &&
-        r.top > window.innerHeight * 0.62 &&
-        r.height >= 28 &&
-        !txtContent.toLowerCase().includes("müzik") &&
-        !txtContent.toLowerCase().includes("radio") &&
-        !txtContent.toLowerCase().includes("player")
+        r.top > window.innerHeight * 0.65 &&
+        r.height >= 26 &&
+        !t.includes("müzik") && !t.includes("radio") && !t.includes("player")
       ) {
         el.style.setProperty("display", "none", "important");
       }
@@ -1131,8 +1126,9 @@
   };
 
   if (document.body && window.MutationObserver) {
-    const mo = new MutationObserver(() => purgeBottomPanels());
-    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+    new MutationObserver(() => hideOldBottom()).observe(document.body, {
+      childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"]
+    });
   }
 
   const valueToRatio = (val, v) => {
@@ -1224,7 +1220,7 @@
     ctx.fillRect(0, 0, el.width, el.height);
   };
 
-  const extractCurrentHourNumeric = (j, field) => {
+  const extractNowVal = (j, field) => {
     if (!j || typeof j !== "object") return null;
     if (j.current && typeof j.current[field] === "number" && Number.isFinite(j.current[field])) {
       return j.current[field];
@@ -1246,58 +1242,47 @@
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // Gerçek Open-Meteo verisini çeker, önbelleğe alır; kota dolarsa son gerçek kaydı döndürür
-  const fetchRealObservation = async (lat, lng, v) => {
+  const fetchRealVal = async (lat, lng, v) => {
     const key = `${lat.toFixed(2)}_${lng.toFixed(2)}_${v.om}`;
-    const existing = realCache[key];
-    if (existing && (Date.now() - existing.ts < 900000)) {
-      return { val: existing.val, source: "önbellek" };
+    const cached = obsCache[key];
+    if (cached && (Date.now() - cached.ts < 900000)) {
+      return { val: cached.val, tag: "önbellek" };
     }
 
     if (Date.now() < rateLimitUntil) {
-      if (existing && typeof existing.val === "number") {
-        return { val: existing.val, source: "son gerçek" };
-      }
-      return { val: null, source: "429 beklemede" };
+      if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
+      return { val: null, tag: "429 bekleniyor" };
     }
 
-    const gap = Date.now() - lastNetAt;
-    if (gap < 1100) {
-      await sleep(1100 - gap);
-    }
+    const waitMs = Math.max(0, 1400 - (Date.now() - lastNetAt));
+    if (waitMs > 0) await sleep(waitMs);
     lastNetAt = Date.now();
 
-    const urls = [
-      `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=Europe%2FIstanbul&forecast_days=1`,
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=Europe%2FIstanbul&forecast_days=1`
-    ];
-
-    for (const url of urls) {
-      try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (res.status === 429) {
-          rateLimitUntil = Date.now() + 20000;
-          break;
-        }
-        if (!res.ok) continue;
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=Europe%2FIstanbul&forecast_days=1`;
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.status === 429) {
+        rateLimitUntil = Date.now() + 25000;
+        if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
+        return { val: null, tag: "429 limit" };
+      }
+      if (res.ok) {
         const j = await res.json();
-        const val = extractCurrentHourNumeric(j, v.om);
+        const val = extractNowVal(j, v.om);
         if (typeof val === "number" && Number.isFinite(val)) {
-          realCache[key] = { val, ts: Date.now() };
-          saveStorageCache(realCache);
-          return { val, source: "canlı" };
+          obsCache[key] = { val, ts: Date.now() };
+          saveStorage(obsCache);
+          return { val, tag: "canlı" };
         }
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
 
-    if (existing && typeof existing.val === "number") {
-      return { val: existing.val, source: "son gerçek" };
-    }
-    return { val: null, source: "veri yok" };
+    if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
+    return { val: null, tag: "veri yok" };
   };
 
-  const refreshActivePoint = async (lat, lng) => {
-    purgeBottomPanels();
+  const refreshPoint = async (lat, lng) => {
+    hideOldBottom();
     const m = findMap();
     const cEl = document.getElementById("ews-coord");
     const ilEl = document.getElementById("ews-il");
@@ -1308,16 +1293,16 @@
 
     if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-    if (vvEl) vvEl.textContent = "Sorgulanıyor...";
+    if (vvEl) vvEl.textContent = "Okunuyor...";
 
-    const resObj = await fetchRealObservation(lat, lng, cur);
-    activeValue = resObj.val;
+    const out = await fetchRealVal(lat, lng, cur);
+    activeValue = out.val;
 
-    if (typeof resObj.val === "number" && Number.isFinite(resObj.val)) {
-      const formatted = `${resObj.val.toFixed(2)} ${cur.unit}`;
-      if (vvEl) vvEl.textContent = formatted;
-      paintCbar(cur, resObj.val);
-      applyValueColorToMap(resObj.val, cur);
+    if (typeof out.val === "number" && Number.isFinite(out.val)) {
+      const txtVal = `${out.val.toFixed(2)} ${cur.unit}`;
+      if (vvEl) vvEl.textContent = txtVal;
+      paintCbar(cur, out.val);
+      applyValueColorToMap(out.val, cur);
       if (m && window.L) {
         if (!ptMarker) {
           ptMarker = window.L.circleMarker([lat, lng], {
@@ -1326,10 +1311,10 @@
         } else {
           ptMarker.setLatLng([lat, lng]);
         }
-        ptMarker.bindTooltip(`${cur.name}: ${formatted}`, { permanent: false, direction: "top" }).openTooltip();
+        ptMarker.bindTooltip(`${cur.name}: ${txtVal}`, { permanent: false, direction: "top" }).openTooltip();
       }
     } else {
-      if (vvEl) vvEl.textContent = `Veri yok (${resObj.source})`;
+      if (vvEl) vvEl.textContent = `Veri yok (${out.tag})`;
       paintCbar(cur, null);
       applyValueColorToMap(null, cur);
     }
@@ -1367,33 +1352,33 @@
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
         const pt = lastPt || (findMap()?.getCenter ? { lat: findMap().getCenter().lat, lng: findMap().getCenter().lng } : null);
-        if (pt) refreshActivePoint(pt.lat, pt.lng);
+        if (pt) refreshPoint(pt.lat, pt.lng);
       });
       varsEl.appendChild(b);
     });
   };
 
   const bindMap = () => {
-    purgeBottomPanels();
+    hideOldBottom();
     const m = findMap();
     if (!m) return;
-    if (!m._ewStrictRealBound) {
-      m._ewStrictRealBound = true;
+    if (!m._ewNo429Bound) {
+      m._ewNo429Bound = true;
       m.on("click", e => {
-        purgeBottomPanels();
+        hideOldBottom();
         if (e?.latlng) {
           lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
-          refreshActivePoint(lastPt.lat, lastPt.lng);
+          refreshPoint(lastPt.lat, lastPt.lng);
         }
       });
       m.on("moveend zoomend resize", () => {
-        purgeBottomPanels();
+        hideOldBottom();
         applyValueColorToMap(activeValue, cur);
       });
       const c = m.getCenter ? m.getCenter() : null;
       if (c && !lastPt) {
         lastPt = { lat: c.lat, lng: c.lng };
-        refreshActivePoint(c.lat, c.lng);
+        refreshPoint(c.lat, c.lng);
       }
     } else {
       applyValueColorToMap(activeValue, cur);
@@ -1402,7 +1387,7 @@
 
   renderVars();
   paintCbar(cur, null);
-  purgeBottomPanels();
+  hideOldBottom();
   setInterval(bindMap, 1500);
   window.addEventListener("load", bindMap);
 })();
