@@ -1752,30 +1752,52 @@
 
 
 
-<!-- EKEN ECMWF STRICT GATE START -->
+
+
+
+<!-- EKEN ECMWF VERIFY SYNC START -->
 <script>
 (() => {
-  const PRECIP_CODES = {
+  const PRECIP_VARS = {
     "tp": { om: "precipitation", unit: "mm" },
     "rain": { om: "rain", unit: "mm" },
     "shw": { om: "showers", unit: "mm" },
     "sf": { om: "snowfall", unit: "cm" }
   };
 
-  const getActiveSpec = () => {
+  const STOPS = [
+    [29, 78, 216],
+    [6, 182, 212],
+    [34, 197, 94],
+    [132, 204, 22],
+    [234, 179, 8],
+    [249, 115, 22],
+    [220, 38, 38]
+  ];
+
+  const getActiveVariable = () => {
     const activeBtn = document.querySelector("#ews-vars .ews-btn.active");
     const titleAttr = activeBtn ? (activeBtn.getAttribute("title") || "") : "";
-    for (const [code, spec] of Object.entries(PRECIP_CODES)) {
+    const labelTxt = (activeBtn ? activeBtn.textContent : "") || "";
+
+    for (const [code, spec] of Object.entries(PRECIP_VARS)) {
       if (new RegExp(`\b${spec.om}\b`, "i").test(titleAttr) || new RegExp(`\(${code}\)`, "i").test(titleAttr)) {
-        return { code, om: spec.om, unit: spec.unit, isPrecip: true };
+        return { code, om: spec.om, unit: spec.unit, isPrecip: true, label: titleAttr || labelTxt };
       }
     }
-    const omMatch = titleAttr.match(/—\s*([a-z0-9_]+)\s*\[/i);
+
+    const omMatch = titleAttr.match(/—\s*([a-zA-Z0-9_]+)\s*\[/);
     const unitMatch = titleAttr.match(/\[([^\]]+)\]/);
     if (omMatch) {
-      return { code: omMatch[1], om: omMatch[1], unit: unitMatch ? unitMatch[1] : "", isPrecip: false };
+      return {
+        code: omMatch[1],
+        om: omMatch[1],
+        unit: unitMatch ? unitMatch[1] : "",
+        isPrecip: false,
+        label: titleAttr || labelTxt
+      };
     }
-    return null;
+    return { code: "2t", om: "temperature_2m", unit: "°C", isPrecip: false, label: "2m Sıcaklık" };
   };
 
   const getCoord = () => {
@@ -1785,83 +1807,145 @@
     return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
   };
 
-  const getOffsetHours = () => {
+  const getHourOffset = () => {
     const sEl = document.getElementById("ewt-slider");
     return sEl ? (parseInt(sEl.value, 10) || 0) : 0;
   };
 
   const fmtUtc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ") + " UTC";
 
-  const writeNoData = (vvEl, winValEl, startMs, endMs, spanHours, reason) => {
-    if (vvEl) vvEl.textContent = "Veri yok";
-    if (winValEl) {
-      winValEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${spanHours} sa (${reason})`;
+  // Harita rengi ve cbar isaretcisini yalnizca dogrulanmis ECMWF degeriyle esitle
+  const syncMapAndCbar = (val, isValid) => {
+    const canvas = document.getElementById("ew-cbar-canvas");
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (isValid && typeof val === "number" && Number.isFinite(val)) {
+          const activeBtn = document.querySelector("#ews-vars .ews-btn.active");
+          const tAttr = activeBtn ? (activeBtn.getAttribute("title") || "") : "";
+          // Sicaklik/ruzgar/nem vb. icin normalize oran
+          let minV = 0, maxV = 30;
+          if (/wind_speed|rüzgar hız/i.test(tAttr)) { minV = 0; maxV = 80; }
+          else if (/humidity|nem|cloud/i.test(tAttr)) { minV = 0; maxV = 100; }
+          else if (/pressure|basınç/i.test(tAttr)) { minV = 990; maxV = 1030; }
+          else if (/precipitation|yağış|yağmur|sağanak/i.test(tAttr)) { minV = 0; maxV = 15; }
+          else if (/snowfall|kar/i.test(tAttr)) { minV = 0; maxV = 15; }
+          else { minV = -5; maxV = 35; }
+
+          const ratio = Math.max(0, Math.min(1, (val - minV) / Math.max(1e-6, maxV - minV)));
+          const x = ratio * (STOPS.length - 1);
+          const i0 = Math.floor(x);
+          const i1 = Math.min(STOPS.length - 1, i0 + 1);
+          const f = x - i0;
+          const r = Math.round(STOPS[i0][0] + (STOPS[i1][0] - STOPS[i0][0]) * f);
+          const g = Math.round(STOPS[i0][1] + (STOPS[i1][1] - STOPS[i0][1]) * f);
+          const b = Math.round(STOPS[i0][2] + (STOPS[i1][2] - STOPS[i0][2]) * f);
+
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.34)`;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          const cbar = document.getElementById("cbar-box");
+          if (cbar) {
+            const marker = cbar.querySelector("[data-ew-marker='1']");
+            if (marker) {
+              marker.style.left = `${(ratio * 100).toFixed(1)}%`;
+              marker.style.display = "block";
+            }
+          }
+        } else {
+          const cbar = document.getElementById("cbar-box");
+          if (cbar) {
+            const marker = cbar.querySelector("[data-ew-marker='1']");
+            if (marker) marker.style.display = "none";
+          }
+        }
+      }
     }
   };
 
-  const syncFromEcmwfOnly = async () => {
-    const spec = getActiveSpec();
+  const setUnverifiedState = (vvEl, winValEl, startMs, endMs, spanHours, statusNote) => {
+    if (vvEl) vvEl.textContent = "Veri yok";
+    if (winValEl) {
+      winValEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${spanHours} sa · ${statusNote}`;
+    }
+    syncMapAndCbar(null, false);
+  };
+
+  const verifyAndApplyEcmwf = async () => {
+    const vSpec = getActiveVariable();
     const coord = getCoord();
     const vvEl = document.getElementById("ews-vval");
     const winValEl = document.getElementById("ews-time-window-val");
-    if (!spec || !coord || !vvEl) return;
+    if (!vSpec || !coord || !vvEl) return;
 
-    const off = getOffsetHours();
+    const off = getHourOffset();
     const nowMs = Date.now();
     const targetMs = nowMs + off * 3600 * 1000;
     const startMs = Math.min(nowMs, targetMs);
     const endMs = Math.max(nowMs, targetMs);
     const spanHours = Math.max(1, Math.round((endMs - startMs) / 3600000) || Math.abs(off) || 1);
 
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${coord.lat.toFixed(4)}&longitude=${coord.lng.toFixed(4)}&hourly=${encodeURIComponent(spec.om)}&past_days=2&forecast_days=3&timezone=UTC`;
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${coord.lat.toFixed(4)}&longitude=${coord.lng.toFixed(4)}&hourly=${encodeURIComponent(vSpec.om)}&past_days=2&forecast_days=3&timezone=UTC`;
 
-    let json = null;
+    let data = null;
     try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) {
-        writeNoData(vvEl, winValEl, startMs, endMs, spanHours, `ECMWF HTTP ${res.status}`);
+      const resp = await fetch(url, { cache: "no-store" });
+      if (!resp.ok) {
+        setUnverifiedState(vvEl, winValEl, startMs, endMs, spanHours, `ECMWF HTTP ${resp.status}`);
         return;
       }
-      json = await res.json();
+      data = await resp.json();
     } catch (_) {
-      writeNoData(vvEl, winValEl, startMs, endMs, spanHours, "ECMWF bağlantı yok");
+      setUnverifiedState(vvEl, winValEl, startMs, endMs, spanHours, "ECMWF ağ hatası");
       return;
     }
 
-    const times = json?.hourly?.time;
-    const series = json?.hourly?.[spec.om];
+    const times = data?.hourly?.time;
+    const series = data?.hourly?.[vSpec.om];
+
+    // Alan veya zaman dizisi gelmediyse dogrulanmamis say
     if (!Array.isArray(times) || !Array.isArray(series) || !times.length || !series.length) {
-      writeNoData(vvEl, winValEl, startMs, endMs, spanHours, "ECMWF alan yok");
+      setUnverifiedState(vvEl, winValEl, startMs, endMs, spanHours, "ECMWF değişkeni gelmedi");
       return;
     }
 
-    if (spec.isPrecip) {
+    if (vSpec.isPrecip) {
       let sum = 0;
-      let validCount = 0;
-      const len = Math.min(times.length, series.length);
-      for (let i = 0; i < len; i++) {
+      let validPts = 0;
+      let firstMatchedMs = null;
+      let lastMatchedMs = null;
+
+      const n = Math.min(times.length, series.length);
+      for (let i = 0; i < n; i++) {
         const tMs = Date.parse(times[i]);
         if (!Number.isFinite(tMs)) continue;
         if (tMs >= startMs && tMs <= endMs) {
-          const v = series[i];
-          if (typeof v === "number" && Number.isFinite(v)) {
-            sum += v;
-            validCount += 1;
+          const rawVal = series[i];
+          if (typeof rawVal === "number" && Number.isFinite(rawVal)) {
+            sum += rawVal;
+            validPts += 1;
+            if (firstMatchedMs === null || tMs < firstMatchedMs) firstMatchedMs = tMs;
+            if (lastMatchedMs === null || tMs > lastMatchedMs) lastMatchedMs = tMs;
           }
         }
       }
-      if (validCount === 0) {
-        writeNoData(vvEl, winValEl, startMs, endMs, spanHours, "ECMWF aralık boş");
+
+      if (validPts === 0 || firstMatchedMs === null || lastMatchedMs === null) {
+        setUnverifiedState(vvEl, winValEl, startMs, endMs, spanHours, "Seçili aralıkta ECMWF verisi yok");
         return;
       }
-      vvEl.textContent = `${Number(sum).toFixed(2)} ${spec.unit}`.trim();
+
+      const totalVal = Number(sum.toFixed(2));
+      vvEl.textContent = `${totalVal.toFixed(2)} ${vSpec.unit}`.trim();
       if (winValEl) {
-        winValEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${validCount} sa (ECMWF)`;
+        winValEl.textContent = `${fmtUtc(firstMatchedMs)} → ${fmtUtc(lastMatchedMs)} · Süre: ${validPts} sa · ECMWF Doğrulandı`;
       }
+      syncMapAndCbar(totalVal, true);
       return;
     }
 
-    // Anlik / secili saate en yakin ECMWF kaydi
+    // Yagis disi degiskenlerde secili saate en yakin ECMWF kaydini kontrol et
     let bestIdx = -1;
     let bestDiff = Infinity;
     for (let i = 0; i < times.length; i++) {
@@ -1874,33 +1958,34 @@
       }
     }
 
-    const val = bestIdx >= 0 ? series[bestIdx] : null;
-    if (typeof val !== "number" || !Number.isFinite(val)) {
-      writeNoData(vvEl, winValEl, startMs, endMs, spanHours, "ECMWF değer boş");
+    const ptVal = bestIdx >= 0 ? series[bestIdx] : null;
+    if (typeof ptVal !== "number" || !Number.isFinite(ptVal)) {
+      setUnverifiedState(vvEl, winValEl, startMs, endMs, spanHours, "Bu saatte ECMWF değeri yok");
       return;
     }
 
-    vvEl.textContent = `${val.toFixed(2)} ${spec.unit}`.trim();
+    vvEl.textContent = `${ptVal.toFixed(2)} ${vSpec.unit}`.trim();
     if (winValEl) {
-      const obsIso = fmtUtc(Date.parse(times[bestIdx]));
-      winValEl.textContent = `${obsIso} · Pencere: ${fmtUtc(startMs)} → ${fmtUtc(endMs)} (${spanHours} sa)`;
+      const obsUtc = fmtUtc(Date.parse(times[bestIdx]));
+      winValEl.textContent = `${obsUtc} · Pencere: ${fmtUtc(startMs)} → ${fmtUtc(endMs)} (${spanHours} sa) · ECMWF`;
     }
+    syncMapAndCbar(ptVal, true);
   };
 
-  let lastKey = "";
+  let prevKey = "";
   setInterval(() => {
-    const spec = getActiveSpec();
+    const vSpec = getActiveVariable();
     const coord = getCoord();
-    const off = getOffsetHours();
-    const key = `${spec ? spec.om : "none"}|${coord ? coord.lat.toFixed(3) + "," + coord.lng.toFixed(3) : "none"}|${off}`;
-    if (spec && coord && key !== lastKey) {
-      lastKey = key;
-      syncFromEcmwfOnly();
+    const off = getHourOffset();
+    const key = `${vSpec ? vSpec.om : "none"}|${coord ? coord.lat.toFixed(3) + "," + coord.lng.toFixed(3) : "none"}|${off}`;
+    if (vSpec && coord && key !== prevKey) {
+      prevKey = key;
+      verifyAndApplyEcmwf();
     }
-  }, 500);
+  }, 550);
 })();
 </script>
-<!-- EKEN ECMWF STRICT GATE END -->
+<!-- EKEN ECMWF VERIFY SYNC END -->
 
 </body>
 </html>
