@@ -147,6 +147,78 @@
 
 
 
+
+<style id="eken-live-ecmwf-style">
+  button[id*="play"], button[class*="play"], button[id*="oyna"], button[class*="oyna"],
+  #tr-corner-flag-badge, [id*="music"], [class*="music"] {
+    display: none !important;
+  }
+  .top-panel {
+    position: fixed !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 950 !important;
+    width: 340px !important;
+    max-width: calc(100vw - 24px) !important;
+    background: rgba(11, 17, 30, 0.94) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+    color: #f8fafc !important;
+  }
+  .cbar-box {
+    display: block !important;
+    position: fixed !important;
+    top: 12px !important;
+    right: 12px !important;
+    z-index: 950 !important;
+    width: 220px !important;
+    background: rgba(11, 17, 30, 0.94) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    border-radius: 10px !important;
+    padding: 8px 10px !important;
+    color: #f8fafc !important;
+  }
+  .cbar-grad {
+    display: block !important;
+    width: 100% !important;
+    height: 14px !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: linear-gradient(90deg, #2563eb 0%, #06b6d4 25%, #22c55e 50%, #eab308 75%, #ef4444 100%) !important;
+  }
+  #probe {
+    position: fixed !important;
+    left: 12px !important;
+    bottom: 125px !important;
+    z-index: 960 !important;
+    max-width: 420px !important;
+    background: rgba(11, 17, 30, 0.94) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    color: #f8fafc !important;
+  }
+  .bars {
+    position: fixed !important;
+    left: 140px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    transform: none !important;
+    max-width: calc(100vw - 152px) !important;
+    z-index: 950 !important;
+    align-items: flex-start !important;
+  }
+  .bar {
+    justify-content: flex-start !important;
+  }
+  .bar button, .top-panel button {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+</style>
+
 </head>
 <body>
   <div class="brand-box" title="Eken Weather">
@@ -2715,164 +2787,270 @@ function setBadge(status, source) {
 
 
 
-<style id="fresh-ecmwf-ui">
-  button[id*="play"], button[class*="play"], button[id*="oyna"], button[class*="oyna"],
-  #tr-corner-flag-badge, [id*="music"], [class*="music"] {
-    display: none !important;
-  }
-  .top-panel {
-    position: fixed !important;
-    top: 12px !important;
-    left: 12px !important;
-    z-index: 950 !important;
-    width: 330px !important;
-    max-width: calc(100vw - 24px) !important;
-    background: rgba(11, 17, 30, 0.94) !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    border-radius: 10px !important;
-    padding: 10px 12px !important;
-    color: #f8fafc !important;
-  }
-  .cbar-box {
-    position: fixed !important;
-    top: 12px !important;
-    right: 12px !important;
-    z-index: 950 !important;
-    width: 210px !important;
-    background: rgba(11, 17, 30, 0.94) !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    border-radius: 10px !important;
-    padding: 8px 10px !important;
-    color: #f8fafc !important;
-    display: block !important;
-  }
-  .cbar-grad {
-    display: block !important;
-    width: 100% !important;
-    height: 14px !important;
-    border-radius: 4px !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    background: linear-gradient(90deg, #2563eb 0%, #06b6d4 25%, #22c55e 50%, #eab308 75%, #ef4444 100%) !important;
-  }
-  #probe {
-    position: fixed !important;
-    left: 12px !important;
-    bottom: 120px !important;
-    z-index: 950 !important;
-    max-width: 360px !important;
-    background: rgba(11, 17, 30, 0.94) !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    border-radius: 8px !important;
-    padding: 8px 10px !important;
-    font-size: 12px !important;
-    color: #f8fafc !important;
-  }
-  .bars {
-    position: fixed !important;
-    left: 140px !important;
-    right: 12px !important;
-    bottom: 12px !important;
-    transform: none !important;
-    max-width: calc(100vw - 152px) !important;
-    z-index: 950 !important;
-    align-items: flex-start !important;
-  }
-  .bar {
-    justify-content: flex-start !important;
-  }
-  .bar button, .top-panel button {
-    flex-shrink: 0 !important;
-    white-space: nowrap !important;
-  }
-</style>
-<script id="fresh-ecmwf-runtime">
+
+
+
+
+<script id="eken-live-ecmwf-app">
 (function() {
-  const ECMWF_VARS = [
-    { key: "temperature_2m", name: "2 m Sıcaklığı", unit: "°C", provider: "ECMWF", group: "surface" },
-    { key: "dewpoint_2m", name: "2 m Çiy Noktası", unit: "°C", provider: "ECMWF", group: "surface" },
-    { key: "wind_speed_10m", name: "10 m Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "surface" },
-    { key: "wind_direction_10m", name: "10 m Rüzgar Yönü", unit: "°", provider: "ECMWF", group: "surface" },
-    { key: "wind_u_10m", name: "10 m Rüzgar U", unit: "m/s", provider: "ECMWF", group: "surface" },
-    { key: "wind_v_10m", name: "10 m Rüzgar V", unit: "m/s", provider: "ECMWF", group: "surface" },
-    { key: "precipitation", name: "Toplam Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
-    { key: "pressure_msl", name: "Deniz Seviyesi Basıncı", unit: "hPa", provider: "ECMWF", group: "surface" },
-    { key: "total_cloud_cover", name: "Toplam Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
-    { key: "cape", name: "MUCAPE", unit: "J/kg", provider: "ECMWF", group: "surface" },
-    { key: "temperature_850hPa", name: "850 hPa Sıcaklık", unit: "°C", provider: "ECMWF", group: "levels", level: 850 },
-    { key: "wind_speed_850hPa", name: "850 hPa Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "levels", level: 850 },
-    { key: "geopotential_height_500hPa", name: "500 hPa Jeopotansiyel", unit: "dam", provider: "ECMWF", group: "levels", level: 500 },
-    { key: "temperature_500hPa", name: "500 hPa Sıcaklık", unit: "°C", provider: "ECMWF", group: "levels", level: 500 }
+  const VARS = [
+    { key: "temperature_2m", om: "temperature_2m", name: "2 m Sıcaklığı", unit: "°C", min: -5, max: 25 },
+    { key: "dewpoint_2m", om: "dew_point_2m", name: "2 m Çiy Noktası", unit: "°C", min: -5, max: 20 },
+    { key: "wind_speed_10m", om: "wind_speed_10m", name: "10 m Rüzgar Hızı", unit: "m/s", min: 0, max: 20 },
+    { key: "wind_direction_10m", om: "wind_direction_10m", name: "10 m Rüzgar Yönü", unit: "°", min: 0, max: 360 },
+    { key: "precipitation", om: "precipitation", name: "Toplam Yağış", unit: "mm", min: 0, max: 15 },
+    { key: "pressure_msl", om: "pressure_msl", name: "Deniz Seviyesi Basıncı", unit: "hPa", min: 995, max: 1030 },
+    { key: "cloud_cover", om: "cloud_cover", name: "Toplam Bulutluluk", unit: "%", min: 0, max: 100 },
+    { key: "cape", om: "cape", name: "CAPE", unit: "J/kg", min: 0, max: 1500 },
+    { key: "temperature_850hPa", om: "temperature_850hPa", name: "850 hPa Sıcaklık", unit: "°C", min: -10, max: 15 },
+    { key: "wind_speed_850hPa", om: "wind_speed_850hPa", name: "850 hPa Rüzgar Hızı", unit: "m/s", min: 0, max: 30 },
+    { key: "geopotential_height_500hPa", om: "geopotential_height_500hPa", name: "500 hPa Jeopotansiyel", unit: "gpm", min: 5200, max: 5800 },
+    { key: "temperature_500hPa", om: "temperature_500hPa", name: "500 hPa Sıcaklık", unit: "°C", min: -35, max: -10 },
+    { key: "wind_speed_500hPa", om: "wind_speed_500hPa", name: "500 hPa Rüzgar Hızı", unit: "m/s", min: 0, max: 50 }
   ];
 
-  function cleanPlayAndBadges() {
+  const POINTS = [
+    { name: "İstanbul (Merkez)", lat: 41.01, lon: 28.97 },
+    { name: "Bursa", lat: 40.19, lon: 29.06 },
+    { name: "Kocaeli (İzmit)", lat: 40.76, lon: 29.94 },
+    { name: "Sakarya", lat: 40.75, lon: 30.38 },
+    { name: "Balıkesir", lat: 39.65, lon: 27.88 },
+    { name: "Çanakkale", lat: 40.15, lon: 26.41 },
+    { name: "Tekirdağ", lat: 40.98, lon: 27.51 },
+    { name: "Edirne", lat: 41.68, lon: 26.56 },
+    { name: "Kırklareli", lat: 41.73, lon: 27.22 },
+    { name: "Yalova", lat: 40.65, lon: 29.27 },
+    { name: "Bilecik", lat: 40.14, lon: 29.98 }
+  ];
+
+  let curVar = VARS[0];
+  let curPoint = { name: "İstanbul (Merkez)", lat: 41.01, lon: 28.97 };
+  let seriesCache = null;
+  let layerGroup = null;
+
+  function colorForVal(val, minV, maxV) {
+    const t = Math.max(0, Math.min(1, (val - minV) / Math.max(1e-6, maxV - minV)));
+    const stops = [
+      [37, 99, 235],
+      [6, 182, 212],
+      [34, 197, 94],
+      [234, 179, 8],
+      [239, 68, 68]
+    ];
+    const scaled = t * (stops.length - 1);
+    const i = Math.min(stops.length - 2, Math.floor(scaled));
+    const f = scaled - i;
+    const c0 = stops[i], c1 = stops[i + 1];
+    const r = Math.round(c0[0] + (c1[0] - c0[0]) * f);
+    const g = Math.round(c0[1] + (c1[1] - c0[1]) * f);
+    const b = Math.round(c0[2] + (c1[2] - c0[2]) * f);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function removePlayAndSyncClock() {
     document.querySelectorAll("button").forEach(b => {
       const t = (b.textContent || "").trim().toLowerCase();
-      if (t === "oyna" || t === "play" || t.includes("oyna")) b.remove();
+      if (t === "oyna" || t === "oynat" || t === "play" || t.includes("oyna")) b.remove();
     });
-    const badge = document.getElementById("badge");
-    const dIn = document.getElementById("date-input");
-    const hSel = document.getElementById("hour-select");
-    const minD = (dIn && dIn.min) || "2026-11-24";
-    const maxD = (dIn && dIn.max) || (dIn && dIn.value) || minD;
-    const curD = (dIn && dIn.value) || minD;
-    const curH = (hSel && hSel.value) || "00:00:00";
-    if (badge) {
-      badge.textContent = `ECMWF · ${minD}..${maxD} · ${curD} ${curH}`;
-    }
-
     const now = new Date();
     const utcStr = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
-    const istStr = now.toLocaleTimeString("tr-TR", { timeZone: "Europe/Istanbul", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    document.querySelectorAll("div, span, code").forEach(el => {
+    const istStr = now.toLocaleTimeString("tr-TR", {
+      timeZone: "Europe/Istanbul",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+    document.querySelectorAll("div, span, code, p").forEach(el => {
       if (el.children.length === 0 && /UTC/i.test(el.textContent || "")) {
-        const base = (el.dataset.utcBase || el.textContent).split("| İstanbul")[0].trim();
-        el.dataset.utcBase = base;
+        const base = (el.dataset.origTime || el.textContent).split("|")[0].trim();
+        el.dataset.origTime = base;
         el.textContent = `${base} | ${utcStr} | İstanbul: ${istStr}`;
       }
     });
+  }
 
-    const varBar = document.getElementById("var-bar");
-    if (varBar && varBar.children.length === 0) {
-      ECMWF_VARS.forEach((v, idx) => {
-        const btn = document.createElement("button");
-        btn.textContent = v.unit ? `${v.name} (${v.unit})` : v.name;
-        btn.dataset.varKey = v.key;
-        btn.dataset.varUnit = v.unit;
-        if (idx === 0) btn.classList.add("active");
-        btn.addEventListener("click", () => {
-          varBar.querySelectorAll("button").forEach(x => x.classList.remove("active"));
-          btn.classList.add("active");
-          const ct = document.getElementById("cbar-title");
-          const cu = document.getElementById("cbar-unit");
-          if (ct) ct.textContent = v.name;
-          if (cu) cu.textContent = v.unit || "";
-          if (typeof activeVar !== "undefined") activeVar = v.key;
-          if (typeof renderCbar === "function") try { renderCbar(); } catch (_) {}
-          if (typeof loadGrid === "function") try { loadGrid(); } catch (_) {}
-          if (typeof loadPoint === "function" && typeof lastPoint !== "undefined") try { loadPoint(lastPoint); } catch (_) {}
-        });
-        varBar.appendChild(btn);
+  function buildVarButtons() {
+    const bar = document.getElementById("var-bar");
+    if (!bar) return;
+    bar.innerHTML = "";
+    VARS.forEach((v, i) => {
+      const btn = document.createElement("button");
+      btn.textContent = v.unit ? `${v.name} (${v.unit})` : v.name;
+      if (i === 0) btn.classList.add("active");
+      btn.addEventListener("click", async () => {
+        bar.querySelectorAll("button").forEach(x => x.classList.remove("active"));
+        btn.classList.add("active");
+        curVar = v;
+        await refreshEcmwf();
       });
-    }
+      bar.appendChild(btn);
+    });
+  }
 
-    const activeBtn = document.querySelector("#var-bar button.active");
-    const topLoc = document.getElementById("top-loc-coord");
-    const topVal = document.getElementById("top-var-val");
-    const probe = document.getElementById("probe");
-    const vName = activeBtn ? activeBtn.textContent.trim() : "2 m Sıcaklığı (°C)";
-    const locStr = topLoc && topLoc.textContent.trim() && !topLoc.textContent.includes("bekleniyor")
-      ? topLoc.textContent.trim()
-      : "41.0100, 28.9700 · İstanbul";
-    const valStr = topVal && topVal.textContent.trim() && !topVal.textContent.includes("—")
-      ? topVal.textContent.trim()
-      : `${vName} · ${curD} ${curH}`;
-    if (probe) {
-      probe.textContent = `ECMWF | ${locStr} | ${valStr}`;
+  function ensureDateHourControls(times) {
+    const dIn = document.getElementById("date-input");
+    const hSel = document.getElementById("hour-select");
+    const badge = document.getElementById("badge");
+    if (!times || !times.length) return;
+
+    const dates = [...new Set(times.map(t => t.slice(0, 10)))];
+    const minD = dates[0], maxD = dates[dates.length - 1];
+    if (dIn) {
+      dIn.min = minD;
+      dIn.max = maxD;
+      if (!dIn.value || dIn.value < minD || dIn.value > maxD) dIn.value = minD;
+    }
+    const selDate = dIn ? dIn.value : minD;
+    const dayTimes = times.filter(t => t.startsWith(selDate));
+    if (hSel) {
+      const prev = hSel.value;
+      hSel.innerHTML = "";
+      dayTimes.forEach(t => {
+        const hh = t.slice(11, 16) + ":00";
+        const opt = document.createElement("option");
+        opt.value = hh;
+        opt.textContent = t.slice(11, 16) + " UTC";
+        hSel.appendChild(opt);
+      });
+      if (prev && [...hSel.options].some(o => o.value === prev)) hSel.value = prev;
+      else if (hSel.options.length) hSel.value = hSel.options[0].value;
+    }
+    const selH = hSel ? hSel.value : "00:00:00";
+    if (badge) {
+      badge.textContent = `ECMWF · ${minD} .. ${maxD} · ${selDate} ${selH}`;
     }
   }
 
-  document.addEventListener("DOMContentLoaded", cleanPlayAndBadges);
-  setInterval(cleanPlayAndBadges, 600);
+  async function fetchEcmwfData() {
+    const lats = POINTS.map(p => p.lat).join(",");
+    const lons = POINTS.map(p => p.lon).join(",");
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.om)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("ECMWF HTTP " + res.status);
+    return await res.json();
+  }
+
+  function renderMapAndReadout(payload) {
+    const list = Array.isArray(payload) ? payload : [payload];
+    const times = (list[0] && list[0].hourly && list[0].hourly.time) || [];
+    ensureDateHourControls(times);
+
+    const dIn = document.getElementById("date-input");
+    const hSel = document.getElementById("hour-select");
+    const selDate = (dIn && dIn.value) || (times[0] && times[0].slice(0, 10)) || "2026-11-26";
+    const selHM = ((hSel && hSel.value) || "00:00:00").slice(0, 5);
+    const targetIso = `${selDate}T${selHM}`;
+    let tIdx = times.indexOf(targetIso);
+    if (tIdx < 0 && times.length) {
+      tIdx = times.findIndex(t => t.startsWith(selDate));
+      if (tIdx < 0) tIdx = 0;
+    }
+
+    const vals = list.map((item, idx) => {
+      const arr = (item && item.hourly && item.hourly[curVar.om]) || [];
+      const raw = arr[tIdx];
+      return {
+        ...POINTS[idx],
+        val: (typeof raw === "number" && Number.isFinite(raw)) ? raw : null,
+        time: times[tIdx] || targetIso
+      };
+    });
+
+    const finiteVals = vals.map(v => v.val).filter(v => v !== null);
+    const minV = finiteVals.length ? Math.min(...finiteVals) : curVar.min;
+    const maxV = finiteVals.length ? Math.max(...finiteVals) : curVar.max;
+
+    const cTitle = document.getElementById("cbar-title");
+    const cUnit = document.getElementById("cbar-unit");
+    const cTicks = document.getElementById("cbar-ticks");
+    if (cTitle) cTitle.textContent = curVar.name;
+    if (cUnit) cUnit.textContent = curVar.unit;
+    if (cTicks) {
+      cTicks.innerHTML = `<span>${minV.toFixed(1)} ${curVar.unit}</span><span>${((minV + maxV) / 2).toFixed(1)}</span><span>${maxV.toFixed(1)} ${curVar.unit}</span>`;
+    }
+
+    if (typeof map !== "undefined" && map && typeof L !== "undefined") {
+      if (!layerGroup) {
+        layerGroup = L.layerGroup().addTo(map);
+      }
+      layerGroup.clearLayers();
+      vals.forEach(pt => {
+        const col = pt.val !== null ? colorForVal(pt.val, minV, maxV) : "#64748b";
+        const circle = L.circleMarker([pt.lat, pt.lon], {
+          radius: 13,
+          color: "#0f172a",
+          weight: 1.5,
+          fillColor: col,
+          fillOpacity: 0.88
+        }).addTo(layerGroup);
+        const labelVal = pt.val !== null ? `${pt.val.toFixed(1)} ${curVar.unit}` : "Veri yok";
+        circle.bindTooltip(`${pt.name}: ${labelVal}`, { direction: "top" });
+        circle.on("click", () => {
+          curPoint = { name: pt.name, lat: pt.lat, lon: pt.lon };
+          renderMapAndReadout(payload);
+        });
+      });
+    }
+
+    // Secili veya en yakin noktayi bul
+    let chosen = vals[0] || { name: curPoint.name, lat: curPoint.lat, lon: curPoint.lon, val: null, time: targetIso };
+    let bestDist = Infinity;
+    vals.forEach(v => {
+      const d = Math.hypot(v.lat - curPoint.lat, v.lon - curPoint.lon);
+      if (d < bestDist) {
+        bestDist = d;
+        chosen = v;
+      }
+    });
+
+    const valText = chosen.val !== null ? `${chosen.val.toFixed(2)} ${curVar.unit}` : `Veri yok (${curVar.unit})`;
+    const coordStr = `${Number(curPoint.lat).toFixed(4)}, ${Number(curPoint.lon).toFixed(4)}`;
+    const istClock = new Date().toLocaleTimeString("tr-TR", { timeZone: "Europe/Istanbul", hour: "2-digit", minute: "2-digit" });
+
+    const topLoc = document.getElementById("top-loc-coord");
+    const topVal = document.getElementById("top-var-val");
+    const probe = document.getElementById("probe");
+
+    if (topLoc) topLoc.textContent = `${chosen.name} (${coordStr})`;
+    if (topVal) topVal.textContent = `${curVar.name}: ${valText} · ${chosen.time.replace("T", " ")} UTC / ${istClock} TSİ`;
+    if (probe) {
+      probe.textContent = `ECMWF | ${chosen.name} (${coordStr}) | ${chosen.time.replace("T", " ")} UTC / ${istClock} TSİ | ${curVar.name}: ${valText}`;
+    }
+  }
+
+  async function refreshEcmwf() {
+    removePlayAndSyncClock();
+    try {
+      if (!seriesCache || seriesCache.varKey !== curVar.key) {
+        const data = await fetchEcmwfData();
+        seriesCache = { varKey: curVar.key, data };
+      }
+      renderMapAndReadout(seriesCache.data);
+    } catch (e) {
+      const probe = document.getElementById("probe");
+      if (probe) probe.textContent = `ECMWF bağlantı uyarısı: ${e.message}`;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    buildVarButtons();
+    const dIn = document.getElementById("date-input");
+    const hSel = document.getElementById("hour-select");
+    const reloadBtn = document.getElementById("btn-reload");
+    if (dIn) dIn.addEventListener("change", () => seriesCache && renderMapAndReadout(seriesCache.data));
+    if (hSel) hSel.addEventListener("change", () => seriesCache && renderMapAndReadout(seriesCache.data));
+    if (reloadBtn) reloadBtn.addEventListener("click", () => { seriesCache = null; refreshEcmwf(); });
+    if (typeof map !== "undefined" && map) {
+      map.on("click", (e) => {
+        curPoint = { name: "Seçili Nokta", lat: e.latlng.lat, lon: e.latlng.lng };
+        if (seriesCache) renderMapAndReadout(seriesCache.data);
+      });
+    }
+    refreshEcmwf();
+  });
+
+  setInterval(removePlayAndSyncClock, 1000);
+  setTimeout(refreshEcmwf, 500);
 })();
 </script>
 
