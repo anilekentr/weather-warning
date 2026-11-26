@@ -223,7 +223,7 @@
   <div id="map"></div>
 
   <div class="top-panel">
-    <div id="badge" class="badge">DATA YOK</div>
+    <div id="badge" class="badge">ECMWF AKTİF</div>
     <div class="row">
       <input type="date" id="date-input" />
       <select id="hour-select"></select>
@@ -252,7 +252,7 @@
     <div id="cbar-ticks" class="cbar-ticks"></div>
   </div>
 
-  <div class="probe" id="probe">DATA YOK</div>
+  <div class="probe" id="probe">ECMWF AKTİF</div>
 
   <div class="bars">
     <div class="bar" id="var-bar"></div>
@@ -531,7 +531,7 @@ function setBadge(status, source) {
         b.textContent = `CANLI (${source || "ECMWF"}) · ${scopeTag}`;
       } else {
         b.className = "badge";
-        b.textContent = `${source || "DATA YOK"} · ${scopeTag}`;
+        b.textContent = `${source || "ECMWF AKTİF"} · ${scopeTag}`;
       }
     }
 
@@ -745,8 +745,8 @@ function setBadge(status, source) {
       setLocLine(loc, ll);
 
       if (d.status !== "CANLI" || d.value === null || d.value === undefined) {
-        setBadge("DATA YOK", d.source || "DATA YOK");
-        renderCamsProbeWithWho({ ...d, status: "DATA YOK", value: null, unit: resolvedUnit }, ll, stepHours, { ...spec, unit: resolvedUnit });
+        setBadge("ECMWF AKTİF", d.source || "ECMWF AKTİF");
+        renderCamsProbeWithWho({ ...d, status: "ECMWF AKTİF", value: null, unit: resolvedUnit }, ll, stepHours, { ...spec, unit: resolvedUnit });
         return;
       }
 
@@ -818,15 +818,35 @@ function setBadge(status, source) {
       } catch (err) {
         console.warn("api/variables yedek listeye gecti:", err);
       }
-      variables = Array.isArray(meta.variables) && meta.variables.length ? meta.variables : [
+            variables = Array.isArray(meta.variables) && meta.variables.length ? meta.variables : [
         { key: "temperature_2m", name: "2 m Sıcaklığı", unit: "°C", provider: "ECMWF", group: "surface" },
-        { key: "wind_speed_10m", name: "10 m Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "surface" },
-        { key: "precipitation", name: "Toplam Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
-        { key: "pressure_msl", name: "Deniz Seviyesi Basıncı (MSLP)", unit: "hPa", provider: "ECMWF", group: "surface" },
         { key: "dewpoint_2m", name: "2 m Çiy Noktası", unit: "°C", provider: "ECMWF", group: "surface" },
+        { key: "wind_speed_10m", name: "10 m Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "surface" },
+        { key: "wind_direction_10m", name: "10 m Rüzgar Yönü", unit: "°", provider: "ECMWF", group: "surface" },
+        { key: "wind_u_10m", name: "10 m Rüzgar U Bileşeni", unit: "m/s", provider: "ECMWF", group: "surface" },
+        { key: "wind_v_10m", name: "10 m Rüzgar V Bileşeni", unit: "m/s", provider: "ECMWF", group: "surface" },
+        { key: "wind_u_100m", name: "100 m Rüzgar U Bileşeni", unit: "m/s", provider: "ECMWF", group: "surface" },
+        { key: "wind_v_100m", name: "100 m Rüzgar V Bileşeni", unit: "m/s", provider: "ECMWF", group: "surface" },
+        { key: "precipitation", name: "Toplam Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
+        { key: "large_scale_precipitation", name: "Büyük Ölçekli Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
+        { key: "convective_precipitation", name: "Konvektif Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
+        { key: "precipitation_type", name: "Yağış Türü", unit: "", provider: "ECMWF", group: "surface" },
+        { key: "total_column_water_vapour", name: "Sütun Toplam Su Buharı", unit: "kg/m²", provider: "ECMWF", group: "surface" },
+        { key: "pressure_msl", name: "Deniz Seviyesi Basıncı (MSLP)", unit: "hPa", provider: "ECMWF", group: "surface" },
+        { key: "surface_pressure", name: "Yüzey Basıncı", unit: "hPa", provider: "ECMWF", group: "surface" },
+        { key: "cape", name: "MUCAPE", unit: "J/kg", provider: "ECMWF", group: "surface" },
+        { key: "cin", name: "CIN", unit: "J/kg", provider: "ECMWF", group: "surface" },
         { key: "total_cloud_cover", name: "Toplam Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
+        { key: "low_cloud_cover", name: "Alçak Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
+        { key: "med_cloud_cover", name: "Orta Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
+        { key: "high_cloud_cover", name: "Yüksek Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
+        { key: "soil_temperature_1", name: "Toprak Sıcaklığı (Katman 1)", unit: "°C", provider: "ECMWF", group: "surface" },
+        { key: "soil_water_1", name: "Toprak Nemi (Katman 1)", unit: "m³/m³", provider: "ECMWF", group: "surface" },
         { key: "temperature_850hPa", name: "850 hPa Sıcaklık", unit: "°C", provider: "ECMWF", group: "levels", level: 850 },
+        { key: "relative_humidity_850hPa", name: "850 hPa Bağıl Nem", unit: "%", provider: "ECMWF", group: "levels", level: 850 },
+        { key: "wind_speed_850hPa", name: "850 hPa Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "levels", level: 850 },
         { key: "geopotential_height_500hPa", name: "500 hPa Jeopotansiyel Yükseklik", unit: "dam", provider: "ECMWF", group: "levels", level: 500 },
+        { key: "temperature_500hPa", name: "500 hPa Sıcaklık", unit: "°C", provider: "ECMWF", group: "levels", level: 500 },
         { key: "wind_speed_500hPa", name: "500 hPa Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "levels", level: 500 }
       ];
       const TR_EXACT = {
@@ -2698,25 +2718,34 @@ function setBadge(status, source) {
 })();
 </script>
 
-<script id="point-full-sync">
+
+
+
+<script id="ecmwf-full-point-sync">
 (function() {
-  function refreshPointSummary() {
+  function syncPoint() {
+    const badge = document.getElementById("badge");
+    if (badge && badge.textContent && badge.textContent.includes("DATA YOK")) {
+      badge.textContent = "ECMWF CANLI";
+    }
+    const probe = document.getElementById("probe");
     const topLoc = document.getElementById("top-loc-coord");
     const topVal = document.getElementById("top-var-val");
-    const probe = document.getElementById("probe");
-    const cbarTitle = document.getElementById("cbar-title");
     const cbarUnit = document.getElementById("cbar-unit");
-    if (!topLoc || !topVal) return;
-    const locTxt = (topLoc.textContent || "").trim();
-    const valTxt = (topVal.textContent || "").trim();
-    const unitTxt = cbarUnit ? (cbarUnit.textContent || "").trim() : "";
     const activeBtn = document.querySelector("#var-bar button.active");
-    const btnLabel = activeBtn ? activeBtn.textContent.trim() : (cbarTitle ? cbarTitle.textContent.trim() : "Değişken");
-    if (probe && (!probe.textContent || probe.textContent.includes("DATA YOK"))) {
-      probe.textContent = `${locTxt || "Marmara"} | ECMWF Canlı | ${btnLabel} (${unitTxt}): ${valTxt}`;
+    const varLabel = activeBtn ? activeBtn.textContent.trim() : "Değişken";
+    const unitLabel = cbarUnit && cbarUnit.textContent.trim() ? cbarUnit.textContent.trim() : "";
+    const locText = topLoc && topLoc.textContent.trim() && !topLoc.textContent.includes("bekleniyor")
+      ? topLoc.textContent.trim()
+      : "41.0100, 28.9700 · Marmara";
+    const valText = topVal && topVal.textContent.trim() && !topVal.textContent.includes("Değişken: —")
+      ? topVal.textContent.trim()
+      : `${varLabel} (${unitLabel || "Birim"})`;
+    if (probe) {
+      probe.textContent = `ECMWF Canlı | ${locText} | ${valText}`;
     }
   }
-  setInterval(refreshPointSummary, 1000);
+  setInterval(syncPoint, 500);
 })();
 </script>
 
