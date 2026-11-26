@@ -312,9 +312,10 @@
     
     
     
-    /* === EKEN WEATHER VERIFIED LIVE ECMWF UI === */
+    
+    /* === EKEN WEATHER SMOOTH GRADIENT LAYER & SINGLE PANEL === */
     :root {
-      --ew-bg: rgba(9, 17, 34, 0.93);
+      --ew-bg: rgba(9, 17, 34, 0.92);
       --ew-border: rgba(56, 189, 248, 0.34);
       --ew-accent: #38bdf8;
       --ew-text: #f8fafc;
@@ -367,7 +368,7 @@
       color: var(--ew-text) !important;
     }
 
-    #ew-clean-panel {
+    #ew-single-panel {
       position: fixed !important;
       top: 90px !important;
       left: 12px !important;
@@ -837,21 +838,13 @@
   </script>
 
 
-<audio id="bg-music" src="/ambient.mp3" autoplay loop preload="auto" playsinline></audio>
-  <div id="music-bar">
-    <span id="music-title" style="display:none;">♪ Eken Weather — Atmospheric Forecast Music</span>
-    <button id="music-toggle" type="button" class="ew-mbtn" style="border-radius:999px;">♪ Müzik: Açık</button>
-  </div>
-
-  
-
 
   <div id="brand-logo">
     <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
     <span class="logo-text">Eken Weather</span>
   </div>
 
-  <div id="ew-clean-panel">
+  <div id="ew-single-panel">
     <div class="ew-box">
       <div class="ew-row"><span class="ew-k">Koordinat:</span><span id="ew-coord" class="ew-v">Haritaya tıklayın</span></div>
       <div class="ew-row"><span class="ew-k">İl:</span><span id="ew-city" class="ew-v">—</span></div>
@@ -878,13 +871,12 @@
       temp: [[0,"#2563eb"],[0.25,"#06b6d4"],[0.5,"#22c55e"],[0.75,"#eab308"],[1,"#dc2626"]],
       cold: [[0,"#312e81"],[0.35,"#2563eb"],[0.7,"#38bdf8"],[1,"#e2e8f0"]],
       hum:  [[0,"#d97706"],[0.4,"#eab308"],[0.75,"#38bdf8"],[1,"#1d4ed8"]],
-      rain: [[0,"rgba(56,189,248,0.08)"],[0.25,"#38bdf8"],[0.55,"#2563eb"],[0.8,"#a855f7"],[1,"#f43f5e"]],
+      rain: [[0,"rgba(56,189,248,0.12)"],[0.25,"#38bdf8"],[0.55,"#2563eb"],[0.8,"#a855f7"],[1,"#f43f5e"]],
       pres: [[0,"#1e3a8a"],[0.35,"#0284c7"],[0.65,"#10b981"],[1,"#ef4444"]],
       wind: [[0,"#0284c7"],[0.35,"#22c55e"],[0.7,"#eab308"],[1,"#dc2626"]],
       rad:  [[0,"#0f172a"],[0.3,"#4f46e5"],[0.6,"#eab308"],[1,"#f97316"]]
     };
 
-    // Doğrulanmış ECMWF / Open-Meteo IFS değişken katalogu (sınır ve fiziksel kontrolle)
     const VERIFIED_VARS = [
       { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: -50, max: 55, scaleMin: -5, scaleMax: 35, stops: PAL.temp },
       { code: "app_t", om: "apparent_temperature", name: "Hissedilen T", unit: "°C", min: -55, max: 60, scaleMin: -5, scaleMax: 40, stops: PAL.temp },
@@ -925,19 +917,19 @@
     let curVar = VERIFIED_VARS[0];
     let lastPt = null;
     let mapRef = null;
-    let liveLayerGroup = null;
+    let smoothCanvasLayer = null;
     let clickMarker = null;
-    let lastAudit = { status: "Bekleniyor", validCount: 0, totalCount: 0, time: "—", valText: "—", locText: "—" };
+    let lastGridSamples = [];
+    let lastAudit = { status: "Kontrol ediliyor...", validCount: 0, totalCount: 0, time: "—", valText: "—", locText: "—" };
 
     const listEl = document.getElementById("ew-var-list");
     const auditBox = document.getElementById("ew-audit-box");
     const infoBtn = document.getElementById("ew-bottom-info-btn");
 
-    // Fiziksel aralık ve sayısal geçerlilik doğrulaması
-    const validateEcmwfSample = (rawVal, v) => {
-      if (typeof rawVal !== "number" || !Number.isFinite(rawVal)) return { ok: false, val: null, reason: "Sayısal değil / null" };
-      if (rawVal < v.min || rawVal > v.max) return { ok: false, val: rawVal, reason: `Sınır dışı (${v.min}..${v.max})` };
-      return { ok: true, val: rawVal, reason: "Doğrulandı" };
+    const validateSample = (rawVal, v) => {
+      if (typeof rawVal !== "number" || !Number.isFinite(rawVal)) return { ok: false, val: null, reason: "Veri yok" };
+      if (rawVal < v.min || rawVal > v.max) return { ok: false, val: rawVal, reason: "Sınır dışı" };
+      return { ok: true, val: rawVal, reason: "Canlı" };
     };
 
     const buildGrad = (v) => {
@@ -951,7 +943,7 @@
       return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
     };
 
-    const valToRgba = (val, v, alpha = 0.48) => {
+    const valToRgb = (val, v) => {
       const ratio = Math.max(0, Math.min(1, (val - v.scaleMin) / (v.scaleMax - v.scaleMin || 1)));
       let s0 = v.stops[0], s1 = v.stops[v.stops.length - 1];
       for (let i = 0; i < v.stops.length - 1; i++) {
@@ -965,7 +957,11 @@
       const t = (ratio - s0[0]) / span;
       const c0 = hexToRgb(s0[1]);
       const c1 = hexToRgb(s1[1]);
-      return `rgba(${Math.round(c0[0] + (c1[0] - c0[0]) * t)}, ${Math.round(c0[1] + (c1[1] - c0[1]) * t)}, ${Math.round(c0[2] + (c1[2] - c0[2]) * t)}, ${alpha})`;
+      return [
+        Math.round(c0[0] + (c1[0] - c0[0]) * t),
+        Math.round(c0[1] + (c1[1] - c0[1]) * t),
+        Math.round(c0[2] + (c1[2] - c0[2]) * t)
+      ];
     };
 
     const paintCbar = (v) => {
@@ -986,11 +982,75 @@
       if (!auditBox) return;
       auditBox.innerHTML = `
         <div><strong>Değişken:</strong> ${curVar.name} (<code>${curVar.om}</code>) [${curVar.unit}]</div>
-        <div><strong>Doğrulama Durumu:</strong> ${lastAudit.status} (${lastAudit.validCount}/${lastAudit.totalCount} geçerli nokta)</div>
-        <div><strong>Kontrol Aralığı:</strong> ${curVar.min} .. ${curVar.max} ${curVar.unit} | <strong>Skala:</strong> ${curVar.scaleMin}..${curVar.scaleMax}</div>
-        <div><strong>Son Nokta Değeri:</strong> ${lastAudit.valText}</div>
-        <div><strong>Konum:</strong> ${lastAudit.locText} | <strong>Zaman:</strong> ${lastAudit.time}</div>
+        <div><strong>Canlı Durum:</strong> ${lastAudit.status} (${lastAudit.validCount}/${lastAudit.totalCount} nokta)</div>
+        <div><strong>Skala:</strong> ${curVar.scaleMin} .. ${curVar.scaleMax} ${curVar.unit} | <strong>Zaman:</strong> ${lastAudit.time}</div>
+        <div><strong>Son Nokta:</strong> ${lastAudit.valText}</div>
+        <div><strong>Konum:</strong> ${lastAudit.locText}</div>
       `;
+    };
+
+    const drawSmoothLayerOnCanvas = (canvas) => {
+      if (!mapRef || !canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (!lastGridSamples.length) return;
+
+      // IDW (ters mesafe ağırlıklı) pürüzsüz harita gradyanı
+      const step = 10;
+      for (let py = 0; py < h; py += step) {
+        for (let px = 0; px < w; px += step) {
+          const ll = mapRef.containerPointToLatLng([px + step * 0.5, py + step * 0.5]);
+          let num = 0, den = 0;
+          for (let i = 0; i < lastGridSamples.length; i++) {
+            const s = lastGridSamples[i];
+            const dLat = ll.lat - s.lat;
+            const dLng = ll.lng - s.lng;
+            const dist2 = dLat * dLat + dLng * dLng + 0.04;
+            const weight = 1 / Math.pow(dist2, 1.4);
+            num += s.val * weight;
+            den += weight;
+          }
+          if (den > 0) {
+            const interp = num / den;
+            const [r, g, b] = valToRgb(interp, curVar);
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.42)`;
+            ctx.fillRect(px, py, step + 1, step + 1);
+          }
+        }
+      }
+    };
+
+    const ensureSmoothLayer = () => {
+      if (!mapRef || typeof L === "undefined" || smoothCanvasLayer) return;
+      const SmoothOverlay = L.Layer.extend({
+        onAdd(map) {
+          this._map = map;
+          this._canvas = L.DomUtil.create("canvas", "ew-smooth-canvas");
+          this._canvas.style.position = "absolute";
+          this._canvas.style.pointerEvents = "none";
+          this._canvas.style.zIndex = "350";
+          map.getPanes().overlayPane.appendChild(this._canvas);
+          map.on("moveend zoomend resize", this._reset, this);
+          this._reset();
+        },
+        onRemove(map) {
+          L.DomUtil.remove(this._canvas);
+          map.off("moveend zoomend resize", this._reset, this);
+        },
+        _reset() {
+          if (!this._map || !this._canvas) return;
+          const size = this._map.getSize();
+          const topLeft = this._map.containerPointToLayerPoint([0, 0]);
+          L.DomUtil.setPosition(this._canvas, topLeft);
+          this._canvas.width = size.x;
+          this._canvas.height = size.y;
+          drawSmoothLayerOnCanvas(this._canvas);
+        }
+      });
+      smoothCanvasLayer = new SmoothOverlay().addTo(mapRef);
     };
 
     const fetchVerifiedEcmwf = async (latStr, lonStr, v) => {
@@ -1002,23 +1062,20 @@
       return rows.map(item => {
         const raw = item?.current?.[v.om] ?? (Array.isArray(item?.hourly?.[v.om]) ? item.hourly[v.om][0] : undefined);
         const time = item?.current?.time ? item.current.time.replace("T", " ") : "—";
-        const check = validateEcmwfSample(raw, v);
-        return { ...check, time };
+        return { ...validateSample(raw, v), time };
       });
     };
 
-    const refreshLiveLayer = async () => {
-      if (!mapRef || typeof L === "undefined") return;
-      if (!liveLayerGroup) liveLayerGroup = L.layerGroup().addTo(mapRef);
-      liveLayerGroup.clearLayers();
-
+    const refreshSmoothMap = async () => {
+      if (!mapRef) return;
+      ensureSmoothLayer();
       const b = mapRef.getBounds();
       const s = Math.max(35.0, b.getSouth());
       const n = Math.min(43.5, b.getNorth());
       const w = Math.max(25.0, b.getWest());
       const e = Math.min(45.0, b.getEast());
 
-      const rows = 5, cols = 6;
+      const rows = 4, cols = 5;
       const gLat = [], gLon = [];
       for (let r = 0; r < rows; r++) {
         const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(3));
@@ -1031,27 +1088,22 @@
 
       try {
         const samples = await fetchVerifiedEcmwf(gLat.join(","), gLon.join(","), curVar);
-        let valid = 0;
+        const validPts = [];
         samples.forEach((smp, i) => {
           if (!smp.ok) return;
-          valid++;
           if (smp.time !== "—") lastAudit.time = smp.time;
-          const col = valToRgba(smp.val, curVar, 0.48);
-          L.circleMarker([gLat[i], gLon[i]], {
-            radius: 28,
-            color: col,
-            fillColor: col,
-            fillOpacity: 0.48,
-            weight: 0,
-            interactive: false
-          }).addTo(liveLayerGroup);
+          validPts.push({ lat: gLat[i], lng: gLon[i], val: smp.val });
         });
+        lastGridSamples = validPts;
         lastAudit.totalCount = samples.length;
-        lastAudit.validCount = valid;
-        lastAudit.status = valid > 0 ? "Canlı Veri Doğrulandı" : "Bu Alan İçin Veri Yok";
+        lastAudit.validCount = validPts.length;
+        lastAudit.status = validPts.length > 0 ? "Canlı Veri Aktif" : "Veri Yok";
+        if (smoothCanvasLayer && smoothCanvasLayer._canvas) {
+          drawSmoothLayerOnCanvas(smoothCanvasLayer._canvas);
+        }
         renderAuditBox();
-      } catch (err) {
-        lastAudit.status = "API Kontrol Hatası";
+      } catch (_) {
+        lastAudit.status = "Veri Alınamadı";
         renderAuditBox();
       }
     };
@@ -1076,21 +1128,21 @@
 
       if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
       if (vlEl) vlEl.textContent = `${curVar.name} (${curVar.code}):`;
-      if (vvEl) vvEl.textContent = "Kontrol ediliyor...";
+      if (vvEl) vvEl.textContent = "Yükleniyor...";
 
       try {
-        const resArr = await fetchVerifiedEcmwf(lat.toFixed(4), lng.toFixed(4), curVar);
-        const s0 = resArr[0];
+        const arr = await fetchVerifiedEcmwf(lat.toFixed(4), lng.toFixed(4), curVar);
+        const s0 = arr[0];
         if (s0 && s0.time !== "—") lastAudit.time = s0.time;
         if (s0 && s0.ok) {
-          lastAudit.valText = `${Number(s0.val).toFixed(2)} ${curVar.unit} (${s0.reason})`;
-          if (vvEl) vvEl.textContent = `${Number(s0.val).toFixed(2)} ${curVar.unit}`;
+          lastAudit.valText = `${Number(s0.val).toFixed(2)} ${curVar.unit}`;
+          if (vvEl) vvEl.textContent = lastAudit.valText;
         } else {
           lastAudit.valText = s0 ? s0.reason : "Veri yok";
           if (vvEl) vvEl.textContent = lastAudit.valText;
         }
       } catch (_) {
-        lastAudit.valText = "Veri doğrulanamadı";
+        lastAudit.valText = "Veri alınamadı";
         if (vvEl) vvEl.textContent = lastAudit.valText;
       }
 
@@ -1121,9 +1173,7 @@
       renderList();
       const vlEl = document.getElementById("ew-vlabel");
       if (vlEl) vlEl.textContent = `${v.name} (${v.code}):`;
-      lastAudit.status = "Doğrulanıyor...";
-      renderAuditBox();
-      refreshLiveLayer();
+      refreshSmoothMap();
       if (lastPt) inspectPoint(lastPt.lat, lastPt.lng);
     };
 
@@ -1152,7 +1202,7 @@
       });
     }
 
-    const panelEl = document.getElementById("ew-clean-panel");
+    const panelEl = document.getElementById("ew-single-panel");
     if (panelEl) {
       panelEl.addEventListener("click", (ev) => ev.stopPropagation());
       panelEl.addEventListener("mousedown", (ev) => ev.stopPropagation());
@@ -1162,17 +1212,17 @@
       const m = window.map || Object.values(window).find(x => x && typeof x.on === "function" && typeof x.getCenter === "function");
       if (m) {
         mapRef = m;
-        if (!m._ewCleanHooked) {
-          m._ewCleanHooked = true;
+        if (!m._ewSmoothHooked) {
+          m._ewSmoothHooked = true;
           m.on("click", (e) => {
             if (!e || !e.latlng) return;
             lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
             inspectPoint(lastPt.lat, lastPt.lng);
           });
           m.on("moveend", () => {
-            refreshLiveLayer();
+            refreshSmoothMap();
           });
-          refreshLiveLayer();
+          refreshSmoothMap();
         }
       }
       document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
