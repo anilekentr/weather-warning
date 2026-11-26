@@ -151,18 +151,27 @@
 
 
 
+
+
+
 <style id="eken-live-ecmwf-style">
   button[id*="play"], button[class*="play"], button[id*="oyna"], button[class*="oyna"],
+  [id*="play-btn"], [class*="play-btn"], [id*="oynat"], [class*="oynat"],
   #tr-corner-flag-badge, [id*="music"], [class*="music"] {
     display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
   .top-panel {
     position: fixed !important;
     top: 12px !important;
     left: 12px !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
     z-index: 950 !important;
     width: 350px !important;
-    max-width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 250px) !important;
     background: rgba(11, 17, 30, 0.92) !important;
     border: 1px solid rgba(148, 163, 184, 0.35) !important;
     border-radius: 10px !important;
@@ -174,6 +183,9 @@
     position: fixed !important;
     top: 12px !important;
     right: 12px !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: none !important;
     z-index: 950 !important;
     width: 220px !important;
     background: rgba(11, 17, 30, 0.92) !important;
@@ -193,10 +205,13 @@
   #probe {
     position: fixed !important;
     left: 12px !important;
-    bottom: 125px !important;
+    right: auto !important;
+    bottom: 132px !important;
+    top: auto !important;
+    transform: none !important;
     z-index: 960 !important;
-    max-width: 470px !important;
-    background: rgba(11, 17, 30, 0.92) !important;
+    max-width: 480px !important;
+    background: rgba(11, 17, 30, 0.94) !important;
     border: 1px solid rgba(148, 163, 184, 0.35) !important;
     border-radius: 8px !important;
     padding: 8px 10px !important;
@@ -209,15 +224,27 @@
     left: 140px !important;
     right: 12px !important;
     bottom: 12px !important;
+    top: auto !important;
     transform: none !important;
     max-width: calc(100vw - 152px) !important;
     z-index: 950 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
     align-items: flex-start !important;
   }
   .bar {
+    position: static !important;
+    transform: none !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
     justify-content: flex-start !important;
+    width: 100% !important;
   }
   .bar button, .top-panel button {
+    position: static !important;
+    transform: none !important;
     flex-shrink: 0 !important;
     white-space: nowrap !important;
   }
@@ -2798,6 +2825,9 @@ function setBadge(status, source) {
 
 
 
+
+
+
 <script id="eken-live-ecmwf-app">
 (function() {
   const VARS = [
@@ -2816,7 +2846,6 @@ function setBadge(status, source) {
     { key: "wind_speed_500hPa", om: "wind_speed_500hPa", name: "500 hPa Rüzgar Hızı", unit: "m/s", min: 0, max: 50, palette: [[22,163,74],[132,204,22],[234,179,8],[249,115,22],[220,38,38]] }
   ];
 
-  // Marmara + cevre + kuresel dagilim icin yogun orneklem noktalari
   const SAMPLE_POINTS = (() => {
     const pts = [];
     for (let lat = 38.0; lat <= 43.0; lat += 0.6) {
@@ -2840,12 +2869,15 @@ function setBadge(status, source) {
   let pointPayload = null;
   let smoothCanvas = null;
   let smoothCtx = null;
+  let lastGoodValStr = null;
 
   function killOynat() {
-    document.querySelectorAll("button").forEach(b => {
-      const txt = (b.textContent || "").trim().toLowerCase();
-      if (txt.includes("oynat") || txt.includes("oyna") || txt.includes("play")) {
-        b.remove();
+    document.querySelectorAll("button, a, div, span").forEach(el => {
+      if (el.children.length > 0) return;
+      const txt = (el.textContent || "").trim().toLowerCase();
+      const idc = ((el.id || "") + " " + (el.className || "")).toLowerCase();
+      if (txt === "oynat" || txt === "oyna" || txt === "play" || idc.includes("oynat") || idc.includes("oyna")) {
+        el.remove();
       }
     });
   }
@@ -2906,6 +2938,7 @@ function setBadge(status, source) {
         bar.querySelectorAll("button").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         curVar = v;
+        lastGoodValStr = null;
         applyPaletteToColorbar(v);
         fieldPayload = null;
         pointPayload = null;
@@ -2916,22 +2949,28 @@ function setBadge(status, source) {
     applyPaletteToColorbar(curVar);
   }
 
-  function getSelectedTimeIndex(times) {
+  function syncHourOptionsForDate(times, rebuildOptions) {
     const dIn = document.getElementById("date-input");
     const hSel = document.getElementById("hour-select");
     const badge = document.getElementById("badge");
-    if (!times || !times.length) return 0;
+    if (!times || !times.length) {
+      return { idx: 0, dtIso: new Date().toISOString().slice(0, 16) };
+    }
 
     const dates = [...new Set(times.map(t => t.slice(0, 10)))];
     const minD = dates[0], maxD = dates[dates.length - 1];
     if (dIn) {
       dIn.min = minD;
       dIn.max = maxD;
-      if (!dIn.value || dIn.value < minD || dIn.value > maxD) dIn.value = minD;
+      if (!dIn.value || dIn.value < minD || dIn.value > maxD) {
+        const nowUtcDay = new Date().toISOString().slice(0, 10);
+        dIn.value = dates.includes(nowUtcDay) ? nowUtcDay : minD;
+      }
     }
     const selD = dIn ? dIn.value : minD;
     const dayTimes = times.filter(t => t.startsWith(selD));
-    if (hSel) {
+
+    if (hSel && (rebuildOptions || hSel.options.length === 0)) {
       const prev = hSel.value;
       hSel.innerHTML = "";
       dayTimes.forEach(t => {
@@ -2941,16 +2980,23 @@ function setBadge(status, source) {
         opt.textContent = t.slice(11, 16) + " UTC";
         hSel.appendChild(opt);
       });
-      if (prev && [...hSel.options].some(o => o.value === prev)) hSel.value = prev;
-      else if (hSel.options.length) hSel.value = hSel.options[0].value;
+      if (prev && [...hSel.options].some(o => o.value === prev)) {
+        hSel.value = prev;
+      } else if (hSel.options.length) {
+        const nowUtcHour = String(new Date().getUTCHours()).padStart(2, "0") + ":00:00";
+        const matchNow = [...hSel.options].find(o => o.value === nowUtcHour);
+        hSel.value = matchNow ? matchNow.value : hSel.options[0].value;
+      }
     }
-    const selH = hSel ? hSel.value : "00:00:00";
+
+    const selH = (hSel && hSel.value) || (dayTimes[0] ? dayTimes[0].slice(11, 16) + ":00" : "00:00:00");
     if (badge) badge.textContent = `ECMWF · ${minD} .. ${maxD} · ${selD} ${selH}`;
 
     const target = `${selD}T${selH.slice(0, 5)}`;
     let idx = times.indexOf(target);
     if (idx < 0) idx = times.findIndex(t => t.startsWith(selD));
-    return idx >= 0 ? idx : 0;
+    if (idx < 0) idx = 0;
+    return { idx, dtIso: times[idx] || target };
   }
 
   async function fetchFieldAndPoint() {
@@ -2989,13 +3035,13 @@ function setBadge(status, source) {
     }
   }
 
-  function renderSmoothField() {
+  function renderSmoothField(rebuildOptions) {
     ensureCanvasOverlay();
     if (!smoothCanvas || !smoothCtx || typeof map === "undefined" || !map || !fieldPayload) return;
 
     const list = Array.isArray(fieldPayload) ? fieldPayload : [fieldPayload];
     const times = (list[0] && list[0].hourly && list[0].hourly.time) || [];
-    const tIdx = getSelectedTimeIndex(times);
+    const { idx: tIdx } = syncHourOptionsForDate(times, rebuildOptions);
 
     const pts = [];
     list.forEach((item, i) => {
@@ -3004,11 +3050,7 @@ function setBadge(status, source) {
       const basePt = SAMPLE_POINTS[i];
       if (!basePt || typeof val !== "number" || !Number.isFinite(val)) return;
       const ptPx = map.latLngToContainerPoint([basePt.lat, basePt.lon]);
-      pts.push({
-        x: ptPx.x / 3,
-        y: ptPx.y / 3,
-        val
-      });
+      pts.push({ x: ptPx.x / 3, y: ptPx.y / 3, val });
     });
 
     if (!pts.length) return;
@@ -3031,7 +3073,6 @@ function setBadge(status, source) {
     const data = img.data;
     const pal = curVar.palette;
 
-    // Haritanin tamamini yumusak gradyanla kaplayan hizli IDW enterpolasyonu
     for (let y = 0; y < h; y += 2) {
       for (let x = 0; x < w; x += 2) {
         let wSum = 0, vSum = 0;
@@ -3059,20 +3100,31 @@ function setBadge(status, source) {
     smoothCtx.putImageData(img, 0, 0);
   }
 
-  function renderPointInfo() {
+  function renderPointInfo(rebuildOptions) {
     const times = (pointPayload && pointPayload.hourly && pointPayload.hourly.time) || [];
-    const tIdx = getSelectedTimeIndex(times);
+    const { idx: tIdx, dtIso } = syncHourOptionsForDate(times, rebuildOptions);
     const vals = (pointPayload && pointPayload.hourly && pointPayload.hourly[curVar.om]) || [];
     const raw = vals[tIdx];
-    const valStr = (typeof raw === "number" && Number.isFinite(raw)) ? `${raw.toFixed(2)} ${curVar.unit}` : `Veri yok (${curVar.unit})`;
-    const dtIso = times[tIdx] || "2026-11-26T00:00";
-    const utcStr = dtIso.replace("T", " ") + " UTC";
-    const istClock = new Date().toLocaleTimeString("tr-TR", {
+
+    let valStr;
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      valStr = `${raw.toFixed(2)} ${curVar.unit}`;
+      lastGoodValStr = valStr;
+    } else if (lastGoodValStr) {
+      valStr = lastGoodValStr;
+    } else {
+      valStr = `Yükleniyor (${curVar.unit})`;
+    }
+
+    const now = new Date();
+    const utcNowStr = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+    const istNowClock = now.toLocaleTimeString("tr-TR", {
       timeZone: "Europe/Istanbul",
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit"
     });
+    const stepUtcStr = dtIso.replace("T", " ") + " UTC";
     const coordStr = `${curCoord.lat.toFixed(4)}, ${curCoord.lon.toFixed(4)}`;
 
     const topLoc = document.getElementById("top-loc-coord");
@@ -3080,26 +3132,26 @@ function setBadge(status, source) {
     const probe = document.getElementById("probe");
 
     if (topLoc) topLoc.textContent = `${curAddress} (${coordStr})`;
-    if (topVal) topVal.textContent = `${curVar.name}: ${valStr} · ${utcStr} | İstanbul: ${istClock}`;
+    if (topVal) topVal.textContent = `${curVar.name} [${curVar.unit}]: ${valStr} · ${stepUtcStr}`;
     if (probe) {
-      probe.textContent = `${curAddress} (${coordStr}) | ${curVar.name}: ${valStr} | ${utcStr} | İstanbul: ${istClock}`;
+      probe.textContent = `${curAddress} (${coordStr}) | ${curVar.name}: ${valStr} | ${stepUtcStr} | ${utcNowStr} | İstanbul: ${istNowClock}`;
     }
 
     document.querySelectorAll("div, span, code, p").forEach(el => {
       if (el.children.length === 0 && /UTC/i.test(el.textContent || "")) {
         const base = (el.dataset.origUtc || el.textContent).split("|")[0].trim();
         el.dataset.origUtc = base;
-        el.textContent = `${base} | ${utcStr} | İstanbul: ${istClock}`;
+        el.textContent = `${base} | ${utcNowStr} | İstanbul: ${istNowClock}`;
       }
     });
   }
 
-  async function refreshAll(needAddr) {
+  async function refreshAll(needAddr, rebuildOptions) {
     killOynat();
     if (needAddr) await resolveFullAddress(curCoord.lat, curCoord.lon);
     await fetchFieldAndPoint();
-    renderSmoothField();
-    renderPointInfo();
+    renderSmoothField(rebuildOptions);
+    renderPointInfo(rebuildOptions);
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -3107,26 +3159,32 @@ function setBadge(status, source) {
     const dIn = document.getElementById("date-input");
     const hSel = document.getElementById("hour-select");
     const reloadBtn = document.getElementById("btn-reload");
-    if (dIn) dIn.addEventListener("change", () => { renderSmoothField(); renderPointInfo(); });
-    if (hSel) hSel.addEventListener("change", () => { renderSmoothField(); renderPointInfo(); });
+    if (dIn) dIn.addEventListener("change", () => {
+      renderSmoothField(true);
+      renderPointInfo(true);
+    });
+    if (hSel) hSel.addEventListener("change", () => {
+      renderSmoothField(false);
+      renderPointInfo(false);
+    });
     if (reloadBtn) reloadBtn.addEventListener("click", async () => {
       fieldPayload = null;
       pointPayload = null;
-      await refreshAll(true);
+      await refreshAll(true, true);
     });
     if (typeof map !== "undefined" && map) {
-      map.on("moveend zoomend resize", () => renderSmoothField());
+      map.on("moveend zoomend resize", () => renderSmoothField(false));
       map.on("click", async (e) => {
         curCoord = { lat: e.latlng.lat, lon: e.latlng.lng };
-        await refreshAll(true);
+        await refreshAll(true, false);
       });
     }
-    await refreshAll(true);
+    await refreshAll(true, true);
   });
 
   setInterval(() => {
     killOynat();
-    renderPointInfo();
+    renderPointInfo(false);
   }, 1000);
 })();
 </script>
