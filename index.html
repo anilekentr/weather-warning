@@ -2394,9 +2394,9 @@
 </script>
 <!-- EKEN WEATHER OFFICIAL LOGO END -->
 
-<!-- EKEN ATTRIBUTION & TR FLAG SYNC START -->
+
+<!-- EKEN TR FLAG & MUSIC FIX START -->
 <style>
-  /* Leaflet | © OpenStreetMap atif yazisini kaldir */
   .leaflet-control-attribution,
   .leaflet-bottom.leaflet-right .leaflet-control-attribution {
     display: none !important;
@@ -2405,32 +2405,34 @@
     pointer-events: none !important;
   }
 
-  /* Muzik oynatici / ses butonlari ile cakismayan sag-alt bayrak rozeti */
-  #eken-tr-flag-badge {
+  #eken-tr-flag-map {
     position: fixed;
-    right: 14px;
-    bottom: 14px;
-    z-index: 950;
-    display: inline-flex;
+    right: 16px;
+    bottom: 16px;
+    z-index: 2147483000;
+    display: inline-flex !important;
     align-items: center;
     gap: 6px;
-    padding: 5px 9px;
+    padding: 6px 10px;
     border-radius: 999px;
-    background: rgba(11, 20, 32, 0.88);
-    border: 1px solid rgba(227, 10, 23, 0.55);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    background: rgba(11, 20, 32, 0.92);
+    border: 1.5px solid rgba(227, 10, 23, 0.85);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
     pointer-events: none;
     user-select: none;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
-  #eken-tr-flag-badge svg {
-    width: 22px;
-    height: 15px;
+  #eken-tr-flag-map svg {
+    width: 24px;
+    height: 16px;
     display: block;
     border-radius: 2px;
     flex-shrink: 0;
   }
 </style>
-<div id="eken-tr-flag-badge" aria-label="Türkiye" title="Türkiye">
+
+<div id="eken-tr-flag-map" aria-label="Türkiye" title="Türkiye">
   <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Türk Bayrağı">
     <rect width="1200" height="800" fill="#E30A17"/>
     <circle cx="425" cy="400" r="200" fill="#FFFFFF"/>
@@ -2441,69 +2443,73 @@
     />
   </svg>
 </div>
+
 <script>
 (() => {
-  const scrubAttributionAndUkraine = () => {
-    // 1) Leaflet attribution kontrolunu kaldir
-    document.querySelectorAll(".leaflet-control-attribution").forEach((el) => {
-      el.remove();
-    });
-
-    const m = window.map;
-    if (m && m.attributionControl && typeof m.removeControl === "function") {
-      try { m.removeControl(m.attributionControl); } catch (_) {}
+  const ensureFlagPlacement = () => {
+    const flag = document.getElementById("eken-tr-flag-map");
+    if (!flag) return;
+    if (flag.parentElement !== document.body) {
+      document.body.appendChild(flag);
     }
 
-    // 2) Sayfa icinde kalan Ukrayna bayragi / metni / emojisi varsa temizle
-    const walkTargets = document.querySelectorAll("span, div, a, button, label, small, p");
-    walkTargets.forEach((el) => {
-      // Muzik, ses, oynatici veya bayrak rozetine dokunma
-      if (
-        el.id === "eken-tr-flag-badge" ||
-        el.closest("#eken-tr-flag-badge") ||
-        el.closest("audio") ||
-        el.closest("[class*='music'], [id*='music'], [class*='audio'], [id*='audio'], [class*='player'], [id*='player']")
-      ) {
-        return;
-      }
-      const t = (el.textContent || "").trim();
-      const title = (el.getAttribute && (el.getAttribute("title") || el.getAttribute("aria-label") || "")) || "";
-      if (
-        t === "🇺🇦" ||
-        t.includes("🇺🇦") ||
-        /ukrayna|ukraine/i.test(t) ||
-        /ukrayna|ukraine|🇺🇦/i.test(title)
-      ) {
-        if (el.children.length === 0) {
-          el.textContent = "";
-          el.style.display = "none";
-        }
+    let shiftRight = 16;
+    const candidates = document.querySelectorAll(
+      "audio, button[id*='music'], button[class*='music'], button[id*='audio'], button[class*='audio'], [id*='music-player'], [class*='music-player'], [id*='sound'], [class*='sound']"
+    );
+    candidates.forEach((el) => {
+      if (!el || el === flag || flag.contains(el)) return;
+      const r = el.getBoundingClientRect();
+      const cs = window.getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden" || r.width === 0 || r.height === 0) return;
+      const nearBottom = (window.innerHeight - r.bottom) < 95;
+      const nearRight = (window.innerWidth - r.right) < 280;
+      if (nearBottom && nearRight) {
+        shiftRight = Math.max(shiftRight, Math.round(window.innerWidth - r.left + 12));
       }
     });
+    flag.style.right = `${shiftRight}px`;
+  };
 
-    // 3) Sag-alt kosede muzik/ses kontrolu varsa bayragi onun ustune binmeyecek sekilde sola kaydir
-    const flagEl = document.getElementById("eken-tr-flag-badge");
-    if (flagEl) {
-      let shiftRight = 14;
-      document.querySelectorAll("audio, [class*='music'], [id*='music'], [class*='audio'], [id*='audio'], [class*='player'], [id*='player']").forEach((ctrl) => {
-        if (!ctrl || ctrl === flagEl) return;
-        const rect = ctrl.getBoundingClientRect();
-        const cs = window.getComputedStyle(ctrl);
-        if (cs.display === "none" || cs.visibility === "hidden" || rect.width === 0 || rect.height === 0) return;
-        const nearBottom = (window.innerHeight - rect.bottom) < 90;
-        const nearRight = (window.innerWidth - rect.right) < 260;
-        if (nearBottom && nearRight) {
-          shiftRight = Math.max(shiftRight, Math.round(window.innerWidth - rect.left + 12));
+  const tryPlayAudios = async (fromUserGesture = false) => {
+    const audios = Array.from(document.querySelectorAll("audio"));
+    for (const aud of audios) {
+      try {
+        aud.muted = false;
+        if (!aud.src && !aud.querySelector("source")) {
+          const ds = aud.dataset.src || aud.getAttribute("data-audio") || "";
+          if (ds) aud.src = ds;
         }
-      });
-      flagEl.style.right = `${shiftRight}px`;
+        if (aud.paused && (aud.src || aud.currentSrc || aud.querySelector("source"))) {
+          await aud.play();
+        }
+      } catch (err) {
+        if (fromUserGesture) {
+          console.warn("[Eken Weather Audio]", aud.id || aud.src || "audio", err && err.message ? err.message : err);
+        }
+      }
     }
   };
 
-  scrubAttributionAndUkraine();
-  setInterval(scrubAttributionAndUkraine, 400);
+  // Muzik dugmelerine tiklandiginda ses oynatmayi garantiye al
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!t) return;
+    const isMusicBtn = t.closest && t.closest(
+      "[id*='music'], [class*='music'], [id*='audio'], [class*='audio'], [id*='player'], [class*='player'], [id*='sound'], [class*='sound']"
+    );
+    if (isMusicBtn) {
+      setTimeout(() => tryPlayAudios(true), 60);
+    } else {
+      tryPlayAudios(false);
+    }
+  }, true);
+
+  ensureFlagPlacement();
+  tryPlayAudios(false);
+  setInterval(ensureFlagPlacement, 500);
 })();
 </script>
-<!-- EKEN ATTRIBUTION & TR FLAG SYNC END -->
+<!-- EKEN TR FLAG & MUSIC FIX END -->
 </body>
 </html>
