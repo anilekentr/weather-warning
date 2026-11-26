@@ -960,7 +960,13 @@
             wSum += wt;
             vSum += wt * pts[k].val;
           }
-          const v = wSum > 0 ? vSum / wSum : minV;
+          if (!Array.isArray(pts) || pts.length === 0 || wSum <= 0) {
+            continue;
+          }
+          const v = vSum / wSum;
+          if (!Number.isFinite(v)) {
+            continue;
+          }
           const [r, g, b] = sampleRgb(v, minV, maxV, curVar.palette);
           for (let oy = 0; oy < 2 && y + oy < h; oy++) {
             for (let ox = 0; ox < 2 && x + ox < w; ox++) {
