@@ -2222,27 +2222,6 @@
     sessionStorage.removeItem("ew_429_lock_cleared_once");
     sessionStorage.removeItem("ew_auto_refreshed_on_200");
   } catch (_) {}
-
-  const ECMWF_URL = "https://api.open-meteo.com/v1/ecmwf?latitude=41.0082&longitude=28.9784&hourly=temperature_2m,wind_speed_10m,precipitation&forecast_days=2&timezone=Europe%2FIstanbul";
-
-  const triggerLiveEcmwfFetch = async () => {
-    try {
-      const resp = await fetch(ECMWF_URL, { cache: "no-store" });
-      window.__ekenLastEcmwfStatus = resp.status;
-      if (resp.ok) {
-        const json = await resp.json();
-        window.__ekenLastEcmwfData = json;
-        for (const fn of ["refreshAll", "updateAll", "loadWeather", "fetchWeather", "fetchEcmwf", "updateMap", "renderMap"]) {
-          if (typeof window[fn] === "function") {
-            try { window[fn](json); } catch (_) {}
-          }
-        }
-      }
-    } catch (err) {
-      window.__ekenLastEcmwfStatus = "error:" + (err && err.message ? err.message : "network");
-    }
-  };
-
   const syncFlagPosition = () => {
     const badge = document.getElementById("eken-tr-flag-badge");
     if (!badge) return;
@@ -2269,12 +2248,9 @@
 
   window.addEventListener("DOMContentLoaded", () => {
     syncFlagPosition();
-    triggerLiveEcmwfFetch();
-  });
+});
   syncFlagPosition();
-  triggerLiveEcmwfFetch();
-  setInterval(syncFlagPosition, 1000);
-  setInterval(triggerLiveEcmwfFetch, 120000);
+setInterval(syncFlagPosition, 1000);
 })();
 </script>
 <!-- EKEN CLEAN UNBLOCK & FLAG END -->
