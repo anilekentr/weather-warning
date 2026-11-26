@@ -326,7 +326,10 @@
 
 
 
-/* === EKEN WEATHER SIMPLE SINGLE PANEL === */
+
+
+
+/* === EKEN WEATHER SINGLE PANEL & LIVE LAYER === */
 #brand-logo {
   position: fixed !important;
   top: 10px !important;
@@ -362,9 +365,12 @@
   z-index: 1250 !important;
 }
 
-[id*="ecmwf"]:not(#ew-single-panel):not(#ew-single-panel *),
-[id*="info-panel"]:not(#ew-single-panel):not(#ew-single-panel *),
-[id*="detail-panel"]:not(#ew-single-panel):not(#ew-single-panel *) {
+/* Ayrı duran eski/ikincil panelleri gizle; her şey tek panelde toplansın */
+.panel:not(#ew-single-panel),
+.info-panel:not(#ew-single-panel),
+#ecmwf-panel:not(#ew-single-panel),
+#point-info:not(#ew-single-panel),
+#location-panel:not(#ew-single-panel) {
   display: none !important;
 }
 
@@ -373,7 +379,7 @@
   top: 86px !important;
   left: 12px !important;
   z-index: 1320 !important;
-  width: 310px !important;
+  width: 315px !important;
   max-width: calc(100vw - 24px) !important;
   max-height: calc(100vh - 125px) !important;
   overflow-y: auto !important;
@@ -410,7 +416,7 @@
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 4px !important;
-  max-height: 210px !important;
+  max-height: 215px !important;
   overflow-y: auto !important;
 }
 .ews-btn {
@@ -450,7 +456,7 @@ canvas.ew-live-field {
   top: auto !important;
   transform: none !important;
   z-index: 1200 !important;
-  width: 190px !important;
+  width: 192px !important;
   height: auto !important;
   min-height: 52px !important;
   max-height: 62px !important;
@@ -469,6 +475,15 @@ canvas.ew-live-field {
   left: auto !important;
   top: auto !important;
   z-index: 1350 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 10px !important;
+  border-radius: 999px !important;
+  background: rgba(9, 17, 34, 0.92) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  color: #fff !important;
+  font-size: 11px !important;
 }
 
 .leaflet-control-attribution {
@@ -850,6 +865,9 @@ canvas.ew-live-field {
 
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="brand-logo">
   <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
@@ -912,9 +930,7 @@ canvas.ew-live-field {
     const x = Math.max(0, Math.min(1, t));
     let a = stops[0], b = stops[stops.length - 1];
     for (let i = 0; i < stops.length - 1; i++) {
-      if (x >= stops[i][0] && x <= stops[i + 1][0]) {
-        a = stops[i]; b = stops[i + 1]; break;
-      }
+      if (x >= stops[i][0] && x <= stops[i + 1][0]) { a = stops[i]; b = stops[i + 1]; break; }
     }
     const f = (x - a[0]) / ((b[0] - a[0]) || 1);
     return [
@@ -1101,6 +1117,23 @@ canvas.ew-live-field {
   paintSampledCbar(cur, []);
   const tmr = setInterval(() => { attachMap(); if (window.map && window.map._ewsAttached) clearInterval(tmr); }, 300);
   window.addEventListener("load", attachMap);
+
+  const audio = document.getElementById("bg-music");
+  const mBtn = document.getElementById("music-toggle");
+  const mTitle = document.getElementById("music-title");
+  if (audio && mBtn && mTitle) {
+    audio.volume = 0.35;
+    const sync = () => {
+      const ok = !audio.paused && !audio.muted;
+      mBtn.textContent = ok ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
+      mTitle.style.display = ok ? "inline" : "none";
+    };
+    const play = async () => { try { audio.muted = false; await audio.play(); } catch (_) {} sync(); };
+    mBtn.addEventListener("click", async e => { e.stopPropagation(); if (audio.paused || audio.muted) await play(); else { audio.pause(); sync(); } });
+    play();
+    window.addEventListener("pointerdown", play, { once: true });
+    sync();
+  }
 })();
 </script>
 <!-- EKEN WEATHER CLEAN END -->
