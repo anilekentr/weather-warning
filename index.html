@@ -1,3193 +1,470 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Eken Weather</title>
+  <title>Eken Weather — ECMWF Canlı Alan Haritası</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #map { width: 100%; height: 100%; background: #0b111e; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; }
+    html, body, #map { width: 100%; height: 100%; overflow: hidden; background: #0b111e; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; }
 
-    /* Tarih paneli sol üstte, zoom butonları altında ayrı kutuda */
-    .top-panel {
-      position: fixed; top: 12px; left: 12px; z-index: 900;
-      background: rgba(11, 17, 30, 0.92); border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 8px; padding: 10px 12px; width: 325px;
+    #smooth-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 420;
+      filter: blur(14px);
     }
-    .badge {
-      display: inline-block; font-size: 11px; font-weight: 700;
-      padding: 2px 8px; border-radius: 5px; margin-bottom: 8px;
-      background: rgba(239, 68, 68, 0.22); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45);
+
+    .fixed-card {
+      position: fixed;
+      z-index: 950;
+      background: rgba(11, 17, 30, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      border-radius: 10px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     }
-    .badge.live {
-      background: rgba(34, 197, 94, 0.22); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.45);
+
+    #top-info {
+      top: 12px;
+      left: 12px;
+      width: 360px;
+      max-width: calc(100vw - 260px);
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.45;
     }
-    .row { display: flex; gap: 6px; align-items: center; margin-bottom: 7px; font-size: 12px; }
-    input[type="date"], select, button {
-      background: #172238; color: #f8fafc; border: 1px solid #334155;
-      border-radius: 5px; padding: 4px 8px; font-size: 12px;
+    #top-title { font-weight: 700; font-size: 13px; color: #7dd3fc; margin-bottom: 4px; }
+    #top-range { color: #cbd5e1; font-size: 11px; margin-bottom: 4px; }
+    #top-clocks { color: #e2e8f0; font-size: 11px; }
+
+    #cbar-card {
+      top: 12px;
+      right: 12px;
+      width: 224px;
+      padding: 10px 12px;
+      font-size: 12px;
     }
-    button { cursor: pointer; font-weight: 600; }
-    button.active { background: #2563eb; border-color: #3b82f6; }
-
-    .brand-box {
-      position: fixed; top: 12px; left: 349px; z-index: 1600;
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(11, 17, 30, 0.96));
-      border: 1px solid rgba(56, 189, 248, 0.45);
-      border-radius: 12px; padding: 7px 14px;
-      display: inline-flex; align-items: center; gap: 11px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    #cbar-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-weight: 600; }
+    #cbar-unit { color: #7dd3fc; }
+    #cbar-grad {
+      width: 100%;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: linear-gradient(90deg, #2563eb 0%, #06b6d4 25%, #22c55e 50%, #eab308 75%, #ef4444 100%);
     }
-    .brand-logo { width: 64px; height: 46px; flex: 0 0 64px; display: flex; align-items: center; justify-content: center; }
-    .brand-title { font-size: 16px; font-weight: 800; letter-spacing: 0.3px; color: #f8fafc; line-height: 1.15; white-space: nowrap; }
-    .brand-name { font-size: 15px; font-weight: 800; letter-spacing: 0.3px; color: #f8fafc; line-height: 1.1; }
-    .brand-sub { font-size: 10px; font-weight: 600; letter-spacing: 0.35px; color: #38bdf8; margin-top: 2px; text-transform: uppercase; }
-    .cbar-box {
-      position: fixed; top: 12px; right: 12px; z-index: 900;
-      background: rgba(11, 17, 30, 0.92); border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 8px; padding: 9px 12px; width: 245px;
+    #cbar-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #cbd5e1;
+      margin-top: 5px;
     }
-    .cbar-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 5px; }
-    .cbar-grad { display: block; width: 100%; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.25); background: linear-gradient(90deg, rgb(37,99,235) 0%, rgb(6,182,212) 25%, rgb(34,197,94) 50%, rgb(234,179,8) 75%, rgb(239,68,68) 100%) !important; }
-    .cbar-ticks { display: flex; justify-content: space-between; font-size: 10px; color: #cbd5e1; margin-top: 4px; }
 
-    .probe {
-      position: fixed; bottom: 132px; left: 12px; z-index: 900;
-      background: rgba(11, 17, 30, 0.92); border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 6px; padding: 6px 10px; font-size: 12px;
+    #point-card {
+      left: 12px;
+      bottom: 84px;
+      width: 430px;
+      max-width: calc(100vw - 24px);
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.45;
     }
-    .bars {
-      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 900;
-      display: flex; flex-direction: column; align-items: center; gap: 5px; max-width: 98vw;
+    #pt-addr { font-weight: 600; color: #f8fafc; }
+    #pt-coord { color: #94a3b8; font-size: 11px; margin-top: 2px; }
+    #pt-val { color: #7dd3fc; font-weight: 700; font-size: 13px; margin-top: 4px; }
+    #pt-time { color: #cbd5e1; font-size: 11px; margin-top: 2px; }
+
+    #bottom-controls {
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    .bar {
-      background: rgba(11, 17, 30, 0.92); border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 8px; padding: 5px 8px; display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;
-      max-height: 82px; overflow-y: auto;
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      padding-bottom: 2px;
     }
-      .leaflet-top.leaflet-left { top: 238px !important; left: 12px !important; z-index: 900 !important; }
-    .leaflet-top.leaflet-left .leaflet-control-zoom {
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    .control-row select, .control-row input, .control-row button {
+      background: rgba(30, 41, 59, 0.9);
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      cursor: pointer;
     }
-</style>
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Eken Weather" />
-  <meta property="og:description" content="Marmara ve Türkiye için sıcaklık, rüzgar, yağış ve basınç katmanları." />
-  <meta property="og:url" content="https://barnes-atlantic-recording-defined.trycloudflare.com/" />
-  <meta property="og:image" content="https://barnes-atlantic-recording-defined.trycloudflare.com/og-preview-v2.png" />
-  <meta property="og:image:secure_url" content="https://barnes-atlantic-recording-defined.trycloudflare.com/og-preview-v2.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Eken Weather Marmara harita önizlemesi" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="https://barnes-atlantic-recording-defined.trycloudflare.com/og-preview-v2.png" />
-
-
-
-<style id="tr-corner-badge-style">
-  .leaflet-control-attribution {
-    display: none !important;
-  }
-  #tr-corner-flag-badge {
-    position: fixed;
-    right: 12px;
-    bottom: 12px;
-    z-index: 880;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid rgba(148, 163, 184, 0.42);
-    border-radius: 8px;
-    padding: 4px 7px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    user-select: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  }
-</style>
-
-
-<style id="zoom-and-music-style">
-  .leaflet-control-zoom {
-    position: fixed !important;
-    left: 12px !important;
-    bottom: 118px !important;
-    top: auto !important;
-    right: auto !important;
-    z-index: 910 !important;
-    border: 1px solid rgba(148, 163, 184, 0.45) !important;
-    border-radius: 8px !important;
-    overflow: hidden !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38) !important;
-  }
-  .leaflet-control-zoom a {
-    background: rgba(15, 23, 42, 0.92) !important;
-    color: #f8fafc !important;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.25) !important;
-  }
-  .leaflet-control-zoom a:last-child {
-    border-bottom: none !important;
-  }
-  .leaflet-control-zoom a:hover {
-    background: #0284c7 !important;
-    color: #ffffff !important;
-  }
-</style>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<style id="eken-live-ecmwf-style">
-  button[id*="play"], button[class*="play"], button[id*="oyna"], button[class*="oyna"],
-  [id*="play-btn"], [class*="play-btn"], [id*="oynat"], [class*="oynat"],
-  #tr-corner-flag-badge, [id*="music"], [class*="music"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
-  .top-panel {
-    position: fixed !important;
-    top: 12px !important;
-    left: 12px !important;
-    right: auto !important;
-    bottom: auto !important;
-    transform: none !important;
-    z-index: 950 !important;
-    width: 350px !important;
-    max-width: calc(100vw - 250px) !important;
-    background: rgba(11, 17, 30, 0.92) !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    border-radius: 10px !important;
-    padding: 10px 12px !important;
-    color: #f8fafc !important;
-  }
-  .cbar-box {
-    display: block !important;
-    position: fixed !important;
-    top: 12px !important;
-    right: 12px !important;
-    left: auto !important;
-    bottom: auto !important;
-    transform: none !important;
-    z-index: 950 !important;
-    width: 220px !important;
-    background: rgba(11, 17, 30, 0.92) !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    border-radius: 10px !important;
-    padding: 8px 10px !important;
-    color: #f8fafc !important;
-  }
-  .cbar-grad {
-    display: block !important;
-    width: 100% !important;
-    height: 14px !important;
-    border-radius: 4px !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    background: linear-gradient(90deg, #2563eb 0%, #06b6d4 25%, #22c55e 50%, #eab308 75%, #ef4444 100%) !important;
-  }
-  #probe {
-    position: fixed !important;
-    left: 12px !important;
-    right: auto !important;
-    bottom: 132px !important;
-    top: auto !important;
-    transform: none !important;
-    z-index: 960 !important;
-    max-width: 480px !important;
-    background: rgba(11, 17, 30, 0.94) !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    border-radius: 8px !important;
-    padding: 8px 10px !important;
-    font-size: 12px !important;
-    color: #f8fafc !important;
-    line-height: 1.4 !important;
-  }
-  .bars {
-    position: fixed !important;
-    left: 140px !important;
-    right: 12px !important;
-    bottom: 12px !important;
-    top: auto !important;
-    transform: none !important;
-    max-width: calc(100vw - 152px) !important;
-    z-index: 950 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-    align-items: flex-start !important;
-  }
-  .bar {
-    position: static !important;
-    transform: none !important;
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-    justify-content: flex-start !important;
-    width: 100% !important;
-  }
-  .bar button, .top-panel button {
-    position: static !important;
-    transform: none !important;
-    flex-shrink: 0 !important;
-    white-space: nowrap !important;
-  }
-</style>
-
+    .control-row button.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+      font-weight: 600;
+    }
+  </style>
 </head>
 <body>
-  <div class="brand-box" title="Eken Weather">
-    <div class="brand-logo" aria-hidden="true">
-      <svg viewBox="0 0 72 50" width="64" height="46" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="ewFrame3" x1="2" y1="2" x2="70" y2="48" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#38bdf8"/>
-            <stop offset="100%" stop-color="#2563eb"/>
-          </linearGradient>
-          <linearGradient id="ewSea3" x1="4" y1="32" x2="68" y2="48" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#22d3ee"/>
-            <stop offset="100%" stop-color="#1d4ed8"/>
-          </linearGradient>
-          <linearGradient id="ewDrop3" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#bae6fd"/>
-            <stop offset="100%" stop-color="#0284c7"/>
-          </linearGradient>
-        </defs>
-        <rect x="1.5" y="1.5" width="69" height="47" rx="11" fill="rgba(14, 165, 233, 0.14)" stroke="url(#ewFrame3)" stroke-width="1.4"/>
-
-        <!-- Yagmur damlaciklari -->
-        <path d="M27 4.2c0 0 1.6 2 1.6 3a1.6 1.6 0 1 1-3.2 0c0-1 1.6-3 1.6-3Z" fill="url(#ewDrop3)"/>
-        <path d="M35 3.8c0 0 1.9 2.3 1.9 3.5a1.9 1.9 0 1 1-3.8 0c0-1.2 1.9-3.5 1.9-3.5Z" fill="#67e8f9"/>
-        <path d="M43 4.8c0 0 1.5 1.8 1.5 2.7a1.5 1.5 0 1 1-3 0c0-.9 1.5-2.7 1.5-2.7Z" fill="url(#ewDrop3)"/>
-        <path d="M31 10.5c0 0 1.2 1.5 1.2 2.2a1.2 1.2 0 1 1-2.4 0c0-.7 1.2-2.2 1.2-2.2Z" fill="#7dd3fc"/>
-        <path d="M39.5 11c0 0 1.2 1.5 1.2 2.2a1.2 1.2 0 1 1-2.4 0c0-.7 1.2-2.2 1.2-2.2Z" fill="#38bdf8"/>
-
-        <!-- Galata Kulesi -->
-        <path d="M9.5 10l-3.2 4.8h6.4L9.5 10Z" fill="#e0f2fe"/>
-        <rect x="7.5" y="15.3" width="4" height="17" rx="0.8" fill="#7dd3fc"/>
-        <rect x="6.9" y="16.3" width="5.2" height="1.8" rx="0.5" fill="#bae6fd"/>
-        <rect x="8.9" y="20" width="1.2" height="2.4" rx="0.4" fill="#0b111e"/>
-
-        <!-- Beyazit Kulesi (meteoroloji / gozetleme diregi + serefe) -->
-        <path d="M17.2 5.5v5.2" stroke="#bae6fd" stroke-width="1.3" stroke-linecap="round"/>
-        <path d="M15.6 8.2h3.2" stroke="#67e8f9" stroke-width="1.2" stroke-linecap="round"/>
-        <rect x="15.4" y="11" width="3.6" height="21.3" rx="0.7" fill="#93c5fd"/>
-        <rect x="14.7" y="13.2" width="5" height="1.6" rx="0.5" fill="#e0f2fe"/>
-        <rect x="16.6" y="18.5" width="1.2" height="2.2" rx="0.4" fill="#0b111e"/>
-
-        <!-- Bogaz Koprusu -->
-        <path d="M22.5 29h24" stroke="#bae6fd" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M27.5 18.8v10.2M41.5 18.8v10.2" stroke="#e0f2fe" stroke-width="1.6" stroke-linecap="round"/>
-        <path d="M23 29c2-6.5 5.5-6.5 8 0M34.2 29c2-6.5 5.5-6.5 8 0M40.5 29c1.5-5 3.6-5 4.6 0" stroke="#38bdf8" stroke-width="1.2" fill="none"/>
-
-        <!-- Adalar siluetleri -->
-        <path d="M50 24.5c1.7-2.7 4.2-2.7 5.9 0H50Z" fill="#7dd3fc"/>
-        <path d="M56.8 25.5c1.3-2 3.2-2 4.5 0h-4.5Z" fill="#38bdf8"/>
-
-        <!-- Deniz dalgalari -->
-        <path d="M5 35c3.5-1.8 7-1.8 10.5 0s7 1.8 10.5 0 7-1.8 10.5 0 7 1.8 10.5 0 7-1.8 10.5 0 4.2 1.8 6.5 0" stroke="url(#ewSea3)" stroke-width="2" stroke-linecap="round"/>
-        <path d="M7.5 39.8c3.3-1.5 6.6-1.5 9.9 0s6.6 1.5 9.9 0 6.6-1.5 9.9 0 6.6 1.5 9.9 0 6.6-1.5 9.9 0" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.85"/>
-        <path d="M10.5 44.2c3-1.2 6-1.2 9 0s6 1.2 9 0 6-1.2 9 0 6 1.2 9 0" stroke="#22d3ee" stroke-width="1.3" stroke-linecap="round" stroke-opacity="0.65"/>
-      </svg>
-    </div>
-    <span class="brand-title">Eken Weather</span>
-  </div>
   <div id="map"></div>
 
-  <div class="top-panel">
-    <div id="badge" class="badge">ECMWF</div>
-    <div class="row">
-      <input type="date" id="date-input" />
+  <div id="top-info" class="fixed-card">
+    <div id="top-title">Eken Weather · ECMWF</div>
+    <div id="top-range">ECMWF zaman aralığı yükleniyor...</div>
+    <div id="top-clocks">UTC: --:-- | İstanbul (TSİ): --:--:--</div>
+  </div>
+
+  <div id="cbar-card" class="fixed-card">
+    <div id="cbar-head">
+      <span id="cbar-name">2 m Sıcaklığı</span>
+      <span id="cbar-unit">°C</span>
+    </div>
+    <div id="cbar-grad"></div>
+    <div id="cbar-ticks">
+      <span>--</span><span>--</span><span>--</span>
+    </div>
+  </div>
+
+  <div id="point-card" class="fixed-card">
+    <div id="pt-addr">İstanbul · Fatih · Eminönü · Hobyar Mah.</div>
+    <div id="pt-coord">Koordinat: 41.0082, 28.9784</div>
+    <div id="pt-val">2 m Sıcaklığı: -- °C</div>
+    <div id="pt-time">Seçili Saat: -- UTC · İstanbul: --:--</div>
+  </div>
+
+  <div id="bottom-controls" class="fixed-card">
+    <div class="control-row">
+      <input id="date-input" type="date" />
       <select id="hour-select"></select>
+      <button id="btn-refresh" type="button">Yenile</button>
     </div>
-    <div class="row">
-      <button id="step-1" class="active">1H</button>
-      <button id="step-3">3H</button>
-      <button id="step-6">6H</button>
-      <button id="btn-reload">Reload</button>
-    </div>
-    <div class="row" id="lvl-row" style="display:none;">
-      <select id="lvl-select"></select>
-    </div>
-    <div id="top-point-box" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.25);font-size:12px;line-height:1.42;">
-      <div id="top-loc-coord" style="font-weight:700;color:#f8fafc;">Koordinat bekleniyor...</div>
-      <div id="top-var-val" style="margin-top:2px;font-weight:600;color:#38bdf8;">Değişken: —</div>
-    </div>
+    <div id="var-row" class="control-row"></div>
   </div>
 
-  <div class="cbar-box">
-    <div class="cbar-head">
-      <span id="cbar-title">Yağış</span>
-      <span id="cbar-unit">mm</span>
-    </div>
-    <div id="cbar-grad" class="cbar-grad"></div>
-    <div id="cbar-ticks" class="cbar-ticks"></div>
-  </div>
-
-  <div class="probe" id="probe">ECMWF</div>
-
-  <div class="bars">
-    <div class="bar" id="var-bar"></div>
-    <div class="bar" id="group-bar"></div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-
-    const WHO_2021_LIMITS = {
-      pm2_5: 15.0,
-      pm10: 45.0,
-      nitrogen_dioxide: 25.0,
-      ozone: 100.0,
-      sulphur_dioxide: 40.0
-    };
-
-    function mountDateSidePanel() {
-      const probeEl = document.getElementById("probe");
-      if (!probeEl) return null;
-      let panel = document.getElementById("date-side-panel");
-      if (!panel) {
-        panel = document.createElement("div");
-        panel.id = "date-side-panel";
-        panel.style.cssText = "display:block;visibility:visible;opacity:1;margin:8px 0;padding:8px 10px;border-radius:8px;background:rgba(15,23,42,0.88);color:#f8fafc;font-size:12px;line-height:1.42;max-width:440px;z-index:1000;";
-        const barsEl = document.querySelector(".bars") || document.getElementById("var-bar");
-        if (barsEl && barsEl.parentNode) {
-          barsEl.parentNode.insertBefore(panel, barsEl);
-        } else if (probeEl.parentNode) {
-          probeEl.parentNode.insertBefore(panel, probeEl);
-        }
-      }
-      let locBox = document.getElementById("loc-date-box");
-      if (!locBox) {
-        locBox = document.createElement("div");
-        locBox.id = "loc-date-box";
-        locBox.style.cssText = "font-weight:700;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.18);padding-bottom:4px;";
-        panel.appendChild(locBox);
-      }
-      let readBox = document.getElementById("selected-var-readout");
-      if (!readBox) {
-        readBox = document.createElement("div");
-        readBox.id = "selected-var-readout";
-        readBox.style.cssText = "font-size:12px;font-weight:600;margin-top:4px;";
-        panel.appendChild(readBox);
-      }
-      probeEl.style.display = "none";
-      return { panel, locBox, readBox, probeEl };
-    }
-
-    function renderCamsProbeWithWho(d, ll, stepHours, spec) {
-      const ui = mountDateSidePanel();
-      const loc = (d && d.location) || {};
-      const parts = [loc.city, loc.district, loc.neighborhood].filter(Boolean);
-      const placeStr = parts.length ? parts.join(" / ") : "Bölge dışı";
-      const coordStr = ll ? `${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)}` : "";
-      const locWithCoord = `${placeStr}${coordStr ? ` (${coordStr})` : ""}`;
-
-      const unitStr = ((d && d.unit) || (spec && spec.unit) || "").trim();
-      const hasVal = d && d.value !== null && d.value !== undefined && d.status === "CANLI";
-      const numVal = hasVal ? Number(d.value) : NaN;
-      const isDirVar = /direction|dir/i.test((spec && spec.key) || "") || /direction|dir/i.test((spec && spec.name) || "") || unitStr === "°";
-      const compass = (hasVal && isDirVar && !Number.isNaN(numVal)) ? ` · Yön: ${windCompassLabel(numVal)}` : "";
-      const fmtNum = (spec && spec.group === "precip" && !Number.isNaN(numVal)) ? numVal.toFixed(3) : d.value;
-      const missingInGrib = new Set([
-        "soil_temperature_1", "soil_water_1", "cin",
-        "slhf", "sshf", "evaporation", "potential_evaporation"
-      ]);
-      const curKey = (spec && spec.key) || (d && d.var) || "";
-      const noDataMsg = missingInGrib.has(curKey)
-        ? `GRIB2 dosyasında bu değişken yok${unitStr ? ` (${unitStr})` : ""}`
-        : `DATA YOK${unitStr ? ` (${unitStr})` : ""}`;
-      const dtStr = (d && d.datetime) || isoSelected();
-      const ptypeNames = {
-        0: "Yağış Yok",
-        1: "Yağmur",
-        2: "Çisenti",
-        3: "Donan Yağmur",
-        4: "Donan Çisenti",
-        5: "Karla Karışık Yağmur",
-        6: "Kar",
-        7: "Dolu",
-        8: "Graupel"
-      };
-      let extraPrecipStr = "";
-      if (hasVal && curKey === "precipitation_type" && ll && typeof ll.lat === "number" && typeof ll.lng === "number") {
-        const pKey = `${ll.lat.toFixed(4)}|${ll.lng.toFixed(4)}|${stepHours}|${dtStr}`;
-        window.__ptypePrecipCache = window.__ptypePrecipCache || {};
-        if (window.__ptypePrecipCache[pKey]) {
-          extraPrecipStr = window.__ptypePrecipCache[pKey];
-          window.__lastPrecipStr = extraPrecipStr;
-        } else {
-          if (window.__lastPrecipStr) {
-            extraPrecipStr = window.__lastPrecipStr;
-          }
-          if (!window.__ptypePrecipInflight || !window.__ptypePrecipInflight[pKey]) {
-            window.__ptypePrecipInflight = window.__ptypePrecipInflight || {};
-            window.__ptypePrecipInflight[pKey] = true;
-            const baseParams = {
-              lat: String(ll.lat),
-              lon: String(ll.lng),
-              var: "precipitation",
-              step: String(stepHours)
-            };
-            const qsWithDt = new URLSearchParams({ ...baseParams, datetime: String(dtStr) });
-            const qsNoDt = new URLSearchParams(baseParams);
-            const pickPrecip = (pj) => {
-              if (!pj || pj.status !== "CANLI") return null;
-              const raw = (pj.value !== null && pj.value !== undefined) ? pj.value
-                        : (pj.mm !== null && pj.mm !== undefined) ? pj.mm
-                        : (pj.amount !== null && pj.amount !== undefined) ? pj.amount
-                        : null;
-              const num = (raw !== null && raw !== undefined) ? Number(raw) : NaN;
-              if (Number.isNaN(num)) return null;
-              const pUnit = ((pj.unit || unitStr || "mm")).trim() || "mm";
-              return ` · ${num.toFixed(3)} ${pUnit}`;
-            };
-            fetch(`/api/point?${qsWithDt.toString()}`)
-              .then(r => r.ok ? r.json() : null)
-              .then(async (pj) => {
-                let formatted = pickPrecip(pj);
-                if (!formatted) {
-                  const r2 = await fetch(`/api/point?${qsNoDt.toString()}`);
-                  if (r2.ok) {
-                    formatted = pickPrecip(await r2.json());
-                  }
-                }
-                if (formatted) {
-                  window.__ptypePrecipCache[pKey] = formatted;
-                  window.__lastPrecipStr = formatted;
-                  try {
-                    if (typeof loadPoint === "function") loadPoint(ll);
-                    else if (typeof refreshCurrent === "function") refreshCurrent();
-                  } catch (_) {}
-                }
-              })
-              .catch(() => {})
-              .finally(() => {
-                delete window.__ptypePrecipInflight[pKey];
-              });
-          }
-        }
-      }
-
-      let valStr = noDataMsg;
-      if (hasVal) {
-        if (curKey === "precipitation_type" && !Number.isNaN(numVal)) {
-          const codeInt = Math.round(numVal);
-          const pName = ptypeNames[codeInt] || "Diğer";
-          valStr = `Kod: ${codeInt} (${pName})${extraPrecipStr}`;
-        } else {
-          valStr = `${fmtNum}${unitStr ? ` ${unitStr}` : ""}${compass}`;
-        }
-      }
-      const srcStr = (d && d.source) || "ECMWF-GRIB2";
-      const diffNum = (d && typeof d.time_diff_hours === "number" && !Number.isNaN(d.time_diff_hours)) ? d.time_diff_hours : null;
-      const diffStr = (diffNum !== null && diffNum > 0) ? ` · ${diffNum}s fark` : "";
-
-      const topLoc = document.getElementById("top-loc-coord");
-      const topVal = document.getElementById("top-var-val");
-      if (topLoc) topLoc.textContent = locWithCoord;
-      if (topVal) {
-        topVal.innerHTML = `${spec.name}: <span style="color:#7dd3fc;">${valStr}</span> <span style="display:block;font-size:11px;font-weight:400;color:#cbd5e1;margin-top:1px;">${dtStr} (${stepHours}H) · ${srcStr}${diffStr}</span>`;
-      }
-
-      if (ui) {
-        ui.locBox.innerHTML = `${placeStr}${coordStr ? ` <span style="font-weight:500;opacity:0.9;">(${coordStr})</span>` : ""}`;
-        ui.readBox.innerHTML = `<div>${spec.name}: <span style="color:#38bdf8;font-weight:700;">${valStr}</span></div><div style="font-size:11px;font-weight:400;opacity:0.82;margin-top:2px;">${dtStr} (${stepHours}H) · ${srcStr}${diffStr}</div>`;
-        ui.probeEl.textContent = `${locWithCoord} | ${spec.name}: ${valStr}`;
-      }
-    }
-
-    const GROUPS = [
-      { key: "temp", label: "Sıcaklık" },
-      { key: "wind", label: "Rüzgar" },
-      { key: "precip", label: "Yağış" },
-      { key: "pressure", label: "Basınç" },
-      { key: "levels", label: "Basınç Seviyesi" },
+  (function() {
+    const VARS = [
+      { key: "temperature_2m", name: "2 m Sıcaklığı", unit: "°C", palette: [[37,99,235],[6,182,212],[34,197,94],[234,179,8],[239,68,68]] },
+      { key: "dew_point_2m", name: "2 m Çiy Noktası", unit: "°C", palette: [[30,64,175],[14,165,233],[45,212,191],[163,230,53],[245,158,11]] },
+      { key: "wind_speed_10m", name: "10 m Rüzgar Hızı", unit: "m/s", palette: [[22,163,74],[132,204,22],[234,179,8],[249,115,22],[220,38,38]] },
+      { key: "wind_direction_10m", name: "10 m Rüzgar Yönü", unit: "°", palette: [[59,130,246],[6,182,212],[16,185,129],[245,158,11],[239,68,68]] },
+      { key: "precipitation", name: "Toplam Yağış", unit: "mm", palette: [[30,58,138],[37,99,235],[6,182,212],[52,211,153],[250,204,21]] },
+      { key: "pressure_msl", name: "Deniz Seviyesi Basıncı", unit: "hPa", palette: [[124,58,237],[37,99,235],[34,197,94],[234,179,8],[239,68,68]] },
+      { key: "cloud_cover", name: "Toplam Bulutluluk", unit: "%", palette: [[14,165,233],[56,189,248],[148,163,184],[100,116,139],[51,65,85]] },
+      { key: "cape", name: "CAPE", unit: "J/kg", palette: [[34,197,94],[163,230,53],[250,204,21],[249,115,22],[220,38,38]] },
+      { key: "temperature_850hPa", name: "850 hPa Sıcaklık", unit: "°C", palette: [[29,78,216],[6,182,212],[34,197,94],[234,179,8],[239,68,68]] },
+      { key: "wind_speed_850hPa", name: "850 hPa Rüzgar Hızı", unit: "m/s", palette: [[16,185,129],[132,204,22],[234,179,8],[249,115,22],[239,68,68]] },
+      { key: "geopotential_height_500hPa", name: "500 hPa Jeopotansiyel", unit: "gpm", palette: [[37,99,235],[14,165,233],[34,197,94],[234,179,8],[239,68,68]] },
+      { key: "temperature_500hPa", name: "500 hPa Sıcaklık", unit: "°C", palette: [[30,64,175],[6,182,212],[52,211,153],[250,204,21],[239,68,68]] },
+      { key: "wind_speed_500hPa", name: "500 hPa Rüzgar Hızı", unit: "m/s", palette: [[22,163,74],[132,204,22],[234,179,8],[249,115,22],[220,38,38]] }
     ];
 
-    let variables = [];
-    let levels = [1000, 850, 700, 500, 250, 50];
-    let activeGroup = "temp";
-    let activeVar = "temperature_2m";
-    let activeLevel = 500;
-    let stepHours = 1;
-    let gridData = null;
-    let timer = null;
+    const SAMPLE_GRID = (() => {
+      const pts = [];
+      for (let lat = 38.0; lat <= 43.0; lat += 0.6) {
+        for (let lon = 25.0; lon <= 32.5; lon += 0.75) {
+          pts.push({ lat: Number(lat.toFixed(2)), lon: Number(lon.toFixed(2)) });
+        }
+      }
+      for (let lat = -60; lat <= 75; lat += 25) {
+        for (let lon = -165; lon <= 165; lon += 30) {
+          pts.push({ lat, lon });
+        }
+      }
+      return pts;
+    })();
 
-    const map = L.map("map", { center: [39.0, 35.2], zoom: 6, minZoom: 2, maxZoom: 18, worldCopyJump: true });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap | ECMWF-GRIB2",
-      maxZoom: 19
+    const map = L.map("map", { center: [40.85, 29.0], zoom: 7, preferCanvas: true });
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; OpenStreetMap &copy; CARTO",
+      maxZoom: 18
     }).addTo(map);
 
-    function lerp(a, b, t) { return a + (b - a) * t; }
+    const canvas = document.createElement("canvas");
+    canvas.id = "smooth-canvas";
+    map.getContainer().appendChild(canvas);
+    const ctx = canvas.getContext("2d");
 
-    function colorFor(spec, v) {
-      const stops = spec.stops || [[0, [37, 99, 235]], [1, [220, 38, 38]]];
-      const span = (spec.max - spec.min) || 1;
-      const t = Math.max(0, Math.min(1, (v - spec.min) / span));
-      for (let i = 0; i < stops.length - 1; i++) {
-        const [p0, c0] = stops[i];
-        const [p1, c1] = stops[i + 1];
-        if (t >= p0 && t <= p1) {
-          const lt = (p1 - p0) > 0 ? (t - p0) / (p1 - p0) : 0;
-          return [
-            Math.round(lerp(c0[0], c1[0], lt)),
-            Math.round(lerp(c0[1], c1[1], lt)),
-            Math.round(lerp(c0[2], c1[2], lt))
-          ];
-        }
-      }
-      return stops[stops.length - 1][1];
-    }
+    let curVar = VARS[0];
+    let curCoord = { lat: 41.0082, lon: 28.9784 };
+    let curAddr = "İstanbul · Fatih · Eminönü · Hobyar Mah.";
+    let lastAddrKey = "";
+    let gridData = null;
+    let pointData = null;
 
-    function currentSpec() {
-      return variables.find(v => v.key === activeVar) || {
-        key: activeVar, name: activeVar, unit: "", min: 0, max: 30,
-        ticks: ["0", "10", "20", "30"], stops: [[0, [56, 189, 248]], [1, [147, 51, 234]]]
-      };
-    }
-
-    function renderCbar() {
-      const s = currentSpec();
-      document.getElementById("cbar-title").textContent = s.name;
-      document.getElementById("cbar-unit").textContent = s.unit;
-      const stopsCss = (s.stops || []).map(([p, [r, g, b]]) => `rgb(${r},${g},${b}) ${Math.round(p * 100)}%`);
-      const fbCbar = "rgb(37,99,235) 0%, rgb(6,182,212) 25%, rgb(34,197,94) 50%, rgb(234,179,8) 75%, rgb(239,68,68) 100%";
-  const cbarCss = stopsCss.length ? stopsCss.join(", ") : fbCbar;
-  document.getElementById("cbar-grad").style.background = `linear-gradient(90deg, ${cbarCss})`;
-      const ticksEl = document.getElementById("cbar-ticks");
-      ticksEl.innerHTML = "";
-      (s.ticks || []).forEach(t => {
-        const span = document.createElement("span");
-        span.textContent = t;
-        ticksEl.appendChild(span);
+    function updateClocks() {
+      const now = new Date();
+      const utcFull = now.toISOString().replace("T", " ").slice(0, 19) + " UTC";
+      const istFull = now.toLocaleString("tr-TR", {
+        timeZone: "Europe/Istanbul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
       });
+      const el = document.getElementById("top-clocks");
+      if (el) el.textContent = `UTC: ${utcFull} | İstanbul (TSİ): ${istFull}`;
     }
 
-    function setLocLine(loc, ll) {
-      let box = document.getElementById('loc-line');
-      const badge = document.querySelector('[data-badge], #badge, .badge') || document.getElementById('status-badge');
-      if (!box) {
-        box = document.createElement('div');
-        box.id = 'loc-line';
-        box.style.cssText = 'font-size:12px;line-height:1.35;margin-top:4px;opacity:0.95;';
-        if (badge && badge.parentNode) {
-          badge.parentNode.insertBefore(box, badge.nextSibling);
-        } else {
-          const p = document.getElementById('probe');
-          if (p && p.parentNode) p.parentNode.insertBefore(box, p);
-        }
-      }
-      const parts = loc ? [loc.city, loc.district, loc.neighborhood].filter((v, i, a) => v && a.indexOf(v) === i) : [];
-      const placeStr = parts.length ? parts.join(' / ') : 'Bölge dışı';
-      const coordStr = ll ? `${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)}` : '';
-      box.innerHTML = `${placeStr}${coordStr ? ` <span style="opacity:0.85;font-size:11.5px;font-weight:500;">(${coordStr})</span>` : ''}`;
-    }
-
-const EXCLUDED_90_97 = new Set([
-      "soil_temperature_1",
-      "soil_water_1",
-      "cin",
-      "slhf",
-      "sshf",
-      "evaporation",
-      "potential_evaporation",
-    ]);
-
-function setBadge(status, source) {
-      const b = document.getElementById("badge");
-      const scopeTag = EXCLUDED_90_97.has(activeVar) ? "90/97 · OPENDATA HARİCİ" : "90/97 CANLI";
-      if (status === "CANLI") {
-        b.className = "badge live";
-        b.textContent = `CANLI (${source || "ECMWF"}) · ${scopeTag}`;
-      } else {
-        b.className = "badge";
-        b.textContent = `${source || "ECMWF AKTİF"} · ${scopeTag}`;
+    function applyPalette(v) {
+      const grad = document.getElementById("cbar-grad");
+      const nameEl = document.getElementById("cbar-name");
+      const unitEl = document.getElementById("cbar-unit");
+      if (nameEl) nameEl.textContent = v.name;
+      if (unitEl) unitEl.textContent = v.unit;
+      if (grad && v.palette) {
+        const parts = v.palette.map((c, idx) => `rgb(${c[0]},${c[1]},${c[2]}) ${Math.round((idx / (v.palette.length - 1)) * 100)}%`);
+        grad.style.background = `linear-gradient(90deg, ${parts.join(", ")})`;
       }
     }
 
-    function fillHours() {
-      const sel = document.getElementById("hour-select");
-      const prev = sel.value;
-      sel.innerHTML = "";
-      for (let h = 0; h < 24; h += stepHours) {
-        const hh = String(h).padStart(2, "0");
-        const opt = document.createElement("option");
-        opt.value = `${hh}:00:00`;
-        const tsiH = String((h + 3) % 24).padStart(2, "0");
-        opt.textContent = `${tsiH}:00 (${hh}:00 UTC)`;
-        sel.appendChild(opt);
-      }
-      if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
-    }
-
-    function fillLevels() {
-      const sel = document.getElementById("lvl-select");
-      sel.innerHTML = "";
-      levels.forEach(l => {
-        const opt = document.createElement("option");
-        opt.value = String(l);
-        opt.textContent = `${l} hPa`;
-        if (l === activeLevel) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    }
-
-    function isoSelected() {
-      const d = document.getElementById("date-input").value;
-      const h = document.getElementById("hour-select").value || "03:00:00";
-      return `${d}T${h}`;
-    }
-
-    const MapLayer = L.Layer.extend({
-      onAdd(m) {
-        this._map = m;
-        this._cvs = L.DomUtil.create("canvas");
-        this._cvs.style.position = "absolute";
-        this._cvs.style.pointerEvents = "none";
-        this._cvs.style.zIndex = 340;
-        this._off = document.createElement("canvas");
-        m.getPanes().overlayPane.appendChild(this._cvs);
-        m.on("moveend zoomend viewreset resize", () => {
-          loadGrid();
-          this.draw();
-        }, this);
-        this.draw();
-      },
-      onRemove(m) {
-        if (this._cvs && this._cvs.parentNode) this._cvs.parentNode.removeChild(this._cvs);
-      },
-      draw() {
-        if (!this._map || !this._cvs) return;
-        const size = this._map.getSize();
-        const topLeft = this._map.containerPointToLayerPoint([0, 0]);
-        L.DomUtil.setPosition(this._cvs, topLeft);
-        const dpr = window.devicePixelRatio || 1;
-        this._cvs.width = Math.max(1, Math.floor(size.x * dpr));
-        this._cvs.height = Math.max(1, Math.floor(size.y * dpr));
-        this._cvs.style.width = size.x + "px";
-        this._cvs.style.height = size.y + "px";
-
-        const ctx = this._cvs.getContext("2d");
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, size.x, size.y);
-
-        if (!gridData || gridData.status !== "CANLI" || !gridData.lats || !gridData.lons || !gridData.values) return;
-        const spec = currentSpec();
-        const lats = gridData.lats, lons = gridData.lons, vals = gridData.values;
-        const nLat = lats.length, nLon = lons.length;
-        if (nLat < 2 || nLon < 2) return;
-
-        const latDesc = lats[0] > lats[nLat - 1];
-        const lonDesc = lons[0] > lons[nLon - 1];
-        const latAsc = latDesc ? [...lats].reverse() : [...lats];
-        const lonAsc = lonDesc ? [...lons].reverse() : [...lons];
-        const valsAsc = vals.map(row => {
-          const r = Array.isArray(row) ? [...row] : [];
-          return lonDesc ? r.reverse() : r;
-        });
-        if (latDesc) valsAsc.reverse();
-
-        const latMin = latAsc[0], latMax = latAsc[nLat - 1];
-        const lonMin = lonAsc[0], lonMax = lonAsc[nLon - 1];
-        if (latMax <= latMin || lonMax <= lonMin) return;
-
-        const findCoordPos = (arr, val) => {
-          if (val < arr[0] || val > arr[arr.length - 1]) return -1;
-          if (val === arr[0]) return 0;
-          if (val === arr[arr.length - 1]) return arr.length - 1;
-          for (let i = 0; i < arr.length - 1; i++) {
-            if (val >= arr[i] && val <= arr[i + 1]) {
-              const spanSeg = arr[i + 1] - arr[i];
-              return i + (spanSeg > 0 ? (val - arr[i]) / spanSeg : 0);
-            }
-          }
-          return -1;
-        };
-
-        const scale = 4;
-        const bw = Math.max(50, Math.floor(size.x / scale));
-        const bh = Math.max(50, Math.floor(size.y / scale));
-        this._off.width = bw;
-        this._off.height = bh;
-        const octx = this._off.getContext("2d");
-        const img = octx.createImageData(bw, bh);
-        const pxData = img.data;
-        const span = (spec.max - spec.min) || 1;
-
-        for (let py = 0; py < bh; py++) {
-          const cy = py * scale;
-          for (let px = 0; px < bw; px++) {
-            const cx = px * scale;
-            const ll = this._map.containerPointToLatLng([cx, cy]);
-            const gy = findCoordPos(latAsc, ll.lat);
-            const gx = findCoordPos(lonAsc, ll.lng);
-            if (gy < 0 || gx < 0) continue;
-
-            const r0 = Math.max(0, Math.min(nLat - 2, Math.floor(gy)));
-            const c0 = Math.max(0, Math.min(nLon - 2, Math.floor(gx)));
-            const ty = Math.max(0, Math.min(1, gy - r0));
-            const tx = Math.max(0, Math.min(1, gx - c0));
-
-            const v00 = valsAsc[r0]?.[c0];
-            const v01 = valsAsc[r0]?.[c0 + 1];
-            const v10 = valsAsc[r0 + 1]?.[c0];
-            const v11 = valsAsc[r0 + 1]?.[c0 + 1];
-            if (v00 == null || v01 == null || v10 == null || v11 == null) continue;
-
-            const v = lerp(lerp(v00, v01, tx), lerp(v10, v11, tx), ty);
-            const [rr, gg, bb] = colorFor(spec, v);
-            const norm = Math.max(0, Math.min(1, (v - spec.min) / span));
-            const alpha = spec.group === "precip"
-              ? (v <= 0 ? 70 : Math.round(Math.min(240, 145 + Math.pow(norm, 0.35) * 95)))
-              : 135;
-
-            const idx = (py * bw + px) * 4;
-            pxData[idx] = rr;
-            pxData[idx + 1] = gg;
-            pxData[idx + 2] = bb;
-            pxData[idx + 3] = alpha;
-          }
-        }
-
-        octx.putImageData(img, 0, 0);
-        ctx.save();
-        ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(this._off, 0, 0, bw, bh, 0, 0, size.x, size.y);
-        ctx.restore();
-      }
-    });
-
-    const layer = new MapLayer().addTo(map);
-
-    async function loadGrid() {
-      const b = map.getBounds();
-      const qs = new URLSearchParams({
-        var: activeVar,
-        step: String(stepHours),
-        datetime: isoSelected(),
-        south: b.getSouth().toFixed(2),
-        north: b.getNorth().toFixed(2),
-        west: b.getWest().toFixed(2),
-        east: b.getEast().toFixed(2),
-      });
-      const res = await fetch(`/api/grid?${qs}`);
-      gridData = await res.json();
-      setBadge(gridData.status, gridData.source);
-      layer.draw();
-    }
-
-    let lastPoint = { lat: 41.01, lng: 28.97 };
-
-    function windCompassLabel(deg) {
-      if (typeof deg !== "number" || Number.isNaN(deg)) return "";
-      const norm = ((deg % 360) + 360) % 360;
-      const dirs = [
-        ["K", "N"], ["KKD", "NNE"], ["KD", "NE"], ["DKD", "ENE"],
-        ["D", "E"], ["DGD", "ESE"], ["GD", "SE"], ["GGD", "SSE"],
-        ["G", "S"], ["GGD-B", "SSW"], ["GB", "SW"], ["BGB", "WSW"],
-        ["B", "W"], ["BKB", "WNW"], ["KB", "NW"], ["KKB", "NNW"]
+    function sampleRgb(val, minV, maxV, palette) {
+      const t = Math.max(0, Math.min(1, (val - minV) / Math.max(1e-6, maxV - minV)));
+      const s = t * (palette.length - 1);
+      const i = Math.min(palette.length - 2, Math.floor(s));
+      const f = s - i;
+      const c0 = palette[i], c1 = palette[i + 1];
+      return [
+        Math.round(c0[0] + (c1[0] - c0[0]) * f),
+        Math.round(c0[1] + (c1[1] - c0[1]) * f),
+        Math.round(c0[2] + (c1[2] - c0[2]) * f)
       ];
-      const idx = Math.round(norm / 22.5) % 16;
-      const [tr, en] = dirs[idx];
-      return `${tr} / ${en}`;
     }
 
-    async function loadPoint(ll) {
-      if (!ll) return;
-      lastPoint = { lat: ll.lat, lng: ll.lng };
-      const spec = currentSpec();
-      const unitStr = (spec.unit || "").trim();
-      const coordStr = `${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)}`;
-
-      const qs = new URLSearchParams({
-        lat: ll.lat.toFixed(4),
-        lon: ll.lng.toFixed(4),
-        var: activeVar,
-        step: String(stepHours),
-        datetime: isoSelected(),
-      });
-      const res = await fetch(`/api/point?${qs}`);
-      const d = await res.json();
-      const resolvedUnit = (d.unit || unitStr || "").trim();
-      const loc = d.location || {};
-      const locParts = [loc.city, loc.district, loc.neighborhood].filter(Boolean);
-      const locStr = locParts.length ? locParts.join(" / ") : "Bölge dışı";
-      setLocLine(loc, ll);
-
-      if (d.status !== "CANLI" || d.value === null || d.value === undefined) {
-        setBadge("ECMWF AKTİF", d.source || "ECMWF AKTİF");
-        renderCamsProbeWithWho({ ...d, status: "ECMWF AKTİF", value: null, unit: resolvedUnit }, ll, stepHours, { ...spec, unit: resolvedUnit });
-        return;
-      }
-
-      setBadge("CANLI", d.source);
-      renderCamsProbeWithWho({ ...d, unit: resolvedUnit }, ll, stepHours, { ...spec, unit: resolvedUnit });
-    }
-
-    function renderVars() {
-      document.getElementById("lvl-row").style.display = activeGroup === "levels" ? "flex" : "none";
-      const bar = document.getElementById("var-bar");
-      bar.innerHTML = "";
-      let list = variables.filter(v => v.provider === "ECMWF" && v.group === activeGroup);
-      if (activeGroup === "levels") list = list.filter(v => v.level === activeLevel);
-      list.forEach(v => {
+    function buildVarRow() {
+      const row = document.getElementById("var-row");
+      row.innerHTML = "";
+      VARS.forEach((v, idx) => {
         const btn = document.createElement("button");
-        const baseLabel = v.unit ? `${v.name} (${v.unit})` : v.name;
-        const isExcluded = EXCLUDED_90_97.has(v.key);
-        btn.textContent = isExcluded ? `${baseLabel} · Hariç` : baseLabel;
-        if (isExcluded) btn.style.opacity = "0.55";
-        if (v.key === activeVar) btn.classList.add("active");
-        btn.addEventListener("click", () => {
-          activeVar = v.key;
-          renderVars();
-          renderCbar();
-          loadGrid();
-          loadPoint(lastPoint);
-        });
-        bar.appendChild(btn);
-      });
-    }
-
-    function setStep(h) {
-      stepHours = h;
-      document.getElementById("step-1").classList.toggle("active", h === 1);
-      document.getElementById("step-3").classList.toggle("active", h === 3);
-      document.getElementById("step-6").classList.toggle("active", h === 6);
-      fillHours();
-      loadGrid();
-      loadPoint(lastPoint);
-    }
-
-    map.on("mousemove", (e) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => loadPoint(e.latlng), 400);
-    });
-    map.on("click", (e) => loadPoint(e.latlng));
-
-    document.getElementById("step-1").addEventListener("click", () => setStep(1));
-    document.getElementById("step-3").addEventListener("click", () => setStep(3));
-    document.getElementById("step-6").addEventListener("click", () => setStep(6));
-    document.getElementById("btn-reload").addEventListener("click", () => { loadGrid(); loadPoint(lastPoint); });
-    document.getElementById("date-input").addEventListener("change", () => { loadGrid(); loadPoint(lastPoint); });
-    document.getElementById("hour-select").addEventListener("change", () => { loadGrid(); loadPoint(lastPoint); });
-    document.getElementById("lvl-select").addEventListener("change", (e) => {
-      activeLevel = parseInt(e.target.value, 10) || 500;
-      const mVar = variables.find(v => v.group === "levels" && v.level === activeLevel);
-      if (mVar) activeVar = mVar.key;
-      renderVars();
-      renderCbar();
-      loadGrid();
-      loadPoint(lastPoint);
-    });
-
-    (async function init() {
-      let meta = {};
-      try {
-        const res = await fetch("/api/variables");
-        if (res.ok) meta = await res.json();
-      } catch (err) {
-        console.warn("api/variables yedek listeye gecti:", err);
-      }
-            variables = Array.isArray(meta.variables) && meta.variables.length ? meta.variables : [
-        { key: "temperature_2m", name: "2 m Sıcaklığı", unit: "°C", provider: "ECMWF", group: "surface" },
-        { key: "dewpoint_2m", name: "2 m Çiy Noktası", unit: "°C", provider: "ECMWF", group: "surface" },
-        { key: "wind_speed_10m", name: "10 m Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "surface" },
-        { key: "wind_direction_10m", name: "10 m Rüzgar Yönü", unit: "°", provider: "ECMWF", group: "surface" },
-        { key: "wind_u_10m", name: "10 m Rüzgar U Bileşeni", unit: "m/s", provider: "ECMWF", group: "surface" },
-        { key: "wind_v_10m", name: "10 m Rüzgar V Bileşeni", unit: "m/s", provider: "ECMWF", group: "surface" },
-        { key: "wind_u_100m", name: "100 m Rüzgar U Bileşeni", unit: "m/s", provider: "ECMWF", group: "surface" },
-        { key: "wind_v_100m", name: "100 m Rüzgar V Bileşeni", unit: "m/s", provider: "ECMWF", group: "surface" },
-        { key: "precipitation", name: "Toplam Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
-        { key: "large_scale_precipitation", name: "Büyük Ölçekli Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
-        { key: "convective_precipitation", name: "Konvektif Yağış", unit: "mm", provider: "ECMWF", group: "surface" },
-        { key: "precipitation_type", name: "Yağış Türü", unit: "", provider: "ECMWF", group: "surface" },
-        { key: "total_column_water_vapour", name: "Sütun Toplam Su Buharı", unit: "kg/m²", provider: "ECMWF", group: "surface" },
-        { key: "pressure_msl", name: "Deniz Seviyesi Basıncı (MSLP)", unit: "hPa", provider: "ECMWF", group: "surface" },
-        { key: "surface_pressure", name: "Yüzey Basıncı", unit: "hPa", provider: "ECMWF", group: "surface" },
-        { key: "cape", name: "MUCAPE", unit: "J/kg", provider: "ECMWF", group: "surface" },
-        { key: "cin", name: "CIN", unit: "J/kg", provider: "ECMWF", group: "surface" },
-        { key: "total_cloud_cover", name: "Toplam Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
-        { key: "low_cloud_cover", name: "Alçak Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
-        { key: "med_cloud_cover", name: "Orta Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
-        { key: "high_cloud_cover", name: "Yüksek Bulutluluk", unit: "%", provider: "ECMWF", group: "surface" },
-        { key: "soil_temperature_1", name: "Toprak Sıcaklığı (Katman 1)", unit: "°C", provider: "ECMWF", group: "surface" },
-        { key: "soil_water_1", name: "Toprak Nemi (Katman 1)", unit: "m³/m³", provider: "ECMWF", group: "surface" },
-        { key: "temperature_850hPa", name: "850 hPa Sıcaklık", unit: "°C", provider: "ECMWF", group: "levels", level: 850 },
-        { key: "relative_humidity_850hPa", name: "850 hPa Bağıl Nem", unit: "%", provider: "ECMWF", group: "levels", level: 850 },
-        { key: "wind_speed_850hPa", name: "850 hPa Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "levels", level: 850 },
-        { key: "geopotential_height_500hPa", name: "500 hPa Jeopotansiyel Yükseklik", unit: "dam", provider: "ECMWF", group: "levels", level: 500 },
-        { key: "temperature_500hPa", name: "500 hPa Sıcaklık", unit: "°C", provider: "ECMWF", group: "levels", level: 500 },
-        { key: "wind_speed_500hPa", name: "500 hPa Rüzgar Hızı", unit: "m/s", provider: "ECMWF", group: "levels", level: 500 }
-      ];
-      const TR_EXACT = {
-        precipitation: "Toplam Yağış",
-        large_scale_precipitation: "Büyük Ölçekli Yağış",
-        convective_precipitation: "Konvektif Yağış",
-        precipitation_type: "Yağış Türü",
-        total_column_water_vapour: "Sütun Toplam Su Buharı",
-        evaporation: "Buharlaşma",
-        potential_evaporation: "Potansiyel Buharlaşma",
-        temperature_2m: "2 m Sıcaklığı",
-        dewpoint_2m: "2 m Çiy Noktası",
-        soil_temperature_1: "Toprak Sıcaklığı (Katman 1)",
-        soil_water_1: "Toprak Nemi (Katman 1)",
-        wind_speed_10m: "10 m Rüzgar Hızı",
-        wind_direction_10m: "10 m Rüzgar Yönü",
-        wind_u_10m: "10 m Rüzgar U Bileşeni",
-        wind_v_10m: "10 m Rüzgar V Bileşeni",
-        wind_u_100m: "100 m Rüzgar U Bileşeni",
-        wind_v_100m: "100 m Rüzgar V Bileşeni",
-        pressure_msl: "Deniz Seviyesi Basıncı (MSLP)",
-        surface_pressure: "Yüzey Basıncı",
-        cape: "MUCAPE",
-        cin: "CIN",
-        total_cloud_cover: "Toplam Bulutluluk",
-        low_cloud_cover: "Alçak Bulutluluk",
-        med_cloud_cover: "Orta Bulutluluk",
-        high_cloud_cover: "Yüksek Bulutluluk",
-        ssrd: "İnen Kısa Dalga Radyasyon",
-        strd: "İnen Uzun Dalga Radyasyon",
-        ssr: "Net Kısa Dalga Radyasyon",
-        str: "Net Uzun Dalga Radyasyon",
-        slhf: "Gizli Isı Akısı",
-        sshf: "Duyulur Isı Akısı"
-      };
-      const TR_LEVEL_PREFIX = {
-        temperature_: "Sıcaklık",
-        geopotential_height_: "Jeopotansiyel Yükseklik",
-        wind_speed_: "Rüzgar Hızı",
-        wind_direction_: "Rüzgar Yönü",
-        wind_u_: "Rüzgar U Bileşeni",
-        wind_v_: "Rüzgar V Bileşeni",
-        relative_humidity_: "Bağıl Nem",
-        specific_humidity_: "Özgül Nem",
-        vertical_velocity_: "Düşey Hız (Omega)",
-        vorticity_: "Vortisite",
-        divergence_: "Diverjans"
-      };
-      variables = variables.map(v => {
-        if (!v || !v.key) return v;
-        if (TR_EXACT[v.key]) return { ...v, name: TR_EXACT[v.key] };
-        const m = v.key.match(/^([a-z_]+_)(\d+hPa)$/i);
-        if (m && TR_LEVEL_PREFIX[m[1].toLowerCase()]) {
-          const lvlLabel = m[2].replace(/hpa$/i, " hPa");
-          return { ...v, name: `${lvlLabel} ${TR_LEVEL_PREFIX[m[1].toLowerCase()]}` };
-        }
-        return v;
-      });
-      if (Array.isArray(meta.pressure_levels_hpa) && meta.pressure_levels_hpa.length) levels = meta.pressure_levels_hpa;
-
-      const dInput = document.getElementById("date-input");
-      dInput.min = meta.min_date;
-      dInput.max = meta.max_date;
-      dInput.value = meta.min_date;
-
-      fillHours();
-      document.getElementById("hour-select").value = "03:00:00";
-      fillLevels();
-
-      const gBar = document.getElementById("group-bar");
-      GROUPS.forEach(g => {
-        const btn = document.createElement("button");
-        btn.textContent = g.label;
-        if (g.key === activeGroup) btn.classList.add("active");
-        btn.addEventListener("click", () => {
-          activeGroup = g.key;
-          const first = g.key === "levels"
-            ? variables.find(v => v.group === "levels" && v.level === activeLevel)
-            : variables.find(v => v.group === g.key);
-          if (first) activeVar = first.key;
-          document.querySelectorAll("#group-bar button").forEach(b => b.classList.remove("active"));
+        btn.type = "button";
+        btn.textContent = `${v.name} (${v.unit})`;
+        if (idx === 0) btn.classList.add("active");
+        btn.addEventListener("click", async () => {
+          row.querySelectorAll("button").forEach(b => b.classList.remove("active"));
           btn.classList.add("active");
-          renderVars();
-          renderCbar();
-          loadGrid();
-          loadPoint(lastPoint);
+          curVar = v;
+          gridData = null;
+          pointData = null;
+          applyPalette(v);
+          await loadAndRender(false, false);
         });
-        gBar.appendChild(btn);
+        row.appendChild(btn);
       });
-
-      renderVars();
-      renderCbar();
-      await loadGrid();
-      await loadPoint({ lat: 41.01, lng: 28.97 });
-    })();
-  </script>
-
-
-
-
-
-<script>
-(function() {
-  const RUN_START_UTC_MS = Date.UTC(2026, 10, 24, 0, 0, 0);
-  const MIN_UTC_MS = Date.UTC(2026, 10, 24, 0, 0, 0);
-  const MAX_UTC_MS = Date.UTC(2026, 10, 26, 0, 0, 0);
-  const STEP_MS = 3 * 3600000;
-
-  let playTimer = null;
-  let virtualUtcMs = null;
-
-  function extractUtcMsFromString(str) {
-    if (!str) return null;
-    const t = String(str).trim();
-
-    let m = t.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
-    if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 0);
-
-    m = t.match(/(\d{2})\.(\d{2})\.(\d{4})[\s\S]{0,30}?(\d{2}):(\d{2})/);
-    if (m) return Date.UTC(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], 0);
-
-    const dMatch = t.match(/(\d{4})-(\d{2})-(\d{2})/);
-    const hMatch = t.match(/(?:^|\b)(\d{2}):(\d{2})(?::\d{2})?(?:\b|$)/);
-    if (dMatch && hMatch) {
-      return Date.UTC(+dMatch[1], +dMatch[2] - 1, +dMatch[3], +hMatch[1], +hMatch[2], 0);
-    }
-
-    return null;
-  }
-
-  function detectCurrentUtcMs() {
-    const inputs = Array.from(document.querySelectorAll("input, select"));
-    for (const el of inputs) {
-      if (el.id && el.id.startsWith("ecmwf-")) continue;
-      const val = (el.value || "").trim();
-      if (!val) continue;
-      if (el.type === "range") {
-        const min = parseFloat(el.min || "0");
-        const max = parseFloat(el.max || "48");
-        const cur = parseFloat(val);
-        if (!Number.isNaN(cur) && max > min) {
-          const ratio = (cur - min) / (max - min);
-          const span = (max <= 72 && min === 0) ? cur * 3600000 : ratio * (MAX_UTC_MS - MIN_UTC_MS);
-          return MIN_UTC_MS + span;
-        }
-      }
-      const parsed = extractUtcMsFromString(val);
-      if (parsed !== null) return parsed;
-    }
-
-    const bodyText = document.body ? (document.body.innerText || "") : "";
-    const dm = bodyText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    const tm = bodyText.match(/(\d{2}:\d{2})\s*UTC/);
-    if (dm && tm) {
-      return Date.UTC(+dm[3], +dm[2] - 1, +dm[1], +tm[1].slice(0, 2), +tm[1].slice(3, 5), 0);
-    }
-
-    return virtualUtcMs !== null ? virtualUtcMs : Date.UTC(2026, 10, 25, 3, 0, 0);
-  }
-
-  function pushTimeToDomControls(targetMs) {
-    virtualUtcMs = Math.max(MIN_UTC_MS, Math.min(MAX_UTC_MS, targetMs));
-    const iso = new Date(virtualUtcMs).toISOString();
-    const ymd = iso.slice(0, 10);
-    const hm = iso.slice(11, 16);
-
-    const inputs = Array.from(document.querySelectorAll("input, select"));
-    for (const el of inputs) {
-      if (el.id && el.id.startsWith("ecmwf-")) continue;
-      if (el.type === "datetime-local") {
-        el.value = `${ymd}T${hm}`;
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      } else if (el.type === "date") {
-        el.value = ymd;
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      } else if (el.type === "time") {
-        el.value = hm;
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      } else if (el.tagName === "SELECT") {
-        const matchOpt = Array.from(el.options || []).find(o =>
-          (o.value && o.value.includes(hm)) || (o.textContent && o.textContent.includes(hm))
-        );
-        if (matchOpt && el.value !== matchOpt.value) {
-          el.value = matchOpt.value;
-          el.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-      } else if (el.type === "range") {
-        const min = parseFloat(el.min || "0");
-        const max = parseFloat(el.max || "48");
-        if (!Number.isNaN(min) && !Number.isNaN(max) && max > min) {
-          const hoursFromStart = (virtualUtcMs - MIN_UTC_MS) / 3600000;
-          const nextVal = (max <= 72 && min === 0)
-            ? Math.min(max, Math.max(min, hoursFromStart))
-            : min + ((virtualUtcMs - MIN_UTC_MS) / (MAX_UTC_MS - MIN_UTC_MS)) * (max - min);
-          el.value = String(nextVal);
-          el.dispatchEvent(new Event("input", { bubbles: true }));
-          el.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-      }
-    }
-
-    // Eğer sayfada saat butonları (örn. 03:00, 06:00, 09:00) varsa eşleşeni tıklamayı dene
-    const timeBtns = Array.from(document.querySelectorAll("button, [role='button'], .time-slot, .step-btn"));
-    const targetBtn = timeBtns.find(b => {
-      if (b.id && b.id.startsWith("ecmwf-")) return false;
-      const txt = (b.textContent || "").trim();
-      return txt === hm || txt === `${hm} UTC`;
-    });
-    if (targetBtn) {
-      targetBtn.click();
-    }
-  }
-
-  function stepForecast(deltaMs) {
-    const base = virtualUtcMs !== null ? virtualUtcMs : detectCurrentUtcMs();
-    let next = base + deltaMs;
-    if (next > MAX_UTC_MS) next = MIN_UTC_MS;
-    if (next < MIN_UTC_MS) next = MAX_UTC_MS;
-    pushTimeToDomControls(next);
-    refreshForecastPanel();
-  }
-
-  function togglePlay() {
-    const btn = document.getElementById("ecmwf-play-toggle-btn");
-    if (playTimer) {
-      clearInterval(playTimer);
-      playTimer = null;
-      if (btn) btn.textContent = "▶ Oyna";
-    } else {
-      if (btn) btn.textContent = "⏸ Durdur";
-      stepForecast(STEP_MS);
-      playTimer = setInterval(() => {
-        stepForecast(STEP_MS);
-      }, 1400);
-    }
-  }
-
-  function ensurePanel() {
-    let panel = document.getElementById("ecmwf-forecast-horizon-badge");
-    if (!panel) {
-      panel = document.createElement("div");
-      panel.id = "ecmwf-forecast-horizon-badge";
-      panel.style.cssText = [
-        "position:fixed",
-        "bottom:196px",
-        "left:12px",
-        "right:auto",
-        "z-index:905",
-        "background:rgba(15,23,42,0.92)",
-        "color:#e2e8f0",
-        "border:1px solid rgba(148,163,184,0.38)",
-        "border-radius:10px",
-        "padding:8px 11px",
-        "width:224px",
-        "max-width:224px",
-        "box-sizing:border-box",
-        "font:12px/1.35 monospace",
-        "backdrop-filter:blur(8px)",
-        "display:flex",
-        "flex-direction:column",
-        "gap:6px",
-        "box-shadow:0 8px 24px rgba(0,0,0,0.35)"
-      ].join(";");
-
-      const statusRow = document.createElement("div");
-      statusRow.id = "ecmwf-forecast-status-line";
-
-      const ctrlRow = document.createElement("div");
-      ctrlRow.style.cssText = "display:flex;gap:6px;align-items:center;";
-
-      const prevBtn = document.createElement("button");
-      prevBtn.id = "ecmwf-prev-step-btn";
-      prevBtn.type = "button";
-      prevBtn.textContent = "◀ -3h";
-      prevBtn.style.cssText = "background:#1e293b;color:#f8fafc;border:1px solid #475569;border-radius:6px;padding:3px 8px;cursor:pointer;font:11px monospace;";
-      prevBtn.addEventListener("click", (e) => { e.stopPropagation(); stepForecast(-STEP_MS); });
-
-      const playBtn = document.createElement("button");
-      playBtn.id = "ecmwf-play-toggle-btn";
-      playBtn.type = "button";
-      playBtn.textContent = "▶ Oyna";
-      playBtn.style.cssText = "background:#0284c7;color:#ffffff;border:1px solid #38bdf8;border-radius:6px;padding:3px 10px;cursor:pointer;font:bold 11px monospace;";
-      playBtn.addEventListener("click", (e) => { e.stopPropagation(); togglePlay(); });
-
-      const nextBtn = document.createElement("button");
-      nextBtn.id = "ecmwf-next-step-btn";
-      nextBtn.type = "button";
-      nextBtn.textContent = "+3h ▶";
-      nextBtn.style.cssText = "background:#1e293b;color:#f8fafc;border:1px solid #475569;border-radius:6px;padding:3px 8px;cursor:pointer;font:11px monospace;";
-      nextBtn.addEventListener("click", (e) => { e.stopPropagation(); stepForecast(STEP_MS); });
-
-      ctrlRow.appendChild(prevBtn);
-      ctrlRow.appendChild(playBtn);
-      ctrlRow.appendChild(nextBtn);
-      panel.appendChild(statusRow);
-      panel.appendChild(ctrlRow);
-      document.body.appendChild(panel);
-    }
-    return panel;
-  }
-
-  function refreshForecastPanel() {
-    ensurePanel();
-    const statusLine = document.getElementById("ecmwf-forecast-status-line");
-    if (!statusLine) return;
-
-    const curMs = detectCurrentUtcMs();
-    const nowMs = Date.now();
-    const leadHours = Math.round((curMs - RUN_START_UTC_MS) / 3600000);
-    const diffFromNowH = (curMs - nowMs) / 3600000;
-
-    let horizonLabel = "GELECEK TAHMİNİ";
-    let color = "#38bdf8";
-    if (diffFromNowH < -3) {
-      horizonLabel = "GEÇMİŞ ADIM";
-      color = "#94a3b8";
-    } else if (Math.abs(diffFromNowH) <= 3) {
-      horizonLabel = "ŞU ANKİ PENCERE";
-      color = "#4ade80";
-    }
-
-    const utcIso = new Date(curMs).toISOString();
-    const utcStr = utcIso.slice(8, 10) + "." + utcIso.slice(5, 7) + " " + utcIso.slice(11, 16) + " UTC";
-    const trIso = new Date(curMs + 3 * 3600000).toISOString();
-    const trStr = trIso.slice(11, 16) + " TSİ";
-
-    statusLine.innerHTML =
-      `<span style="color:${color};font-weight:700;">${horizonLabel}</span> ` +
-      `| <b>+${leadHours}h</b> (${utcStr} / ${trStr})`;
-  }
-
-  let playSamples = [];
-  let playSampleTimes = [];
-  let playLastStepKey = "";
-  let playRangeTracking = false;
-  let playTrackedVarName = "";
-  let playStatusNote = "Hazır";
-  let playHasError = false;
-
-  function formatUtcShort(ms) {
-    const iso = new Date(ms).toISOString();
-    return `${iso.slice(8, 10)}.${iso.slice(5, 7)} ${iso.slice(11, 16)}`;
-  }
-
-  function getActiveVariableLabel() {
-    const titleEl = document.getElementById("cbar-title");
-    const txt = titleEl ? (titleEl.textContent || "").trim() : "";
-    return txt || "Değişken";
-  }
-
-  function getActiveVariableGroupType() {
-    const varName = getActiveVariableLabel().toLowerCase();
-    const unitEl = document.getElementById("cbar-unit");
-    const unitTxt = (unitEl ? unitEl.textContent || "" : "").toLowerCase();
-
-    if (varName.includes("yağış") || varName.includes("buharlaşma") || unitTxt.includes("mm")) {
-      return "sum";
-    }
-    if (varName.includes("rüzgar") || varName.includes("cape") || varName.includes("gust")) {
-      return "max";
-    }
-    return "mean";
-  }
-
-  function getActiveUnitLabel() {
-    const unitEl = document.getElementById("cbar-unit");
-    const u = unitEl ? (unitEl.textContent || "").trim() : "";
-    if (u) return u;
-    const mode = getActiveVariableGroupType();
-    if (mode === "sum") return "mm";
-    if (mode === "max") return "m/s";
-    return "°C";
-  }
-
-  function resetPlayBuffer() {
-    playSamples = [];
-    playSampleTimes = [];
-    playLastStepKey = "";
-    playHasError = false;
-    playStatusNote = "Çalışıyor";
-  }
-
-  function syncActiveVariableState() {
-    const curVar = getActiveVariableLabel();
-    if (playTrackedVarName && playTrackedVarName !== curVar) {
-      playSamples = [];
-      playSampleTimes = [];
-      playLastStepKey = "";
-      playHasError = false;
-      playStatusNote = "Değişken değişti · sıfırlandı";
-    }
-    playTrackedVarName = curVar;
-  }
-
-  function readSelectedPointNumber() {
-    const candidates = Array.from(document.querySelectorAll("div, span, p, td, li"));
-    for (const el of candidates) {
-      if (el.closest && el.closest("#ecmwf-forecast-horizon-badge")) continue;
-      const txt = (el.innerText || el.textContent || "").trim();
-      if (!txt || txt.length > 180) continue;
-      const m = txt.match(/:\s*([+-]?\d+(?:[.,]\d+)?)/i);
-      if (m && (txt.includes("°") || txt.includes("mm") || txt.includes("m/s") || txt.includes("hPa") || txt.includes("Sıcaklık") || txt.includes("Yağış") || txt.includes("Rüzgar"))) {
-        return parseFloat(m[1].replace(",", "."));
-      }
-    }
-    return null;
-  }
-
-  function parseDatetimeLocalUtcMs(val, fallbackMs) {
-    if (!val) return fallbackMs;
-    const m = String(val).trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
-    if (!m) {
-      const parsed = Date.parse(val);
-      return Number.isNaN(parsed) ? fallbackMs : parsed;
-    }
-    return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
-  }
-
-  function getSelectedRangeMs() {
-    const sInp = document.getElementById("ecmwf-play-start-dt");
-    const eInp = document.getElementById("ecmwf-play-end-dt");
-    let startMs = parseDatetimeLocalUtcMs(sInp && sInp.value, MIN_UTC_MS);
-    let endMs = parseDatetimeLocalUtcMs(eInp && eInp.value, MAX_UTC_MS);
-    if (endMs < startMs) {
-      const tmp = startMs;
-      startMs = endMs;
-      endMs = tmp;
-    }
-    return { startMs, endMs };
-  }
-
-  function getCapturedSpanLabel() {
-    if (playSampleTimes.length === 0) return "Henüz adım alınmadı";
-    if (playSampleTimes.length === 1) return `${formatUtcShort(playSampleTimes[0])} UTC`;
-    return `${formatUtcShort(playSampleTimes[0])}..${formatUtcShort(playSampleTimes[playSampleTimes.length - 1])} UTC`;
-  }
-
-  function updatePlayRangeDisplay() {
-    syncActiveVariableState();
-    const el = document.getElementById("ecmwf-play-range-sum");
-    if (!el) return;
-
-    const { startMs, endMs } = getSelectedRangeMs();
-    const selRangeTag = `Hedef: ${formatUtcShort(startMs)}..${formatUtcShort(endMs)} UTC`;
-    const capturedTag = `Alınan: ${getCapturedSpanLabel()}`;
-    const errTag = playHasError ? "HATA VAR" : "HATA YOK";
-    const varLabel = getActiveVariableLabel();
-    const mode = getActiveVariableGroupType();
-    const unit = getActiveUnitLabel();
-    const unitSuffix = unit ? ` ${unit}` : "";
-    const n = playSamples.length;
-
-    let metricPart = "";
-    if (n === 0) {
-      if (mode === "sum") {
-        metricPart = `${varLabel} · Aralık Toplamı (0 adım): -${unitSuffix}`;
-      } else if (mode === "max") {
-        metricPart = `${varLabel} · Aralık Maksimumu (0 adım): -${unitSuffix}`;
-      } else {
-        metricPart = `${varLabel} · Aralık Ortalaması (0 adım): -${unitSuffix} [-..]`;
-      }
-    } else if (mode === "sum") {
-      const sum = playSamples.reduce((a, b) => a + b, 0);
-      metricPart = `${varLabel} · Aralık Toplamı (${n} adım): ${sum.toFixed(2)}${unitSuffix}`;
-    } else if (mode === "max") {
-      const maxVal = Math.max(...playSamples);
-      metricPart = `${varLabel} · Aralık Maksimumu (${n} adım): ${maxVal.toFixed(2)}${unitSuffix}`;
-    } else {
-      const sum = playSamples.reduce((a, b) => a + b, 0);
-      const avg = sum / n;
-      const minVal = Math.min(...playSamples);
-      const maxVal = Math.max(...playSamples);
-      metricPart = `${varLabel} · Aralık Ortalaması (${n} adım): ${avg.toFixed(1)}${unitSuffix} [${minVal.toFixed(1)}..${maxVal.toFixed(1)}]`;
-    }
-
-    el.style.color = playHasError ? "#f87171" : "#38bdf8";
-    el.style.lineHeight = "1.3";
-    el.style.wordBreak = "break-word";
-    el.innerHTML = [
-      `<div>${metricPart}</div>`,
-      `<div style="color:#cbd5e1;font-weight:400;font-size:10.5px;">${selRangeTag}</div>`,
-      `<div style="color:#94a3b8;font-weight:400;font-size:10.5px;">${capturedTag}</div>`,
-      `<div style="color:${playHasError ? "#fca5a5" : "#86efac"};font-weight:600;font-size:10.5px;">[${errTag} · ${playStatusNote}]</div>`
-    ].join("");
-  }
-
-  function applyStartInputDirectlyToStep() {
-    const sInp = document.getElementById("ecmwf-play-start-dt");
-    if (!sInp || !sInp.value) return;
-    const ms = parseDatetimeLocalUtcMs(sInp.value, NaN);
-    if (Number.isNaN(ms)) return;
-    pushTimeToDomControls(ms);
-    refreshForecastPanel();
-  }
-
-  function ensurePlayRangeUi() {
-    const panel = ensurePanel();
-    if (!panel || document.getElementById("ecmwf-play-range-box")) return;
-
-    const box = document.createElement("div");
-    box.id = "ecmwf-play-range-box";
-    box.style.cssText = "display:flex;flex-direction:column;gap:4px;border-top:1px solid rgba(148,163,184,0.25);padding-top:6px;margin-top:2px;";
-
-    const startInp = document.createElement("input");
-    startInp.id = "ecmwf-play-start-dt";
-    startInp.type = "datetime-local";
-    startInp.title = "Başlangıç (UTC)";
-    startInp.style.cssText = "background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:5px;padding:2px 5px;font:11px monospace;";
-    startInp.addEventListener("change", (e) => {
-      e.stopPropagation();
-      applyStartInputDirectlyToStep();
-      updatePlayRangeDisplay();
-    });
-    startInp.addEventListener("input", (e) => {
-      e.stopPropagation();
-      applyStartInputDirectlyToStep();
-      updatePlayRangeDisplay();
-    });
-
-    const endInp = document.createElement("input");
-    endInp.id = "ecmwf-play-end-dt";
-    endInp.type = "datetime-local";
-    endInp.title = "Bitiş (UTC)";
-    endInp.style.cssText = "background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:5px;padding:2px 5px;font:11px monospace;";
-    endInp.addEventListener("change", (e) => {
-      e.stopPropagation();
-      updatePlayRangeDisplay();
-    });
-
-    const toIsoMinute = (ms) => new Date(ms).toISOString().slice(0, 16);
-    startInp.value = toIsoMinute(MIN_UTC_MS);
-    endInp.value = toIsoMinute(MAX_UTC_MS);
-
-    const sumEl = document.createElement("div");
-    sumEl.id = "ecmwf-play-range-sum";
-    sumEl.style.cssText = "color:#38bdf8;font-weight:700;";
-    playTrackedVarName = getActiveVariableLabel();
-    updatePlayRangeDisplay();
-
-    box.appendChild(startInp);
-    box.appendChild(endInp);
-    box.appendChild(sumEl);
-    panel.appendChild(box);
-  }
-
-  function stopPlayRangeLoop(noteText = "Durduruldu") {
-    if (playTimer) {
-      clearInterval(playTimer);
-      playTimer = null;
-    }
-    playRangeTracking = false;
-    playStatusNote = noteText;
-    const pBtn = document.getElementById("ecmwf-play-toggle-btn");
-    if (pBtn) pBtn.textContent = "▶ Oyna";
-    updatePlayRangeDisplay();
-    refreshForecastPanel();
-  }
-
-  function recordPlayStepSample(curMs) {
-    if (!playRangeTracking) return;
-    syncActiveVariableState();
-    const { startMs, endMs } = getSelectedRangeMs();
-    if (curMs < startMs || curMs > endMs) {
-      playHasError = true;
-      playStatusNote = `Aralık dışı adım (${formatUtcShort(curMs)} UTC)`;
-      updatePlayRangeDisplay();
-      return;
-    }
-    const key = String(curMs);
-    if (key === playLastStepKey) return;
-    const val = readSelectedPointNumber();
-    if (val === null || Number.isNaN(val)) {
-      playHasError = true;
-      playStatusNote = `Değer okunamadı (${formatUtcShort(curMs)} UTC)`;
-      updatePlayRangeDisplay();
-      return;
-    }
-    playLastStepKey = key;
-    playSamples.push(val);
-    playSampleTimes.push(curMs);
-    playStatusNote = `Adım alındı (${formatUtcShort(curMs)} UTC)`;
-    updatePlayRangeDisplay();
-  }
-
-  const _origStepForecast = stepForecast;
-  stepForecast = function(deltaMs) {
-    ensurePlayRangeUi();
-    syncActiveVariableState();
-    const { startMs, endMs } = getSelectedRangeMs();
-    const curBase = virtualUtcMs !== null ? virtualUtcMs : detectCurrentUtcMs();
-
-    if (playRangeTracking && deltaMs > 0) {
-      if (curBase >= endMs) {
-        recordPlayStepSample(curBase);
-        stopPlayRangeLoop("Bitişe ulaşıldı");
-        return;
-      }
-      const clampedNext = Math.min(endMs, curBase + deltaMs);
-      pushTimeToDomControls(clampedNext);
-      refreshForecastPanel();
-      setTimeout(() => {
-        recordPlayStepSample(clampedNext);
-        if (clampedNext >= endMs) {
-          stopPlayRangeLoop("Bitişe ulaşıldı");
-        }
-      }, 500);
-      return;
-    }
-
-    _origStepForecast(deltaMs);
-    const nextMs = virtualUtcMs !== null ? virtualUtcMs : detectCurrentUtcMs();
-    if (playRangeTracking && nextMs >= startMs && nextMs <= endMs) {
-      setTimeout(() => recordPlayStepSample(nextMs), 500);
-    }
-  };
-
-  document.addEventListener("click", (e) => {
-    const t = e.target;
-    if (t && t.id === "ecmwf-play-toggle-btn") {
-      ensurePlayRangeUi();
-      if (playTimer) {
-        const { startMs, endMs } = getSelectedRangeMs();
-        playRangeTracking = true;
-        resetPlayBuffer();
-        playTrackedVarName = getActiveVariableLabel();
-        updatePlayRangeDisplay();
-        if (startMs <= endMs) {
-          pushTimeToDomControls(startMs);
-          refreshForecastPanel();
-          setTimeout(() => {
-            recordPlayStepSample(startMs);
-            if (startMs >= endMs) {
-              stopPlayRangeLoop("Bitişe ulaşıldı");
-            }
-          }, 500);
-        } else {
-          playHasError = true;
-          stopPlayRangeLoop("Geçersiz aralık");
-        }
-      } else {
-        stopPlayRangeLoop("Manuel durduruldu");
-      }
-    } else {
-      setTimeout(updatePlayRangeDisplay, 140);
-    }
-  }, true);
-
-  function positionPlayPanelOnMap() {
-    const panel = document.getElementById("ecmwf-forecast-horizon-badge");
-    if (!panel) return;
-    const zoomEl = document.querySelector(".leaflet-control-zoom");
-    let bottomPx = 196;
-    if (zoomEl) {
-      const zr = zoomEl.getBoundingClientRect();
-      if (zr.height > 0) {
-        bottomPx = Math.max(196, Math.round(window.innerHeight - zr.top + 12));
-      }
-    }
-    panel.style.setProperty("position", "fixed", "important");
-    panel.style.setProperty("left", "12px", "important");
-    panel.style.setProperty("right", "auto", "important");
-    panel.style.setProperty("top", "auto", "important");
-    panel.style.setProperty("bottom", bottomPx + "px", "important");
-    panel.style.setProperty("z-index", "905", "important");
-  }
-
-  setInterval(() => {
-    ensurePlayRangeUi();
-    updatePlayRangeDisplay();
-    refreshForecastPanel();
-    positionPlayPanelOnMap();
-  }, 450);
-  window.addEventListener("DOMContentLoaded", () => {
-    ensurePlayRangeUi();
-    refreshForecastPanel();
-  });
-  document.addEventListener("click", () => setTimeout(refreshForecastPanel, 120), true);
-  document.addEventListener("change", () => setTimeout(refreshForecastPanel, 120), true);
-  document.addEventListener("input", () => setTimeout(refreshForecastPanel, 120), true);
-})();
-
-
-  function getIstanbulNowParts() {
-    const now = new Date();
-    const fmt = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Istanbul",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-    const parts = Object.fromEntries(
-      fmt.formatToParts(now).filter((x) => x.type !== "literal").map((x) => [x.type, x.value])
-    );
-    const hourNum = parseInt(parts.hour, 10) % 24;
-    const dateStr = `${parts.year}-${parts.month}-${parts.day}`;
-    return { dateStr, hourNum, hourPad: String(hourNum).padStart(2, "0") };
-  }
-
-  function currentStepHoursGmt3() {
-    if (document.getElementById("step-6")?.classList.contains("active")) return 6;
-    if (document.getElementById("step-3")?.classList.contains("active")) return 3;
-    return 1;
-  }
-
-  function renderExactSlotLabel() {
-    const dEl = document.getElementById("date-input");
-    const hEl = document.getElementById("hour-select");
-    const box = document.getElementById("exact-slot");
-    if (!box) return;
-
-    const ist = getIstanbulNowParts();
-    const dVal = dEl?.value || ist.dateStr;
-    const hVal = hEl?.value || `${ist.hourPad}:00:00`;
-    const startH = parseInt(String(hVal).split(":")[0], 10);
-    if (Number.isNaN(startH)) {
-      box.textContent = `${dVal} · ${hVal} (GMT+3)`.trim();
-      return;
-    }
-    const stepH = currentStepHoursGmt3();
-    const pad = (n) => String(n).padStart(2, "0");
-    const endTotal = startH + stepH;
-    const endH = endTotal % 24;
-    const extraDay = endTotal >= 24 ? " (+1 gün)" : "";
-    box.textContent = `${dVal} · ${pad(startH)}:00 – ${pad(endH)}:00 (${stepH}H${extraDay}) · GMT+3`.trim();
-  }
-
-  function applyCurrentHourToSelect() {
-    const dEl = document.getElementById("date-input");
-    const hEl = document.getElementById("hour-select");
-    const ist = getIstanbulNowParts();
-
-    if (dEl && !dEl.value) {
-      dEl.value = ist.dateStr;
-    }
-
-    if (hEl && hEl.options.length > 0) {
-      const exactStr = `${ist.hourPad}:00:00`;
-      let chosen = Array.from(hEl.options).find(
-        (o) => o.value === exactStr || (parseInt(String(o.value).split(":")[0], 10) % 24) === ist.hourNum
-      );
-
-      if (!chosen) {
-        let bestDiff = Infinity;
-        for (const o of hEl.options) {
-          const v = parseInt(String(o.value).split(":")[0], 10);
-          if (!Number.isNaN(v)) {
-            const diff = Math.abs((v % 24) - ist.hourNum);
-            if (diff < bestDiff) {
-              bestDiff = diff;
-              chosen = o;
-            }
-          }
-        }
-      }
-
-      if (chosen) {
-        hEl.value = chosen.value;
-      }
-    }
-
-    renderExactSlotLabel();
-    if (typeof loadGrid === "function") loadGrid();
-    if (typeof loadPoint === "function" && typeof lastPoint !== "undefined" && lastPoint) {
-      loadPoint(lastPoint);
-    }
-  }
-
-  window.addEventListener("load", () => {
-    setTimeout(applyCurrentHourToSelect, 350);
-    document.getElementById("date-input")?.addEventListener("change", renderExactSlotLabel);
-    document.getElementById("hour-select")?.addEventListener("change", renderExactSlotLabel);
-    ["step-1", "step-3", "step-6"].forEach((id) => {
-      document.getElementById(id)?.addEventListener("click", () => {
-        setTimeout(renderExactSlotLabel, 40);
-      });
-    });
-  });
-
-
-
-  function forceIstanbulCurrentDateTime() {
-    const dEl = document.getElementById("date-input");
-    const hEl = document.getElementById("hour-select");
-    const box = document.getElementById("exact-slot");
-
-    // Turkiye Saati (GMT+3) parcalarini al
-    const now = new Date();
-    const fmt = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Istanbul",
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
-      hour12: false,
-    });
-    const parts = Object.fromEntries(
-      fmt.formatToParts(now).filter((x) => x.type !== "literal").map((x) => [x.type, x.value])
-    );
-
-    const nowYear = parts.year;
-    const nowMonth = parts.month;
-    const nowDay = parts.day;
-    const nowHour = parseInt(parts.hour, 10) % 24;
-    const todayStr = `${nowYear}-${nowMonth}-${nowDay}`;
-    const pad = (n) => String(n).padStart(2, "0");
-
-    // 1. Tarihi bugune (Turkiye saatine göre 26.11.2026) ayarla
-    if (dEl) {
-      dEl.value = todayStr;
-    }
-
-    // 2. Saati o anki gercek saate (03:00) ayarla
-    if (hEl && hEl.options.length > 0) {
-      let matchedOpt = null;
-      // Tam saat eslesmesi ara (orn: 03:00:00 veya 3)
-      for (const opt of hEl.options) {
-        const optH = parseInt(String(opt.value).split(":")[0], 10);
-        if (optH === nowHour) {
-          matchedOpt = opt;
-          break;
-        }
-      }
-      // Tam saat yoksa en yakin saati sec
-      if (!matchedOpt) {
-        let minDiff = Infinity;
-        for (const opt of hEl.options) {
-          const optH = parseInt(String(opt.value).split(":")[0], 10);
-          if (!Number.isNaN(optH)) {
-            const diff = Math.abs(optH - nowHour);
-            if (diff < minDiff) {
-              minDiff = diff;
-              matchedOpt = opt;
-            }
-          }
-        }
-      }
-      if (matchedOpt) {
-        hEl.value = matchedOpt.value;
-      }
-    }
-
-    // 3. Ekrana araligi yazdir (03:00 - 04:00)
-    if (box) {
-      const selectedH = hEl?.value ? parseInt(String(hEl.value).split(":")[0], 10) : nowHour;
-      let stepH = 1;
-      if (document.getElementById("step-6")?.classList.contains("active")) stepH = 6;
-      else if (document.getElementById("step-3")?.classList.contains("active")) stepH = 3;
-
-      const endH = (selectedH + stepH) % 24;
-      const extraDay = (selectedH + stepH) >= 24 ? " (+1g)" : "";
-      box.textContent = `${dEl?.value || todayStr} · ${pad(selectedH)}:00 – ${pad(endH)}:00 (${stepH}H${extraDay}) · GMT+3`;
-    }
-  }
-
-  // Sayfa yuklendikten sonra ve select her doldugunda calistir
-  window.addEventListener("load", () => {
-    setTimeout(forceIstanbulCurrentDateTime, 150);
-    setTimeout(forceIstanbulCurrentDateTime, 600);
-    setTimeout(forceIstanbulCurrentDateTime, 1200);
-
-    document.getElementById("date-input")?.addEventListener("change", forceIstanbulCurrentDateTime);
-    document.getElementById("hour-select")?.addEventListener("change", forceIstanbulCurrentDateTime);
-    ["step-1", "step-3", "step-6"].forEach((id) => {
-      document.getElementById(id)?.addEventListener("click", () => {
-        setTimeout(forceIstanbulCurrentDateTime, 50);
-      });
-    });
-  });
-
-
-
-  function initTempAsDefault() {
-    if (typeof activeGroup !== "undefined") activeGroup = "temp";
-    if (Array.isArray(typeof variables !== "undefined" ? variables : null) && variables.length > 0) {
-      const tempItem = variables.find(
-        (v) =>
-          v &&
-          (v.group === "temp" ||
-            String(v.key || v.id || v.name || "").toLowerCase().includes("temp"))
-      );
-      if (tempItem && typeof activeVar !== "undefined") {
-        activeVar = tempItem.key || tempItem.id || tempItem.name || activeVar;
-      }
-    }
-    if (typeof renderGroupBar === "function") renderGroupBar();
-    if (typeof renderVarBar === "function") renderVarBar();
-    if (typeof loadGrid === "function") loadGrid();
-    if (typeof loadPoint === "function" && typeof lastPoint !== "undefined" && lastPoint) {
-      loadPoint(lastPoint);
-    }
-  }
-
-  window.addEventListener("load", () => {
-    setTimeout(initTempAsDefault, 400);
-    setTimeout(initTempAsDefault, 900);
-  });
-
-</script>
-
-
-<audio id="bg-music" src="/ambient.mp3" autoplay loop preload="auto" playsinline></audio>
-<div id="music-bar"
-  style="position:fixed;right:14px;bottom:14px;z-index:9999;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.2);background:rgba(15,23,42,0.86);color:#fff;font-size:12px;backdrop-filter:blur(6px);">
-  <span id="music-title" style="display:none;font-weight:500;">♪ Eken Weather — Atmospheric Forecast Music</span>
-  <button id="music-toggle" type="button" aria-label="Müzik Aç/Kapat"
-    style="padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.25);background:rgba(30,41,59,0.95);color:#fff;font-size:12px;cursor:pointer;">
-    ♪ Müzik: Açık
-  </button>
-</div>
-<script>
-(() => {
-  const audio = document.getElementById("bg-music");
-  const btn = document.getElementById("music-toggle");
-  const titleEl = document.getElementById("music-title");
-  if (!audio || !btn || !titleEl) return;
-
-  const VOL = 0.35;
-  const TRACK_LABEL = "Eken Weather — Atmospheric Forecast Music";
-  audio.volume = VOL;
-
-  const syncUI = () => {
-    const isPlaying = !audio.paused && !audio.muted;
-    btn.textContent = isPlaying ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
-    if (isPlaying) {
-      titleEl.textContent = "♪ " + TRACK_LABEL;
-      titleEl.style.display = "inline";
-    } else {
-      titleEl.style.display = "none";
-    }
-  };
-
-  const playNow = async () => {
-    try {
-      audio.muted = false;
-      audio.volume = VOL;
-      await audio.play();
-    } catch (_) {}
-    syncUI();
-  };
-
-  btn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    if (audio.paused || audio.muted) {
-      await playNow();
-    } else {
-      audio.pause();
-      syncUI();
-    }
-  });
-
-  audio.addEventListener("play", syncUI);
-  audio.addEventListener("pause", syncUI);
-  audio.addEventListener("volumechange", syncUI);
-
-  playNow();
-  window.addEventListener("DOMContentLoaded", playNow, { once: true });
-  window.addEventListener("load", () => {
-    playNow();
-    setTimeout(playNow, 250);
-  }, { once: true });
-
-  const onInteract = async () => {
-    await playNow();
-    if (!audio.paused && !audio.muted) {
-      ["pointerdown", "keydown", "touchstart", "click"].forEach(ev =>
-        window.removeEventListener(ev, onInteract)
-      );
-    }
-  };
-  ["pointerdown", "keydown", "touchstart", "click"].forEach(ev =>
-    window.addEventListener(ev, onInteract, { once: true })
-  );
-
-  syncUI();
-})();
-</script>
-
-
-<script>
-(function() {
-  function replaceFlagInAttribution() {
-    const attr = document.querySelector(".leaflet-control-attribution");
-    if (!attr) return;
-    if (attr.innerHTML.includes("🇺🇦")) {
-      attr.innerHTML = attr.innerHTML.replaceAll("🇺🇦", "🇹🇷");
-    }
-    const svgs = attr.querySelectorAll("svg, img");
-    svgs.forEach((el) => {
-      const html = el.outerHTML || "";
-      if (html.includes("0057B7") || html.includes("FFD700") || html.includes("ukraine") || html.includes("ua")) {
-        const trSpan = document.createElement("span");
-        trSpan.textContent = "🇹🇷";
-        trSpan.style.margin = "0 2px";
-        el.replaceWith(trSpan);
-      }
-    });
-  }
-  document.addEventListener("DOMContentLoaded", replaceFlagInAttribution);
-  setInterval(replaceFlagInAttribution, 600);
-})();
-</script>
-
-
-
-
-<script id="auto-start-music-script">
-(function() {
-  let audioUnlocked = false;
-
-  function showTrackTitle() {
-    const titleEl = document.getElementById("music-title");
-    if (titleEl) {
-      titleEl.textContent = "♪ Eken Weather — Atmospheric Forecast Music";
-      titleEl.style.setProperty("display", "inline-block", "important");
-      titleEl.style.setProperty("color", "#f8fafc", "important");
-      titleEl.style.setProperty("font-size", "11px", "important");
-      titleEl.style.setProperty("font-weight", "600", "important");
-      titleEl.style.setProperty("margin-right", "6px", "important");
-    }
-  }
-
-  function syncMusicButtonRealState() {
-    showTrackTitle();
-    const audio = document.getElementById("bg-music") || document.querySelector("audio");
-    const btn = document.getElementById("music-toggle");
-    if (!audio) return;
-
-    const playing = !audio.paused && !audio.muted && audio.readyState >= 2;
-    if (btn) {
-      btn.setAttribute("aria-pressed", playing ? "true" : "false");
-      btn.textContent = playing ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
-    }
-  }
-
-  async function tryStartBgMusic(fromGesture = false) {
-    showTrackTitle();
-    const audio = document.getElementById("bg-music") || document.querySelector("audio");
-    if (!audio) return;
-
-    if (!audio.getAttribute("src")) {
-      audio.setAttribute("src", "/ambient.mp3");
-    }
-    audio.autoplay = true;
-    audio.loop = true;
-    audio.preload = "auto";
-    if (!audio.volume || audio.volume <= 0) {
-      audio.volume = 0.45;
-    }
-    if (audio.readyState === 0) {
-      try {
-        audio.load();
-      } catch (_) {}
-    }
-
-    try {
-      audio.muted = false;
-      await audio.play();
-      audioUnlocked = true;
-      syncMusicButtonRealState();
-      return;
-    } catch (_) {}
-
-    if (!fromGesture && !audioUnlocked) {
-      try {
-        audio.muted = true;
-        await audio.play();
-        setTimeout(async () => {
-          try {
-            audio.muted = false;
-            await audio.play();
-            audioUnlocked = true;
-          } catch (_) {}
-          syncMusicButtonRealState();
-        }, 120);
-      } catch (_) {}
-    }
-
-    syncMusicButtonRealState();
-  }
-
-  tryStartBgMusic(false);
-  document.addEventListener("DOMContentLoaded", () => tryStartBgMusic(false));
-  window.addEventListener("load", () => tryStartBgMusic(false));
-
-  const gestureEvents = ["pointerdown", "mousedown", "click", "touchstart", "keydown", "scroll", "wheel"];
-  function onGesture() {
-    tryStartBgMusic(true);
-  }
-  for (const ev of gestureEvents) {
-    window.addEventListener(ev, onGesture, { passive: true });
-  }
-
-  setTimeout(() => tryStartBgMusic(false), 200);
-  setTimeout(() => tryStartBgMusic(false), 700);
-  setInterval(syncMusicButtonRealState, 600);
-})();
-</script>
-<script id="tr-corner-flag-script">
-(function() {
-  const TR_FLAG_SVG = '<svg width="26" height="18" viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg" aria-label="Türkiye Bayrağı"><rect width="30" height="20" rx="2" fill="#E30A17"/><circle cx="11.2" cy="10" r="4.5" fill="#FFFFFF"/><circle cx="12.4" cy="10" r="3.6" fill="#E30A17"/><polygon points="16.8,10 19.6,10.9 17.9,8.5 17.9,11.5 19.6,9.1" fill="#FFFFFF"/></svg>';
-  const BRAND_ICON_SVG = '<svg width="42" height="32" viewBox="0 0 48 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M13 14.5a8.5 8.5 0 0 1 16.4-2.8A6.8 6.8 0 1 1 30 25H13.5a6.8 6.8 0 0 1-.5-10.5z" fill="none" stroke="#93c5fd" stroke-width="2" stroke-linejoin="round"/><line x1="16" y1="27.5" x2="14.2" y2="31.5" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/><line x1="22" y1="27.5" x2="20.2" y2="31.5" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/><circle cx="28" cy="29.5" r="1.4" fill="#e0f2fe"/><path d="M5 20.5c2.6-2.2 5.2-2.2 7.8 0s5.2 2.2 7.8 0" fill="none" stroke="#60a5fa" stroke-width="1.6" stroke-linecap="round"/><path d="M5 25c2.6-2.2 5.2-2.2 7.8 0s5.2 2.2 7.8 0" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round"/></svg>';
-
-  function hideAttributionAndGribLabel() {
-    const attr = document.querySelector(".leaflet-control-attribution");
-    if (attr) attr.style.setProperty("display", "none", "important");
-
-    const els = Array.from(document.querySelectorAll("div, span, a, small"));
-    for (const el of els) {
-      if (el.id === "tr-corner-flag-badge" || (el.closest && el.closest("#tr-corner-flag-badge"))) continue;
-      if (el.id === "eken-weather-brand-badge" || (el.closest && el.closest("#eken-weather-brand-badge"))) continue;
-      const t = (el.textContent || "").trim();
-      if (t === "Leaflet | © OpenStreetMap | ECMWF-GRIB2" || t === "ECMWF-GRIB2") {
-        const rect = el.getBoundingClientRect();
-        if (rect.top > window.innerHeight - 90 && rect.left > window.innerWidth * 0.45) {
-          el.style.setProperty("display", "none", "important");
-        }
-      }
-    }
-  }
-
-  function isMusicControl(el) {
-    if (!el) return false;
-    if (el.id === "tr-corner-flag-badge" || (el.closest && el.closest("#tr-corner-flag-badge"))) return false;
-    if (el.id === "eken-weather-brand-badge" || (el.closest && el.closest("#eken-weather-brand-badge"))) return false;
-    const meta = ((el.id || "") + " " + (typeof el.className === "string" ? el.className : "") + " " + (el.getAttribute("aria-label") || "") + " " + (el.getAttribute("title") || "")).toLowerCase();
-    const txt = (el.textContent || "").toLowerCase();
-    return /atmospheric forecast|music|audio|müzik|muzik|sound|radio|♪|♫|🎵|🎶/.test(meta + " " + txt);
-  }
-
-  function findColorbarAnchor() {
-    const selectors = [
-      "#cbar-title",
-      "#cbar-unit",
-      ".colorbar",
-      ".cbar",
-      "[id*='cbar']",
-      "[class*='cbar']",
-      "[id*='legend']",
-      "[class*='legend']"
-    ];
-    let union = null;
-
-    for (const sel of selectors) {
-      const els = Array.from(document.querySelectorAll(sel));
-      for (const el of els) {
-        if (!el || el.id === "tr-corner-flag-badge" || el.id === "eken-weather-brand-badge") continue;
-        if (isMusicControl(el)) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width <= 10 || r.height <= 4 || r.width > window.innerWidth * 0.9 || r.height > 260) continue;
-
-        if (!union) {
-          union = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-        } else {
-          union.left = Math.min(union.left, r.left);
-          union.top = Math.min(union.top, r.top);
-          union.right = Math.max(union.right, r.right);
-          union.bottom = Math.max(union.bottom, r.bottom);
-        }
-      }
-    }
-
-    if (!union) return null;
-    return {
-      rect: {
-        left: union.left,
-        top: union.top,
-        right: union.right,
-        bottom: union.bottom,
-        width: union.right - union.left,
-        height: union.bottom - union.top
-      }
-    };
-  }
-
-  function styleAndLiftMusicButtons() {
-    placeCenteredEkenWeatherBrand();
-
-    const navyBrandBg = "linear-gradient(135deg, #091124 0%, #101e36 60%, #1b365d 100%)";
-
-    const candidates = Array.from(document.querySelectorAll("button, [role='button'], a, div")).filter((el) => {
-      if (el.id === "tr-corner-flag-badge" || (el.closest && el.closest("#tr-corner-flag-badge"))) return false;
-      if (el.id === "ecmwf-forecast-horizon-badge" || (el.closest && el.closest("#ecmwf-forecast-horizon-badge"))) return false;
-      if (el.id === "eken-weather-brand-badge" || (el.closest && el.closest("#eken-weather-brand-badge"))) return false;
-      const r = el.getBoundingClientRect();
-      if (r.width <= 0 || r.height <= 0 || r.width > 480 || r.height > 160) return false;
-      return isMusicControl(el);
-    });
-
-    const roots = candidates.filter((el) => !candidates.some((other) => other !== el && other.contains(el)));
-    const cbarAnchor = findColorbarAnchor();
-
-    for (const root of roots) {
-      root.style.setProperty("background", navyBrandBg, "important");
-      root.style.setProperty("background-color", "transparent", "important");
-      root.style.setProperty("color", "#f8fafc", "important");
-      root.style.setProperty("border", "1px solid rgba(125, 211, 252, 0.72)", "important");
-      root.style.setProperty("border-radius", "10px", "important");
-      root.style.setProperty("padding", "5px 9px", "important");
-      root.style.setProperty("font-size", "11px", "important");
-      root.style.setProperty("line-height", "1.25", "important");
-      root.style.setProperty("max-width", "205px", "important");
-      root.style.setProperty("width", "fit-content", "important");
-      root.style.setProperty("box-shadow", "0 6px 16px rgba(2, 6, 23, 0.45)", "important");
-
-      root.querySelectorAll("div, span, button, a, small, p").forEach((child) => {
-        child.style.setProperty("background", "transparent", "important");
-        child.style.setProperty("background-color", "transparent", "important");
-        child.style.setProperty("color", "#f8fafc", "important");
-        child.style.setProperty("font-size", "11px", "important");
-        child.style.setProperty("line-height", "1.25", "important");
-      });
-
-      root.style.setProperty("position", "fixed", "important");
-      root.style.setProperty("right", "auto", "important");
-      root.style.setProperty("bottom", "auto", "important");
-      root.style.setProperty("z-index", "902", "important");
-
-      if (cbarAnchor) {
-        const leftPos = Math.max(12, Math.min(window.innerWidth - 220, Math.round(cbarAnchor.rect.left)));
-        let topPos = Math.max(12, Math.min(window.innerHeight - 68, Math.round(cbarAnchor.rect.bottom + 28)));
-        root.style.setProperty("left", leftPos + "px", "important");
-        root.style.setProperty("top", topPos + "px", "important");
-
-        const rRect = root.getBoundingClientRect();
-        if (rectsOverlap(rRect, cbarAnchor.rect, 18)) {
-          topPos = Math.min(window.innerHeight - 64, Math.round(cbarAnchor.rect.bottom + 36));
-          root.style.setProperty("top", topPos + "px", "important");
-        }
-      } else {
-        root.style.setProperty("left", "12px", "important");
-        root.style.setProperty("top", "124px", "important");
-      }
-    }
-  }
-
-  function rectsOverlap(a, b, pad = 8) {
-    return !(
-      a.right + pad < b.left ||
-      a.left - pad > b.right ||
-      a.bottom + pad < b.top ||
-      a.top - pad > b.bottom
-    );
-  }
-
-  function placeTrBadgeWithoutOverlap() {
-    hideAttributionAndGribLabel();
-    styleAndLiftMusicButtons();
-
-    let badge = document.getElementById("tr-corner-flag-badge");
-    if (!badge) {
-      badge = document.createElement("div");
-      badge.id = "tr-corner-flag-badge";
-      document.body.appendChild(badge);
-    }
-    if (badge.innerHTML !== TR_FLAG_SVG) {
-      badge.innerHTML = TR_FLAG_SVG;
-    }
-
-    badge.style.right = "12px";
-    badge.style.bottom = "12px";
-
-    const controls = Array.from(document.querySelectorAll("button, [role='button'], a, div")).filter((el) => {
-      if (el.id === "tr-corner-flag-badge" || (el.closest && el.closest("#tr-corner-flag-badge"))) return false;
-      const r = el.getBoundingClientRect();
-      if (r.width <= 0 || r.height <= 0) return false;
-      if (r.top < window.innerHeight - 240 || r.left < window.innerWidth - 260) return false;
-      return isMusicControl(el);
-    });
-
-    for (const ctrl of controls) {
-      const ctrlRect = ctrl.getBoundingClientRect();
-      let bRect = badge.getBoundingClientRect();
-      if (rectsOverlap(bRect, ctrlRect, 8)) {
-        const upBottom = Math.round(window.innerHeight - ctrlRect.top + 8);
-        badge.style.bottom = upBottom + "px";
-        bRect = badge.getBoundingClientRect();
-        if (rectsOverlap(bRect, ctrlRect, 8)) {
-          const leftRight = Math.round(window.innerWidth - ctrlRect.left + 8);
-          badge.style.bottom = "12px";
-          badge.style.right = leftRight + "px";
-        }
-      }
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", placeTrBadgeWithoutOverlap);
-  window.addEventListener("resize", placeTrBadgeWithoutOverlap);
-  setInterval(placeTrBadgeWithoutOverlap, 500);
-})();
-</script>
-
-<script id="tsi-utc-hour-formatter">
-(function() {
-  function pad2(n) {
-    return String((Number(n) + 24) % 24).padStart(2, "0");
-  }
-
-  function formatUtcToTsiWithUtc(utcHourStr, minStr = "00") {
-    const uH = Number(utcHourStr);
-    if (Number.isNaN(uH) || uH < 0 || uH > 23) return null;
-    const m = pad2(minStr);
-    const tsiH = pad2(uH + 3);
-    const uDisp = `${pad2(uH)}:${m}`;
-    const tsiDisp = `${tsiH}:${m}`;
-    return `${tsiDisp} (${uDisp} UTC)`;
-  }
-
-  function transformText(text) {
-    if (!text || text.includes("UTC)")) return text;
-
-    let out = text.replace(/\b([01]?\d|2[0-3]):([0-5]\d)\s*UTC\b/gi, (_, h, m) => {
-      return formatUtcToTsiWithUtc(h, m) || _;
-    });
-
-    out = out.replace(/(?<!\d)(?:([01]?\d|2[0-3]):([0-5]\d))(?!\s*\([^)]*UTC\))/g, (match, h, m, offset, full) => {
-      const before = full.slice(Math.max(0, offset - 6), offset);
-      const after = full.slice(offset + match.length, offset + match.length + 6);
-      if (/[:\-./\d]/.test(before.slice(-1)) || /[:\-./\d]/.test(after.slice(0, 1))) {
-        return match;
-      }
-      return formatUtcToTsiWithUtc(h, m) || match;
-    });
-
-    return out;
-  }
-
-  function applyHourLabels() {
-    const skipIds = new Set(["tr-corner-flag-badge", "eken-weather-brand-badge", "music-bar", "music-toggle", "music-title"]);
-    const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
-    let node;
-    while ((node = walker.nextNode())) {
-      const parent = node.parentElement;
-      if (!parent) continue;
-      if (parent.closest && Array.from(skipIds).some((id) => parent.closest("#" + id))) continue;
-      if (["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "OPTION"].includes(parent.tagName)) continue;
-
-      const orig = node.nodeValue;
-      if (!orig || !orig.trim()) continue;
-      const updated = transformText(orig);
-      if (updated !== orig) {
-        node.nodeValue = updated;
-      }
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", applyHourLabels);
-  window.addEventListener("load", applyHourLabels);
-  setTimeout(applyHourLabels, 250);
-  setTimeout(applyHourLabels, 900);
-  setInterval(applyHourLabels, 1500);
-})();
-</script>
-<script id="current-hour-start-script">
-(function() {
-  function pad2(n) {
-    return String(((Number(n) % 24) + 24) % 24).padStart(2, "0");
-  }
-
-  function getNowLocalHour() {
-    const now = new Date();
-    return now.getHours(); // 10:00 - 11:00 arasinda 10 dondurur
-  }
-
-  function rebuildHourSelectFromCurrentHour() {
-    const sel = document.getElementById("hour-select");
-    if (!sel) return;
-
-    const activeStepBtn = document.querySelector("#step-1.active, #step-3.active, #step-6.active");
-    let step = 1;
-    if (activeStepBtn) {
-      if (activeStepBtn.id === "step-3") step = 3;
-      else if (activeStepBtn.id === "step-6") step = 6;
-    }
-
-    const startLocalH = getNowLocalHour();
-    const prevValue = sel.value;
-
-    sel.innerHTML = "";
-    for (let offset = 0; offset < 24; offset += step) {
-      const localH = (startLocalH + offset) % 24;
-      const utcH = (localH - 3 + 24) % 24;
-
-      const opt = document.createElement("option");
-      opt.value = `${pad2(utcH)}:00:00`;
-      opt.textContent = `${pad2(localH)}:00 (${pad2(utcH)}:00 UTC)`;
-      sel.appendChild(opt);
-    }
-
-    const currentHourUtcValue = `${pad2((startLocalH - 3 + 24) % 24)}:00:00`;
-    if (prevValue && Array.from(sel.options).some((o) => o.value === prevValue)) {
-      sel.value = prevValue;
-    } else if (Array.from(sel.options).some((o) => o.value === currentHourUtcValue)) {
-      sel.value = currentHourUtcValue;
-    } else if (sel.options.length > 0) {
-      sel.selectedIndex = 0;
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", rebuildHourSelectFromCurrentHour);
-  window.addEventListener("load", rebuildHourSelectFromCurrentHour);
-
-  document.addEventListener("click", (e) => {
-    const btn = e.target && e.target.closest ? e.target.closest("#step-1, #step-3, #step-6") : null;
-    if (btn) {
-      setTimeout(rebuildHourSelectFromCurrentHour, 30);
-    }
-  });
-
-  setTimeout(rebuildHourSelectFromCurrentHour, 200);
-  setTimeout(rebuildHourSelectFromCurrentHour, 800);
-  setInterval(rebuildHourSelectFromCurrentHour, 15000);
-})();
-</script>
-<script id="now-hour-data-script">
-(function() {
-  let initializedToNow = false;
-
-  function pad2(n) {
-    return String(((Number(n) % 24) + 24) % 24).padStart(2, "0");
-  }
-
-  function getActiveStep() {
-    const activeBtn = document.querySelector("#step-1.active, #step-3.active, #step-6.active");
-    if (activeBtn) {
-      if (activeBtn.id === "step-3") return 3;
-      if (activeBtn.id === "step-6") return 6;
-    }
-    return 1;
-  }
-
-  function getCurrentTsiHourFloor() {
-    const now = new Date();
-    return now.getHours(); // Ornegin 10:52 icin 10
-  }
-
-  function rebuildAndSelectNowHour(forceSelectNow) {
-    const sel = document.getElementById("hour-select");
-    if (!sel) return false;
-
-    const step = getActiveStep();
-    const startLocalH = getCurrentTsiHourFloor();
-    const nowUtcH = (startLocalH - 3 + 24) % 24;
-    const nowUtcVal = `${pad2(nowUtcH)}:00:00`;
-
-    const prevVal = sel.value;
-    const targetVal = forceSelectNow || !initializedToNow ? nowUtcVal : (prevVal || nowUtcVal);
-
-    sel.innerHTML = "";
-    for (let offset = 0; offset < 24; offset += step) {
-      const localH = (startLocalH + offset) % 24;
-      const utcH = (localH - 3 + 24) % 24;
-      const opt = document.createElement("option");
-      opt.value = `${pad2(utcH)}:00:00`;
-      opt.textContent = `${pad2(localH)}:00 (${pad2(utcH)}:00 UTC)`;
-      sel.appendChild(opt);
-    }
-
-    if (Array.from(sel.options).some((o) => o.value === targetVal)) {
-      sel.value = targetVal;
-    } else if (Array.from(sel.options).some((o) => o.value === nowUtcVal)) {
-      sel.value = nowUtcVal;
-    } else if (sel.options.length > 0) {
-      sel.selectedIndex = 0;
-    }
-
-    const changed = prevVal !== sel.value;
-    initializedToNow = true;
-    if (changed || forceSelectNow) {
-      sel.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-    return true;
-  }
-
-  function runNowSync() {
-    rebuildAndSelectNowHour(!initializedToNow);
-  }
-
-  document.addEventListener("DOMContentLoaded", runNowSync);
-  window.addEventListener("load", runNowSync);
-
-  document.addEventListener("click", (e) => {
-    const btn = e.target && e.target.closest ? e.target.closest("#step-1, #step-3, #step-6") : null;
-    if (btn) {
-      setTimeout(() => rebuildAndSelectNowHour(true), 40);
-    }
-  });
-
-  setTimeout(runNowSync, 200);
-  setTimeout(runNowSync, 700);
-  setTimeout(runNowSync, 1500);
-})();
-</script>
-<script id="grib-now-highlight-script">
-(function() {
-  function pad2(n) {
-    return String(((Number(n) % 24) + 24) % 24).padStart(2, "0");
-  }
-
-  function getNowTsiAndUtcLabels() {
-    const now = new Date();
-    const tsiH = now.getHours();
-    const tsiM = now.getMinutes();
-    const utcH = (tsiH - 3 + 24) % 24;
-    const blockTsi = `${pad2(tsiH)}:00 TSİ`;
-    const blockUtc = `${pad2(utcH)}:00 UTC`;
-    const exactTsi = `${pad2(tsiH)}:${pad2(tsiM)} TSİ`;
-    return {
-      blockBoth: `${blockTsi} (${blockUtc})`,
-      exactBoth: `${exactTsi} · ${blockUtc}`
-    };
-  }
-
-  function formatGribTime(dtStr) {
-    if (!dtStr) return "GRIB kaydı";
-    const clean = String(dtStr).replace("T", " ").slice(0, 16);
-    const m = clean.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
-    if (!m) return clean;
-    const utcH = Number(m[2]);
-    const tsiH = (utcH + 3) % 24;
-    return `${m[1]} · ${pad2(tsiH)}:${m[3]} TSİ (${m[2]}:${m[3]} UTC)`;
-  }
-
-  function enhanceProbeBoxes() {
-    const nowInfo = getNowTsiAndUtcLabels();
-    const topVal = document.getElementById("top-var-val");
-    const readBox = document.getElementById("selected-var-readout");
-
-    const targets = [topVal, readBox].filter(Boolean);
-    for (const box of targets) {
-      const text = box.innerText || box.textContent || "";
-      const isoMatch = text.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?/);
-      const gribIso = isoMatch ? isoMatch[0] : (box.dataset.gribIso || "2026-11-26T00:00:00");
-      box.dataset.gribIso = gribIso;
-      const gribFormatted = formatGribTime(gribIso);
-
-      const varLineMatch = text.match(/([^\n:]+:\s*[^\n]+)/);
-      const mainReading = (varLineMatch && !varLineMatch[1].includes("Kaynak:") && !varLineMatch[1].includes("Şu an:"))
-        ? varLineMatch[1].trim()
-        : (box.dataset.mainReading || "");
-      if (mainReading) box.dataset.mainReading = mainReading;
-
-      const locEl = document.getElementById("loc-date-box") || document.getElementById("date-side-panel");
-      const locText = (locEl && locEl.innerText) ? locEl.innerText.split("\n")[0].trim() : "";
-
-      const html = `
-        ${locText ? `<div style="font-size:11px;font-weight:600;color:#e2e8f0;margin-bottom:2px;">${locText}</div>` : ""}
-        ${mainReading ? `<div style="font-size:13px;font-weight:700;color:#f8fafc;">${mainReading}</div>` : ""}
-        <div style="margin-top:4px;padding:4px 6px;border-radius:5px;background:rgba(15,23,42,0.72);border-left:3px solid #38bdf8;font-size:11px;line-height:1.35;color:#cbd5e1;">
-          <div><strong style="color:#7dd3fc;">Kaynak: GRIB (marmara_ecmwf.grib2)</strong> — Sayısal modelin kayıtlı zaman adımı: <strong>${gribFormatted}</strong>.</div>
-          <div style="margin-top:3px;padding-top:3px;border-top:1px solid rgba(148,163,184,0.22);color:#fde68a;font-weight:700;">
-            Şu an: ${nowInfo.blockBoth} (Anlık: ${nowInfo.exactBoth})
-          </div>
-        </div>
-      `;
-
-      if (box.dataset.lastRenderedHtml !== html) {
-        box.innerHTML = html;
-        box.dataset.lastRenderedHtml = html;
-      }
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", enhanceProbeBoxes);
-  window.addEventListener("load", enhanceProbeBoxes);
-  setTimeout(enhanceProbeBoxes, 200);
-  setTimeout(enhanceProbeBoxes, 700);
-  setInterval(enhanceProbeBoxes, 1000);
-})();
-</script>
-<script id="step-right-nocollide-script">
-(function() {
-  function placeStepControlsRight() {
-    const candidates = [
-      document.getElementById("step-1")?.parentElement,
-      document.querySelector('[data-action*="prev"], [id*="prev"], [id*="back"], [class*="prev"], [class*="back"]')
-    ].filter(Boolean);
-
-    for (const el of candidates) {
-      if (el.dataset.movedRightNoCollide === "1") continue;
-      if (el.id === "hour-select" || el.tagName === "SELECT") continue;
-
-      if (el.parentElement && el.parentElement !== document.body) {
-        document.body.appendChild(el);
-      }
-
-      el.style.position = "fixed";
-      el.style.right = "16px";
-      el.style.left = "auto";
-      el.style.bottom = "110px";
-      el.style.top = "auto";
-      el.style.zIndex = "1500";
-      el.style.display = "flex";
-      el.style.gap = "6px";
-      el.style.alignItems = "center";
-      el.style.pointerEvents = "auto";
-      el.dataset.movedRightNoCollide = "1";
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", placeStepControlsRight);
-  window.addEventListener("load", placeStepControlsRight);
-  setTimeout(placeStepControlsRight, 250);
-  setTimeout(placeStepControlsRight, 900);
-})();
-</script>
-<script id="gecmis-adim-right-script">
-(function() {
-  function findGecmisAdimElement() {
-    const nodes = Array.from(document.querySelectorAll("button, a, span, div, label"));
-    // En dar (icinde baska kontrol barindirmayan) eslesmeyi sec
-    const matches = nodes.filter((el) => {
-      const txt = (el.textContent || "").replace(/\s+/g, " ").trim();
-      if (!txt.includes("GEÇMİŞ ADIM")) return false;
-      if (txt.length > 40) return false;
-      return !el.querySelector("button, input, select");
-    });
-    if (!matches.length) return null;
-    matches.sort((a, b) => (a.textContent || "").length - (b.textContent || "").length);
-    return matches[0];
-  }
-
-  function applyRightPlacement() {
-    const el = findGecmisAdimElement();
-    if (!el) return;
-
-    const btn = el.closest("button, a") || el;
-    const parent = btn.parentElement;
-
-    if (parent) {
-      const cs = window.getComputedStyle(parent);
-      if (cs.display !== "flex" && cs.display !== "inline-flex") {
-        parent.style.display = "flex";
-      }
-      parent.style.alignItems = "center";
-      parent.style.justifyContent = "flex-start";
-      parent.style.flexWrap = "wrap";
-      parent.style.gap = "8px";
-    }
-
-    btn.style.marginLeft = "auto";
-    btn.style.marginRight = "4px";
-    btn.style.position = "relative";
-    btn.style.zIndex = "2000";
-    btn.style.flexShrink = "0";
-    btn.style.pointerEvents = "auto";
-  }
-
-  document.addEventListener("DOMContentLoaded", applyRightPlacement);
-  window.addEventListener("load", applyRightPlacement);
-  setTimeout(applyRightPlacement, 150);
-  setTimeout(applyRightPlacement, 600);
-  setTimeout(applyRightPlacement, 1500);
-
-  const obs = new MutationObserver(() => applyRightPlacement());
-  if (document.body) {
-    obs.observe(document.body, { childList: true, subtree: true });
-  } else {
-    document.addEventListener("DOMContentLoaded", () => {
-      if (document.body) obs.observe(document.body, { childList: true, subtree: true });
-    });
-  }
-})();
-</script>
-<script id="unoverlap-and-bottom-right-script">
-(function() {
-  function fixLayout() {
-    // 1. GECMIS ADIM kutusunu bul ve sag altta cakismayacak yere al
-    const all = Array.from(document.querySelectorAll("div, section, aside"));
-    const gecmisBox = all.find((el) => {
-      const t = (el.innerText || "");
-      return t.includes("GEÇMİŞ ADIM") && t.includes("Oyna") && el.offsetHeight > 80 && el.offsetWidth < 460;
-    });
-
-    if (gecmisBox) {
-      if (gecmisBox.parentElement && gecmisBox.parentElement !== document.body) {
-        document.body.appendChild(gecmisBox);
-      }
-      gecmisBox.style.position = "fixed";
-      gecmisBox.style.right = "14px";
-      gecmisBox.style.bottom = "86px"; // 1H/3H/6H ve muzik cubugunun ustunde
-      gecmisBox.style.left = "auto";
-      gecmisBox.style.top = "auto";
-      gecmisBox.style.width = "310px";
-      gecmisBox.style.maxWidth = "calc(100vw - 28px)";
-      gecmisBox.style.zIndex = "1600";
-      gecmisBox.style.display = "flex";
-      gecmisBox.style.flexDirection = "column";
-      gecmisBox.style.gap = "6px";
-      gecmisBox.style.padding = "10px 12px";
-      gecmisBox.style.lineHeight = "1.45";
-      gecmisBox.style.boxSizing = "border-box";
-      gecmisBox.style.background = "rgba(15, 23, 42, 0.92)";
-      gecmisBox.style.borderRadius = "8px";
-      gecmisBox.style.border = "1px solid rgba(148, 163, 184, 0.28)";
-
-      // Icindeki satir ve butonlarin birbirine girmesini engelle
-      gecmisBox.querySelectorAll("*").forEach((child) => {
-        child.style.lineHeight = "1.4";
-        child.style.whiteSpace = "normal";
-        child.style.overflow = "visible";
-        child.style.position = "relative";
-      });
-
-      const flexRows = gecmisBox.querySelectorAll("div");
-      flexRows.forEach((r) => {
-        if (r.children.length > 1) {
-          r.style.display = "flex";
-          r.style.flexWrap = "wrap";
-          r.style.alignItems = "center";
-          r.style.gap = "6px";
-        }
-      });
-    }
-
-    // 2. Sol ustteki okuma kutusundaki satir araligini ac
-    ["top-var-val", "selected-var-readout"].forEach((id) => {
-      const box = document.getElementById(id);
-      if (box) {
-        box.style.lineHeight = "1.4";
-        box.style.overflow = "visible";
-      }
-    });
-  }
-
-  document.addEventListener("DOMContentLoaded", fixLayout);
-  window.addEventListener("load", fixLayout);
-  setTimeout(fixLayout, 200);
-  setTimeout(fixLayout, 800);
-  setInterval(fixLayout, 1500);
-})();
-</script>
-<script id="su-an-always-fixed-script">
-(function() {
-  function pad2(n) {
-    return String(((Number(n) % 24) + 24) % 24).padStart(2, "0");
-  }
-
-  function getNowSnapshot() {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = pad2(now.getMonth() + 1);
-    const dd = pad2(now.getDate());
-    const hh = pad2(now.getHours());
-    const min = pad2(now.getMinutes());
-    const sec = pad2(now.getSeconds());
-    const utcH = (now.getHours() - 3 + 24) % 24;
-    const utcHH = pad2(utcH);
-
-    return {
-      dateStr: `${yyyy}-${mm}-${dd}`,
-      tsiClock: `${hh}:${min}:${sec} TSİ`,
-      tsiBlock: `${hh}:00 TSİ`,
-      utcBlock: `${utcHH}:00 UTC`,
-      reqIsoUtc: `${yyyy}-${mm}-${dd}T${utcHH}:00:00`
-    };
-  }
-
-  function getActiveVarInfo() {
-    const varSel = document.getElementById("var-select");
-    const key = (varSel && varSel.value) ? varSel.value : "t2m";
-    const selectedOpt = varSel && varSel.selectedIndex >= 0 ? varSel.options[varSel.selectedIndex] : null;
-    const label = (selectedOpt && selectedOpt.textContent ? selectedOpt.textContent.trim() : "") || key;
-    return { key, label };
-  }
-
-  function normalizeUnit(apiUnit, varKey, labelText) {
-    const u = (apiUnit || "").trim();
-    if (u) return u;
-    const combined = `${varKey} ${labelText}`.toLowerCase();
-    if (combined.includes("yağış") || combined.includes("precip") || combined.includes("rain") || varKey === "tp") return "mm";
-    if (combined.includes("sıcak") || combined.includes("temp") || combined.includes("çiy") || combined.includes("dew") || varKey === "t2m" || varKey === "2t") return "°C";
-    if (combined.includes("rüzgar") || combined.includes("wind")) return "m/s";
-    if (combined.includes("basınç") || combined.includes("press")) return "hPa";
-    if (combined.includes("nem") || combined.includes("rh") || combined.includes("hum")) return "%";
-    return "";
-  }
-
-  async function fetchCurrentHourData(snap, activeVar) {
-    try {
-      const stepBtn3 = document.getElementById("step-3")?.classList.contains("active");
-      const stepBtn6 = document.getElementById("step-6")?.classList.contains("active");
-      const stepVal = stepBtn6 ? 6 : (stepBtn3 ? 3 : 1);
-
-      const locBoxText = (document.getElementById("loc-date-box")?.innerText || "");
-      const coordMatch = locBoxText.match(/\((-?\d+\.\d+),\s*(-?\d+\.\d+)\)/);
-      const lat = coordMatch ? coordMatch[1] : "41.01";
-      const lon = coordMatch ? coordMatch[2] : "28.97";
-
-      const url = `/api/point?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&var=${encodeURIComponent(activeVar.key)}&step=${stepVal}&datetime=${encodeURIComponent(snap.reqIsoUtc)}`;
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  function ensureFixedSuAnWidget() {
-    let box = document.getElementById("su-an-sabit-kutu");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "su-an-sabit-kutu";
-      document.body.appendChild(box);
-    }
-
-    box.style.position = "fixed";
-    box.style.left = "14px";
-    box.style.bottom = "14px";
-    box.style.zIndex = "2200";
-    box.style.minWidth = "280px";
-    box.style.maxWidth = "390px";
-    box.style.padding = "9px 12px";
-    box.style.borderRadius = "8px";
-    box.style.background = "rgba(10, 15, 28, 0.95)";
-    box.style.border = "1px solid rgba(253, 224, 71, 0.65)";
-    box.style.boxShadow = "0 6px 18px rgba(0, 0, 0, 0.45)";
-    box.style.color = "#f8fafc";
-    box.style.fontSize = "12px";
-    box.style.lineHeight = "1.45";
-    box.style.pointerEvents = "auto";
-    return box;
-  }
-
-  let lastDataHtml = "Değer okunuyor...";
-  let lastFetchKey = "";
-
-  async function renderFixedSuAn() {
-    const box = ensureFixedSuAnWidget();
-    const snap = getNowSnapshot();
-    const activeVar = getActiveVarInfo();
-    const fetchKey = `${snap.dateStr}T${snap.utcBlock}|${activeVar.key}`;
-
-    if (fetchKey !== lastFetchKey) {
-      lastFetchKey = fetchKey;
-      const d = await fetchCurrentHourData(snap, activeVar);
-      if (d && d.value !== undefined && d.value !== null && !Number.isNaN(Number(d.value))) {
-        const val1 = Number(d.value).toFixed(1);
-        const unit = normalizeUnit(d.unit, activeVar.key, activeVar.label);
-        const unitSuffix = unit ? ` ${unit}` : "";
-        const srcTime = d.datetime ? String(d.datetime) : snap.reqIsoUtc;
-        lastDataHtml = `
-          <div><span style="color:#cbd5e1;">${activeVar.label}:</span> <strong style="font-size:14px;color:#38bdf8;">${val1}${unitSuffix}</strong></div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:2px;">En son kayıt: <code>${srcTime}</code></div>
-        `;
-      } else {
-        lastDataHtml = `<div style="color:#fca5a5;">${activeVar.label}: Veri yok (${snap.reqIsoUtc})</div>`;
-      }
-    }
-
-    box.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(148,163,184,0.25);padding-bottom:4px;margin-bottom:5px;">
-        <span style="font-weight:800;letter-spacing:0.4px;color:#fde047;">ŞU AN</span>
-        <span style="font-weight:700;color:#fef08a;">${snap.tsiClock} (${snap.tsiBlock} / ${snap.utcBlock})</span>
-      </div>
-      ${lastDataHtml}
-    `;
-  }
-
-  document.addEventListener("DOMContentLoaded", renderFixedSuAn);
-  window.addEventListener("load", renderFixedSuAn);
-  setTimeout(renderFixedSuAn, 200);
-  setTimeout(renderFixedSuAn, 800);
-  setInterval(renderFixedSuAn, 1000);
-})();
-</script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<script id="eken-live-ecmwf-app">
-(function() {
-  const VARS = [
-    { key: "temperature_2m", om: "temperature_2m", name: "2 m Sıcaklığı", unit: "°C", min: -5, max: 25, palette: [[37,99,235],[6,182,212],[34,197,94],[234,179,8],[239,68,68]] },
-    { key: "dewpoint_2m", om: "dew_point_2m", name: "2 m Çiy Noktası", unit: "°C", min: -5, max: 20, palette: [[30,64,175],[14,165,233],[45,212,191],[163,230,53],[245,158,11]] },
-    { key: "wind_speed_10m", om: "wind_speed_10m", name: "10 m Rüzgar Hızı", unit: "m/s", min: 0, max: 20, palette: [[22,163,74],[132,204,22],[234,179,8],[249,115,22],[220,38,38]] },
-    { key: "wind_direction_10m", om: "wind_direction_10m", name: "10 m Rüzgar Yönü", unit: "°", min: 0, max: 360, palette: [[59,130,246],[6,182,212],[16,185,129],[245,158,11],[239,68,68]] },
-    { key: "precipitation", om: "precipitation", name: "Toplam Yağış", unit: "mm", min: 0, max: 12, palette: [[30,58,138],[37,99,235],[6,182,212],[52,211,153],[250,204,21]] },
-    { key: "pressure_msl", om: "pressure_msl", name: "Deniz Seviyesi Basıncı", unit: "hPa", min: 995, max: 1030, palette: [[124,58,237],[37,99,235],[34,197,94],[234,179,8],[239,68,68]] },
-    { key: "cloud_cover", om: "cloud_cover", name: "Toplam Bulutluluk", unit: "%", min: 0, max: 100, palette: [[14,165,233],[56,189,248],[148,163,184],[100,116,139],[51,65,85]] },
-    { key: "cape", om: "cape", name: "CAPE", unit: "J/kg", min: 0, max: 1500, palette: [[34,197,94],[163,230,53],[250,204,21],[249,115,22],[220,38,38]] },
-    { key: "temperature_850hPa", om: "temperature_850hPa", name: "850 hPa Sıcaklık", unit: "°C", min: -10, max: 15, palette: [[29,78,216],[6,182,212],[34,197,94],[234,179,8],[239,68,68]] },
-    { key: "wind_speed_850hPa", om: "wind_speed_850hPa", name: "850 hPa Rüzgar Hızı", unit: "m/s", min: 0, max: 30, palette: [[16,185,129],[132,204,22],[234,179,8],[249,115,22],[239,68,68]] },
-    { key: "geopotential_height_500hPa", om: "geopotential_height_500hPa", name: "500 hPa Jeopotansiyel", unit: "gpm", min: 5200, max: 5800, palette: [[37,99,235],[14,165,233],[34,197,94],[234,179,8],[239,68,68]] },
-    { key: "temperature_500hPa", om: "temperature_500hPa", name: "500 hPa Sıcaklık", unit: "°C", min: -35, max: -10, palette: [[30,64,175],[6,182,212],[52,211,153],[250,204,21],[239,68,68]] },
-    { key: "wind_speed_500hPa", om: "wind_speed_500hPa", name: "500 hPa Rüzgar Hızı", unit: "m/s", min: 0, max: 50, palette: [[22,163,74],[132,204,22],[234,179,8],[249,115,22],[220,38,38]] }
-  ];
-
-  const SAMPLE_POINTS = (() => {
-    const pts = [];
-    for (let lat = 38.0; lat <= 43.0; lat += 0.6) {
-      for (let lon = 25.0; lon <= 32.5; lon += 0.75) {
-        pts.push({ lat: Number(lat.toFixed(2)), lon: Number(lon.toFixed(2)) });
-      }
+      applyPalette(curVar);
     }
-    for (let lat = -60; lat <= 75; lat += 25) {
-      for (let lon = -165; lon <= 165; lon += 30) {
-        pts.push({ lat, lon });
-      }
-    }
-    return pts;
-  })();
-
-  let curVar = VARS[0];
-  let curCoord = { lat: 41.0082, lon: 28.9784 };
-  let curAddress = "İstanbul · Fatih · Eminönü · Hobyar Mah.";
-  let lastAddrKey = "";
-  let fieldPayload = null;
-  let pointPayload = null;
-  let smoothCanvas = null;
-  let smoothCtx = null;
-  let lastGoodValStr = null;
-
-  function killOynat() {
-    document.querySelectorAll("button, a, div, span").forEach(el => {
-      if (el.children.length > 0) return;
-      const txt = (el.textContent || "").trim().toLowerCase();
-      const idc = ((el.id || "") + " " + (el.className || "")).toLowerCase();
-      if (txt === "oynat" || txt === "oyna" || txt === "play" || idc.includes("oynat") || idc.includes("oyna")) {
-        el.remove();
-      }
-    });
-  }
 
-  function applyPaletteToColorbar(v) {
-    const gradEl = document.getElementById("cbar-grad");
-    if (!gradEl || !v || !v.palette) return;
-    const stops = v.palette.map((c, idx) => {
-      const pct = Math.round((idx / (v.palette.length - 1)) * 100);
-      return `rgb(${c[0]},${c[1]},${c[2]}) ${pct}%`;
-    });
-    gradEl.style.setProperty("background", `linear-gradient(90deg, ${stops.join(", ")})`, "important");
-  }
-
-  function sampleColor(val, minV, maxV, palette) {
-    const t = Math.max(0, Math.min(1, (val - minV) / Math.max(1e-6, maxV - minV)));
-    const s = t * (palette.length - 1);
-    const i = Math.min(palette.length - 2, Math.floor(s));
-    const f = s - i;
-    const c0 = palette[i], c1 = palette[i + 1];
-    return [
-      Math.round(c0[0] + (c1[0] - c0[0]) * f),
-      Math.round(c0[1] + (c1[1] - c0[1]) * f),
-      Math.round(c0[2] + (c1[2] - c0[2]) * f)
-    ];
-  }
-
-  async function resolveFullAddress(lat, lon) {
-    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-    if (key === lastAddrKey) return curAddress;
-    lastAddrKey = key;
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&accept-language=tr`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        const a = json.address || {};
-        const il = a.province || a.city || a.state || a.county || "";
-        const ilce = a.town || a.city_district || a.district || a.county || "";
-        const semt = a.suburb || a.neighbourhood || a.quarter || "";
-        const mah = a.quarter || a.neighbourhood || a.residential || a.hamlet || a.road || "";
-        const parts = [il, ilce, semt, mah].filter((v, idx, arr) => v && arr.indexOf(v) === idx);
-        curAddress = parts.length ? parts.join(" · ") : (json.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-      }
-    } catch (_) {}
-    return curAddress;
-  }
-
-  function buildVarButtons() {
-    const bar = document.getElementById("var-bar");
-    if (!bar) return;
-    bar.innerHTML = "";
-    VARS.forEach((v, idx) => {
-      const btn = document.createElement("button");
-      btn.textContent = v.unit ? `${v.name} (${v.unit})` : v.name;
-      if (idx === 0) btn.classList.add("active");
-      btn.addEventListener("click", async () => {
-        bar.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        curVar = v;
-        lastGoodValStr = null;
-        applyPaletteToColorbar(v);
-        fieldPayload = null;
-        pointPayload = null;
-        await refreshAll(false);
-      });
-      bar.appendChild(btn);
-    });
-    applyPaletteToColorbar(curVar);
-  }
-
-  function syncHourOptionsForDate(times, rebuildOptions) {
-    const dIn = document.getElementById("date-input");
-    const hSel = document.getElementById("hour-select");
-    const badge = document.getElementById("badge");
-    if (!times || !times.length) {
-      return { idx: 0, dtIso: new Date().toISOString().slice(0, 16) };
-    }
+    function syncTimeControls(times, forceHourPick) {
+      const dIn = document.getElementById("date-input");
+      const hSel = document.getElementById("hour-select");
+      const rangeEl = document.getElementById("top-range");
+      if (!times || !times.length) return { idx: 0, iso: "" };
 
-    const dates = [...new Set(times.map(t => t.slice(0, 10)))];
-    const minD = dates[0], maxD = dates[dates.length - 1];
-    if (dIn) {
+      const dates = [...new Set(times.map(t => t.slice(0, 10)))];
+      const minD = dates[0], maxD = dates[dates.length - 1];
       dIn.min = minD;
       dIn.max = maxD;
       if (!dIn.value || dIn.value < minD || dIn.value > maxD) {
-        const nowUtcDay = new Date().toISOString().slice(0, 10);
-        dIn.value = dates.includes(nowUtcDay) ? nowUtcDay : minD;
+        const nowDay = new Date().toISOString().slice(0, 10);
+        dIn.value = dates.includes(nowDay) ? nowDay : minD;
       }
-    }
-    const selD = dIn ? dIn.value : minD;
-    const dayTimes = times.filter(t => t.startsWith(selD));
 
-    if (hSel && (rebuildOptions || hSel.options.length === 0)) {
-      const prev = hSel.value;
+      const dayTimes = times.filter(t => t.startsWith(dIn.value));
+      const prevHour = hSel.value;
       hSel.innerHTML = "";
       dayTimes.forEach(t => {
-        const hh = t.slice(11, 16) + ":00";
+        const hh = t.slice(11, 16);
         const opt = document.createElement("option");
         opt.value = hh;
-        opt.textContent = t.slice(11, 16) + " UTC";
+        opt.textContent = `${hh} UTC`;
         hSel.appendChild(opt);
       });
-      if (prev && [...hSel.options].some(o => o.value === prev)) {
-        hSel.value = prev;
+
+      if (!forceHourPick && prevHour && [...hSel.options].some(o => o.value === prevHour)) {
+        hSel.value = prevHour;
       } else if (hSel.options.length) {
-        const nowUtcHour = String(new Date().getUTCHours()).padStart(2, "0") + ":00:00";
-        const matchNow = [...hSel.options].find(o => o.value === nowUtcHour);
-        hSel.value = matchNow ? matchNow.value : hSel.options[0].value;
+        const curUtcH = String(new Date().getUTCHours()).padStart(2, "0") + ":00";
+        const match = [...hSel.options].find(o => o.value === curUtcH);
+        hSel.value = match ? match.value : hSel.options[0].value;
       }
-    }
 
-    const selH = (hSel && hSel.value) || (dayTimes[0] ? dayTimes[0].slice(11, 16) + ":00" : "00:00:00");
-    if (badge) badge.textContent = `ECMWF · ${minD} .. ${maxD} · ${selD} ${selH}`;
+      const targetIso = `${dIn.value}T${hSel.value}`;
+      let idx = times.indexOf(targetIso);
+      if (idx < 0) idx = times.findIndex(t => t.startsWith(dIn.value));
+      if (idx < 0) idx = 0;
 
-    const target = `${selD}T${selH.slice(0, 5)}`;
-    let idx = times.indexOf(target);
-    if (idx < 0) idx = times.findIndex(t => t.startsWith(selD));
-    if (idx < 0) idx = 0;
-    return { idx, dtIso: times[idx] || target };
-  }
-
-  async function fetchFieldAndPoint() {
-    if (!fieldPayload) {
-      const lats = SAMPLE_POINTS.map(p => p.lat).join(",");
-      const lons = SAMPLE_POINTS.map(p => p.lon).join(",");
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.om)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
-      const res = await fetch(url);
-      if (res.ok) fieldPayload = await res.json();
-    }
-    const pUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(curCoord.lat)}&longitude=${encodeURIComponent(curCoord.lon)}&hourly=${encodeURIComponent(curVar.om)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
-    const pRes = await fetch(pUrl);
-    if (pRes.ok) pointPayload = await pRes.json();
-  }
-
-  function ensureCanvasOverlay() {
-    if (typeof map === "undefined" || !map) return;
-    if (!smoothCanvas) {
-      smoothCanvas = document.createElement("canvas");
-      smoothCanvas.id = "eken-smooth-field-canvas";
-      smoothCanvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:420;filter:blur(14px);";
-      const mapContainer = map.getContainer();
-      if (mapContainer) {
-        mapContainer.appendChild(smoothCanvas);
-        smoothCtx = smoothCanvas.getContext("2d");
+      if (rangeEl) {
+        rangeEl.textContent = `ECMWF Aralığı: ${minD} → ${maxD} | Seçili: ${times[idx] || targetIso} UTC`;
       }
+      return { idx, iso: times[idx] || targetIso };
     }
-    const size = map.getSize();
-    if (smoothCanvas && size && size.x > 0 && size.y > 0) {
-      const w = Math.max(120, Math.floor(size.x / 3));
-      const h = Math.max(90, Math.floor(size.y / 3));
-      if (smoothCanvas.width !== w || smoothCanvas.height !== h) {
-        smoothCanvas.width = w;
-        smoothCanvas.height = h;
+
+    async function fetchEcmwf() {
+      if (!gridData) {
+        const lats = SAMPLE_GRID.map(p => p.lat).join(",");
+        const lons = SAMPLE_GRID.map(p => p.lon).join(",");
+        const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
+        const res = await fetch(url);
+        if (res.ok) gridData = await res.json();
       }
-    }
-  }
-
-  function renderSmoothField(rebuildOptions) {
-    ensureCanvasOverlay();
-    if (!smoothCanvas || !smoothCtx || typeof map === "undefined" || !map || !fieldPayload) return;
-
-    const list = Array.isArray(fieldPayload) ? fieldPayload : [fieldPayload];
-    const times = (list[0] && list[0].hourly && list[0].hourly.time) || [];
-    const { idx: tIdx } = syncHourOptionsForDate(times, rebuildOptions);
-
-    const pts = [];
-    list.forEach((item, i) => {
-      const vals = (item && item.hourly && item.hourly[curVar.om]) || [];
-      const val = vals[tIdx];
-      const basePt = SAMPLE_POINTS[i];
-      if (!basePt || typeof val !== "number" || !Number.isFinite(val)) return;
-      const ptPx = map.latLngToContainerPoint([basePt.lat, basePt.lon]);
-      pts.push({ x: ptPx.x / 3, y: ptPx.y / 3, val });
-    });
-
-    if (!pts.length) return;
-
-    const valsOnly = pts.map(p => p.val);
-    const minV = Math.min(...valsOnly);
-    const maxV = Math.max(...valsOnly);
-
-    const cTitle = document.getElementById("cbar-title");
-    const cUnit = document.getElementById("cbar-unit");
-    const cTicks = document.getElementById("cbar-ticks");
-    if (cTitle) cTitle.textContent = curVar.name;
-    if (cUnit) cUnit.textContent = curVar.unit;
-    if (cTicks) {
-      cTicks.innerHTML = `<span>${minV.toFixed(1)} ${curVar.unit}</span><span>${((minV + maxV) / 2).toFixed(1)}</span><span>${maxV.toFixed(1)} ${curVar.unit}</span>`;
+      const pUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(curCoord.lat)}&longitude=${encodeURIComponent(curCoord.lon)}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
+      const pRes = await fetch(pUrl);
+      if (pRes.ok) pointData = await pRes.json();
     }
 
-    const w = smoothCanvas.width, h = smoothCanvas.height;
-    const img = smoothCtx.createImageData(w, h);
-    const data = img.data;
-    const pal = curVar.palette;
-
-    for (let y = 0; y < h; y += 2) {
-      for (let x = 0; x < w; x += 2) {
-        let wSum = 0, vSum = 0;
-        for (let k = 0; k < pts.length; k++) {
-          const dx = x - pts[k].x;
-          const dy = y - pts[k].y;
-          const d2 = dx * dx + dy * dy + 220;
-          const wt = 1.0 / (d2 * Math.sqrt(d2));
-          wSum += wt;
-          vSum += wt * pts[k].val;
+    async function fetchAddress(lat, lon) {
+      const k = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      if (k === lastAddrKey) return curAddr;
+      lastAddrKey = k;
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&accept-language=tr`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const j = await res.json();
+          const a = j.address || {};
+          const parts = [
+            a.province || a.city || a.state || a.county,
+            a.town || a.city_district || a.district,
+            a.suburb || a.neighbourhood,
+            a.quarter || a.residential || a.hamlet || a.road
+          ].filter((v, i, arr) => v && arr.indexOf(v) === i);
+          curAddr = parts.length ? parts.join(" · ") : (j.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
         }
-        const interpVal = wSum > 0 ? vSum / wSum : minV;
-        const [r, g, b] = sampleColor(interpVal, minV, maxV, pal);
-        for (let oy = 0; oy < 2 && y + oy < h; oy++) {
-          for (let ox = 0; ox < 2 && x + ox < w; ox++) {
-            const idx = ((y + oy) * w + (x + ox)) * 4;
-            data[idx] = r;
-            data[idx + 1] = g;
-            data[idx + 2] = b;
-            data[idx + 3] = 115;
+      } catch (_) {}
+      return curAddr;
+    }
+
+    function renderCanvas(forceHourPick) {
+      if (!gridData) return;
+      const list = Array.isArray(gridData) ? gridData : [gridData];
+      const times = (list[0] && list[0].hourly && list[0].hourly.time) || [];
+      const { idx } = syncTimeControls(times, forceHourPick);
+
+      const sz = map.getSize();
+      if (!sz || sz.x <= 0 || sz.y <= 0) return;
+      const w = Math.max(120, Math.floor(sz.x / 3));
+      const h = Math.max(90, Math.floor(sz.y / 3));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+
+      const pts = [];
+      list.forEach((item, i) => {
+        const arr = (item && item.hourly && item.hourly[curVar.key]) || [];
+        const val = arr[idx];
+        const g = SAMPLE_GRID[i];
+        if (!g || typeof val !== "number" || !Number.isFinite(val)) return;
+        const px = map.latLngToContainerPoint([g.lat, g.lon]);
+        pts.push({ x: px.x / 3, y: px.y / 3, val });
+      });
+      if (!pts.length) return;
+
+      const minV = Math.min(...pts.map(p => p.val));
+      const maxV = Math.max(...pts.map(p => p.val));
+      const ticks = document.getElementById("cbar-ticks");
+      if (ticks) {
+        ticks.innerHTML = `<span>${minV.toFixed(1)} ${curVar.unit}</span><span>${((minV + maxV) / 2).toFixed(1)}</span><span>${maxV.toFixed(1)} ${curVar.unit}</span>`;
+      }
+
+      const img = ctx.createImageData(w, h);
+      const d = img.data;
+      for (let y = 0; y < h; y += 2) {
+        for (let x = 0; x < w; x += 2) {
+          let wSum = 0, vSum = 0;
+          for (let k = 0; k < pts.length; k++) {
+            const dx = x - pts[k].x;
+            const dy = y - pts[k].y;
+            const d2 = dx * dx + dy * dy + 220;
+            const wt = 1.0 / (d2 * Math.sqrt(d2));
+            wSum += wt;
+            vSum += wt * pts[k].val;
+          }
+          const v = wSum > 0 ? vSum / wSum : minV;
+          const [r, g, b] = sampleRgb(v, minV, maxV, curVar.palette);
+          for (let oy = 0; oy < 2 && y + oy < h; oy++) {
+            for (let ox = 0; ox < 2 && x + ox < w; ox++) {
+              const pIdx = ((y + oy) * w + (x + ox)) * 4;
+              d[pIdx] = r;
+              d[pIdx + 1] = g;
+              d[pIdx + 2] = b;
+              d[pIdx + 3] = 115;
+            }
           }
         }
       }
-    }
-    smoothCtx.putImageData(img, 0, 0);
-  }
-
-  function renderPointInfo(rebuildOptions) {
-    const times = (pointPayload && pointPayload.hourly && pointPayload.hourly.time) || [];
-    const { idx: tIdx, dtIso } = syncHourOptionsForDate(times, rebuildOptions);
-    const vals = (pointPayload && pointPayload.hourly && pointPayload.hourly[curVar.om]) || [];
-    const raw = vals[tIdx];
-
-    let valStr;
-    if (typeof raw === "number" && Number.isFinite(raw)) {
-      valStr = `${raw.toFixed(2)} ${curVar.unit}`;
-      lastGoodValStr = valStr;
-    } else if (lastGoodValStr) {
-      valStr = lastGoodValStr;
-    } else {
-      valStr = `Yükleniyor (${curVar.unit})`;
+      ctx.putImageData(img, 0, 0);
     }
 
-    const now = new Date();
-    const utcNowStr = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
-    const istNowClock = now.toLocaleTimeString("tr-TR", {
-      timeZone: "Europe/Istanbul",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
-    const stepUtcStr = dtIso.replace("T", " ") + " UTC";
-    const coordStr = `${curCoord.lat.toFixed(4)}, ${curCoord.lon.toFixed(4)}`;
+    function renderPoint(forceHourPick) {
+      const times = (pointData && pointData.hourly && pointData.hourly.time) || [];
+      const { idx, iso } = syncTimeControls(times, forceHourPick);
+      const arr = (pointData && pointData.hourly && pointData.hourly[curVar.key]) || [];
+      const raw = arr[idx];
+      const valText = (typeof raw === "number" && Number.isFinite(raw))
+        ? `${raw.toFixed(2)} ${curVar.unit}`
+        : `-- ${curVar.unit}`;
 
-    const topLoc = document.getElementById("top-loc-coord");
-    const topVal = document.getElementById("top-var-val");
-    const probe = document.getElementById("probe");
+      const istHourStr = iso ? new Date(iso + ":00Z").toLocaleString("tr-TR", {
+        timeZone: "Europe/Istanbul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }) : "--";
 
-    if (topLoc) topLoc.textContent = `${curAddress} (${coordStr})`;
-    if (topVal) topVal.textContent = `${curVar.name} [${curVar.unit}]: ${valStr} · ${stepUtcStr}`;
-    if (probe) {
-      probe.textContent = `${curAddress} (${coordStr}) | ${curVar.name}: ${valStr} | ${stepUtcStr} | ${utcNowStr} | İstanbul: ${istNowClock}`;
+      document.getElementById("pt-addr").textContent = curAddr;
+      document.getElementById("pt-coord").textContent = `Koordinat: ${curCoord.lat.toFixed(4)}, ${curCoord.lon.toFixed(4)}`;
+      document.getElementById("pt-val").textContent = `${curVar.name}: ${valText}`;
+      document.getElementById("pt-time").textContent = `Seçili Saat: ${iso || "--"} UTC · İstanbul: ${istHourStr}`;
     }
 
-    document.querySelectorAll("div, span, code, p").forEach(el => {
-      if (el.children.length === 0 && /UTC/i.test(el.textContent || "")) {
-        const base = (el.dataset.origUtc || el.textContent).split("|")[0].trim();
-        el.dataset.origUtc = base;
-        el.textContent = `${base} | ${utcNowStr} | İstanbul: ${istNowClock}`;
-      }
-    });
-  }
-
-  async function refreshAll(needAddr, rebuildOptions) {
-    killOynat();
-    if (needAddr) await resolveFullAddress(curCoord.lat, curCoord.lon);
-    await fetchFieldAndPoint();
-    renderSmoothField(rebuildOptions);
-    renderPointInfo(rebuildOptions);
-  }
-
-  document.addEventListener("DOMContentLoaded", async () => {
-    buildVarButtons();
-    const dIn = document.getElementById("date-input");
-    const hSel = document.getElementById("hour-select");
-    const reloadBtn = document.getElementById("btn-reload");
-    if (dIn) dIn.addEventListener("change", () => {
-      renderSmoothField(true);
-      renderPointInfo(true);
-    });
-    if (hSel) hSel.addEventListener("change", () => {
-      renderSmoothField(false);
-      renderPointInfo(false);
-    });
-    if (reloadBtn) reloadBtn.addEventListener("click", async () => {
-      fieldPayload = null;
-      pointPayload = null;
-      await refreshAll(true, true);
-    });
-    if (typeof map !== "undefined" && map) {
-      map.on("moveend zoomend resize", () => renderSmoothField(false));
-      map.on("click", async (e) => {
-        curCoord = { lat: e.latlng.lat, lon: e.latlng.lng };
-        await refreshAll(true, false);
-      });
+    async function loadAndRender(needAddr, forceHourPick) {
+      if (needAddr) await fetchAddress(curCoord.lat, curCoord.lon);
+      await fetchEcmwf();
+      renderCanvas(forceHourPick);
+      renderPoint(forceHourPick);
     }
-    await refreshAll(true, true);
-  });
 
-  setInterval(() => {
-    killOynat();
-    renderPointInfo(false);
-  }, 1000);
-})();
-</script>
+    buildVarRow();
+    updateClocks();
+    setInterval(updateClocks, 1000);
 
+    document.getElementById("date-input").addEventListener("change", () => {
+      renderCanvas(true);
+      renderPoint(true);
+    });
+    document.getElementById("hour-select").addEventListener("change", () => {
+      renderCanvas(false);
+      renderPoint(false);
+    });
+    document.getElementById("btn-refresh").addEventListener("click", async () => {
+      gridData = null;
+      pointData = null;
+      await loadAndRender(true, true);
+    });
+    map.on("moveend zoomend resize", () => renderCanvas(false));
+    map.on("click", async (e) => {
+      curCoord = { lat: e.latlng.lat, lon: e.latlng.lng };
+      await loadAndRender(true, false);
+    });
+
+    loadAndRender(true, true);
+  })();
+  </script>
 </body>
 </html>
