@@ -162,6 +162,40 @@
   }
 </style>
 
+
+<style id="clean-ecmwf-layout">
+  #tr-corner-flag-badge,
+  #ecmwf-point-detail,
+  #ecmwf-full-point-sync,
+  [id*="music"],
+  [class*="music"] {
+    display: none !important;
+  }
+  .top-panel {
+    position: fixed !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 950 !important;
+    max-width: 360px !important;
+  }
+  .bars {
+    position: fixed !important;
+    left: 145px !important;
+    right: 16px !important;
+    bottom: 12px !important;
+    transform: none !important;
+    max-width: calc(100vw - 165px) !important;
+    z-index: 950 !important;
+  }
+  #probe {
+    position: fixed !important;
+    left: 12px !important;
+    bottom: 185px !important;
+    z-index: 960 !important;
+    max-width: 360px !important;
+  }
+</style>
+
 </head>
 <body>
   <div class="brand-box" title="Eken Weather">
@@ -2746,6 +2780,69 @@ function setBadge(status, source) {
     }
   }
   setInterval(syncPoint, 500);
+})();
+</script>
+
+
+<script id="clean-ecmwf-clock-and-point">
+(function() {
+  function fmtIstanbulAndUtc(d) {
+    const now = d || new Date();
+    const utcStr = now.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+    const trStr = now.toLocaleTimeString("tr-TR", {
+      timeZone: "Europe/Istanbul",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+    return `${utcStr} | İstanbul (TSİ): ${trStr}`;
+  }
+
+  function refreshMeta() {
+    const dInput = document.getElementById("date-input");
+    const hSelect = document.getElementById("hour-select");
+    const minD = (dInput && dInput.min) || "2026-11-24";
+    const maxD = (dInput && dInput.max) || (dInput && dInput.value) || minD;
+    const selD = (dInput && dInput.value) || minD;
+    const selH = (hSelect && hSelect.value) || "00:00:00";
+
+    const badge = document.getElementById("badge");
+    if (badge) {
+      badge.textContent = `ECMWF · Tarih: ${minD}..${maxD} · Seçili: ${selD} ${selH}`;
+    }
+
+    // Saat satirinda UTC yanina Istanbul saatini yaz
+    const allDivs = Array.from(document.querySelectorAll("div, span, code"));
+    for (const el of allDivs) {
+      if (el.children.length === 0 && /UTC/i.test(el.textContent || "")) {
+        const base = (el.dataset.origUtc || el.textContent).split("| İstanbul")[0].trim();
+        el.dataset.origUtc = base;
+        el.textContent = `${base} | ${fmtIstanbulAndUtc(new Date())}`;
+      }
+    }
+
+    // Secili nokta ve saat icin deger + birim + koordinat + lokasyon
+    const probe = document.getElementById("probe");
+    const topLoc = document.getElementById("top-loc-coord");
+    const topVal = document.getElementById("top-var-val");
+    const cbarUnit = document.getElementById("cbar-unit");
+    const activeBtn = document.querySelector("#var-bar button.active");
+    const varName = activeBtn ? activeBtn.textContent.trim() : "ECMWF Değişkeni";
+    const unit = cbarUnit ? cbarUnit.textContent.trim() : "";
+    const loc = topLoc && topLoc.textContent.trim() && !topLoc.textContent.includes("bekleniyor")
+      ? topLoc.textContent.trim()
+      : "41.0100, 28.9700 (İstanbul)";
+    const val = topVal && topVal.textContent.trim() && !topVal.textContent.includes("—")
+      ? topVal.textContent.trim()
+      : `${varName} (${unit || "birim"})`;
+
+    if (probe) {
+      probe.textContent = `${loc} | Saat: ${selD} ${selH} | ${val}`;
+    }
+  }
+
+  setInterval(refreshMeta, 1000);
+  document.addEventListener("DOMContentLoaded", refreshMeta);
 })();
 </script>
 
