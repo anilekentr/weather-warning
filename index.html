@@ -37,19 +37,6 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     }
 
-    #top-info {
-      top: 12px;
-      left: 12px;
-      width: 360px;
-      max-width: calc(100vw - 255px);
-      padding: 10px 12px;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    #top-title { font-weight: 700; font-size: 13px; color: #7dd3fc; margin-bottom: 4px; }
-    #top-range { color: #cbd5e1; font-size: 11px; margin-bottom: 4px; }
-    #top-clocks { color: #e2e8f0; font-size: 11px; }
-
     #cbar-card {
       top: 12px;
       right: 12px;
@@ -76,7 +63,7 @@
 
     #point-card {
       left: 12px;
-      bottom: 88px;
+      bottom: 118px;
       width: 430px;
       max-width: calc(100vw - 24px);
       padding: 10px 12px;
@@ -88,7 +75,7 @@
     #pt-val { color: #7dd3fc; font-weight: 700; font-size: 13px; margin-top: 4px; }
     #pt-time { color: #cbd5e1; font-size: 11px; margin-top: 2px; }
 
-    #bottom-controls {
+    #unified-panel {
       left: 12px;
       right: 12px;
       bottom: 12px;
@@ -97,6 +84,18 @@
       flex-direction: column;
       gap: 6px;
     }
+    .meta-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: #cbd5e1;
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    }
+    .meta-brand { font-weight: 700; color: #7dd3fc; }
     .control-row {
       display: flex;
       align-items: center;
@@ -127,12 +126,6 @@
 <body>
   <div id="map"></div>
 
-  <div id="top-info" class="fixed-card">
-    <div id="top-title">Eken Weather · ECMWF (API Key Gerektirmez)</div>
-    <div id="top-range">ECMWF zaman aralığı yükleniyor...</div>
-    <div id="top-clocks">UTC: --:-- | İstanbul (TSİ): --:--:--</div>
-  </div>
-
   <div id="cbar-card" class="fixed-card">
     <div id="cbar-head">
       <span id="cbar-name">2 m Sıcaklığı</span>
@@ -151,7 +144,12 @@
     <div id="pt-time">Seçili Saat: -- UTC · İstanbul: --:--</div>
   </div>
 
-  <div id="bottom-controls" class="fixed-card">
+  <div id="unified-panel" class="fixed-card">
+    <div class="meta-strip">
+      <span class="meta-brand">Eken Weather · ECMWF</span>
+      <span id="top-range">ECMWF zaman aralığı yükleniyor...</span>
+      <span id="top-clocks">UTC: --:-- | İstanbul (TSİ): --:--:--</span>
+    </div>
     <div class="control-row">
       <input id="date-input" type="date" />
       <select id="hour-select"></select>
@@ -195,7 +193,6 @@
 
     const map = L.map("map", { center: [40.85, 29.0], zoom: 7, preferCanvas: true });
 
-    // Harita tile katmani + yuklenemezse yedek izgarali altlik
     const osmLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap",
       maxZoom: 18
