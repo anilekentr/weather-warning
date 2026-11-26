@@ -2218,5 +2218,114 @@
 </script>
 <!-- EKEN ALL VARS NO-DATA SYNC END -->
 
+
+<!-- EKEN CORS AND 429 SHIELD START -->
+<script>
+(() => {
+  const LOCK_KEY = "ew_ecmwf_daily_429_until";
+  const origFetch = window.fetch ? window.fetch.bind(window) : null;
+  if (!origFetch) return;
+
+  const failedGeoKeys = new Set();
+  const geoCache = new Map();
+
+  const setLock = (sec = 3600) => {
+    const until = Date.now() + Math.max(60, Math.min(sec, 43200)) * 1000;
+    try { localStorage.setItem(LOCK_KEY, String(until)); } catch (_) {}
+  };
+
+  const isLocked = () => Date.now() < (Number(localStorage.getItem(LOCK_KEY) || 0) || 0);
+
+  const applyGeoToDom = (info) => {
+    if (!info) return;
+    const ilEl = document.getElementById("ews-city") || document.getElementById("ews-il");
+    const ilceEl = document.getElementById("ews-district") || document.getElementById("ews-ilce");
+    const mahEl = document.getElementById("ews-neighborhood") || document.getElementById("ews-mah");
+    if (ilEl && info.city) ilEl.textContent = info.city;
+    if (ilceEl && info.district) ilceEl.textContent = info.district;
+    if (mahEl && info.neighborhood) mahEl.textContent = info.neighborhood;
+  };
+
+  const resolveGeoFallback = async (lat, lon) => {
+    const k = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
+    if (geoCache.has(k)) return geoCache.get(k);
+    if (failedGeoKeys.has(k)) return null;
+
+    try {
+      const u = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=tr`;
+      const r = await origFetch(u, { cache: "force-cache" });
+      if (!r.ok) {
+        failedGeoKeys.add(k);
+        return null;
+      }
+      const j = await r.json();
+      const city = j.principalSubdivision || j.city || "—";
+      const district = j.locality || j.city || "—";
+      const neighborhood = j.neighbourhood || (j.localityInfo && j.localityInfo.informative && j.localityInfo.informative[0] && j.localityInfo.informative[0].name) || "—";
+      const out = { city, district, neighborhood };
+      geoCache.set(k, out);
+      return out;
+    } catch (_) {
+      failedGeoKeys.add(k);
+      return null;
+    }
+  };
+
+  window.fetch = async (input, init) => {
+    const urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
+
+    // 1) Nominatim CORS hatalarini sessizce yakala ve BigDataCloud yedege yonlendir
+    if (urlStr.includes("nominatim.openstreetmap.org/reverse")) {
+      const mLat = urlStr.match(/[?&]lat=(-?\d+(?:\.\d+)?)/);
+      const mLon = urlStr.match(/[?&]lon=(-?\d+(?:\.\d+)?)/);
+      const lat = mLat ? parseFloat(mLat[1]) : null;
+      const lon = mLon ? parseFloat(mLon[1]) : null;
+      const key = `${lat !== null ? lat.toFixed(3) : ""},${lon !== null ? lon.toFixed(3) : ""}`;
+
+      if (failedGeoKeys.has(key)) {
+        return new Response(JSON.stringify({ address: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      try {
+        const res = await origFetch(input, init);
+        if (res.ok) return res;
+        failedGeoKeys.add(key);
+      } catch (_) {
+        failedGeoKeys.add(key);
+      }
+
+      if (lat !== null && lon !== null) {
+        const fb = await resolveGeoFallback(lat, lon);
+        if (fb) applyGeoToDom(fb);
+      }
+
+      return new Response(JSON.stringify({ address: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // 2) ECMWF 429 kota kilidi aktifse gereksiz ag isteklerini durdur
+    if (urlStr.includes("api.open-meteo.com/v1/ecmwf") && isLocked()) {
+      return new Response(JSON.stringify({ error: true, reason: "Daily API request limit exceeded" }), {
+        status: 429,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    const res = await origFetch(input, init);
+    if (urlStr.includes("api.open-meteo.com/v1/ecmwf") && res.status === 429) {
+      const ra = Number(res.headers.get("Retry-After") || 0);
+      setLock(ra > 0 ? ra : 3600);
+    }
+    return res;
+  };
+})();
+</script>
+<!-- EKEN CORS AND 429 SHIELD END -->
+
 </body>
 </html>
