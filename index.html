@@ -7,10 +7,12 @@
   if (window.__ekenEcmwfDedupInstalled) return;
   window.__ekenEcmwfDedupInstalled = true;
 
-  const CACHE_TTL_MS = 10 * 60 * 1000; // 10 dakika bellek onbellegi
+  const CACHE_TTL_MS = 10 * 60 * 1000; // 10 dakika onbellek
+  const COOLDOWN_429_MS = 90 * 1000; // 429 sonrasi 90 saniye bekleme
   const responseCache = new Map();
   const inflightMap = new Map();
   const baseFetch = window.fetch.bind(window);
+  let blockedUntil = 0;
 
   window.fetch = async (input, init = {}) => {
     const url = typeof input === "string" ? input : (input && input.url) || "";
@@ -30,6 +32,14 @@
       });
     }
 
+    if (now < blockedUntil) {
+      return new Response(JSON.stringify({ error: true, status: 429, cooldown: true }), {
+        status: 429,
+        statusText: "Too Many Requests (Cooldown)",
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     if (inflightMap.has(url)) {
       const sharedText = await inflightMap.get(url);
       return new Response(sharedText, {
@@ -45,6 +55,8 @@
         const text = await res.text();
         if (res.ok) {
           responseCache.set(url, { ts: Date.now(), body: text });
+        } else if (res.status === 429) {
+          blockedUntil = Date.now() + COOLDOWN_429_MS;
         }
         return { ok: res.ok, status: res.status, text };
       } finally {
@@ -81,6 +93,7 @@
 })();
 </script>
 <!-- EKEN ECMWF DEDUP CACHE END -->
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Eken Weather — ECMWF</title>
