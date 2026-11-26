@@ -138,6 +138,30 @@
   }
 </style>
 
+
+<style id="bars-and-tsi-lock">
+  .bars {
+    position: fixed !important;
+    left: 145px !important;
+    right: 72px !important;
+    bottom: 12px !important;
+    transform: none !important;
+    align-items: flex-start !important;
+    max-width: calc(100vw - 225px) !important;
+    z-index: 905 !important;
+  }
+  .bar {
+    justify-content: flex-start !important;
+  }
+  #probe {
+    position: fixed !important;
+    left: 12px !important;
+    bottom: 185px !important;
+    z-index: 915 !important;
+    max-width: 340px !important;
+  }
+</style>
+
 </head>
 <body>
   <div class="brand-box" title="Eken Weather">
@@ -2673,5 +2697,28 @@ function setBadge(status, source) {
   setInterval(renderFixedSuAn, 1000);
 })();
 </script>
+
+<script id="point-full-sync">
+(function() {
+  function refreshPointSummary() {
+    const topLoc = document.getElementById("top-loc-coord");
+    const topVal = document.getElementById("top-var-val");
+    const probe = document.getElementById("probe");
+    const cbarTitle = document.getElementById("cbar-title");
+    const cbarUnit = document.getElementById("cbar-unit");
+    if (!topLoc || !topVal) return;
+    const locTxt = (topLoc.textContent || "").trim();
+    const valTxt = (topVal.textContent || "").trim();
+    const unitTxt = cbarUnit ? (cbarUnit.textContent || "").trim() : "";
+    const activeBtn = document.querySelector("#var-bar button.active");
+    const btnLabel = activeBtn ? activeBtn.textContent.trim() : (cbarTitle ? cbarTitle.textContent.trim() : "Değişken");
+    if (probe && (!probe.textContent || probe.textContent.includes("DATA YOK"))) {
+      probe.textContent = `${locTxt || "Marmara"} | ECMWF Canlı | ${btnLabel} (${unitTxt}): ${valTxt}`;
+    }
+  }
+  setInterval(refreshPointSummary, 1000);
+})();
+</script>
+
 </body>
 </html>
