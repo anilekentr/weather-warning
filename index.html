@@ -2393,5 +2393,116 @@
 })();
 </script>
 <!-- EKEN WEATHER OFFICIAL LOGO END -->
+<!-- EKEN ATTRIBUTION & TR FLAG SYNC START -->
+<style>
+  /* Leaflet | © OpenStreetMap atif yazisini kaldir */
+  .leaflet-control-attribution,
+  .leaflet-bottom.leaflet-right .leaflet-control-attribution {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Muzik oynatici / ses butonlari ile cakismayan sag-alt bayrak rozeti */
+  #eken-tr-flag-badge {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 950;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(11, 20, 32, 0.88);
+    border: 1px solid rgba(227, 10, 23, 0.55);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+    user-select: none;
+  }
+  #eken-tr-flag-badge svg {
+    width: 22px;
+    height: 15px;
+    display: block;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+</style>
+<div id="eken-tr-flag-badge" aria-label="Türkiye" title="Türkiye">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Türk Bayrağı">
+    <rect width="1200" height="800" fill="#E30A17"/>
+    <circle cx="425" cy="400" r="200" fill="#FFFFFF"/>
+    <circle cx="475" cy="400" r="160" fill="#E30A17"/>
+    <polygon
+      fill="#FFFFFF"
+      points="583.33333,400 764.23593,458.77853 652.53263,305.05485 652.53263,494.94515 764.23593,341.22147"
+    />
+  </svg>
+</div>
+<script>
+(() => {
+  const scrubAttributionAndUkraine = () => {
+    // 1) Leaflet attribution kontrolunu kaldir
+    document.querySelectorAll(".leaflet-control-attribution").forEach((el) => {
+      el.remove();
+    });
+
+    const m = window.map;
+    if (m && m.attributionControl && typeof m.removeControl === "function") {
+      try { m.removeControl(m.attributionControl); } catch (_) {}
+    }
+
+    // 2) Sayfa icinde kalan Ukrayna bayragi / metni / emojisi varsa temizle
+    const walkTargets = document.querySelectorAll("span, div, a, button, label, small, p");
+    walkTargets.forEach((el) => {
+      // Muzik, ses, oynatici veya bayrak rozetine dokunma
+      if (
+        el.id === "eken-tr-flag-badge" ||
+        el.closest("#eken-tr-flag-badge") ||
+        el.closest("audio") ||
+        el.closest("[class*='music'], [id*='music'], [class*='audio'], [id*='audio'], [class*='player'], [id*='player']")
+      ) {
+        return;
+      }
+      const t = (el.textContent || "").trim();
+      const title = (el.getAttribute && (el.getAttribute("title") || el.getAttribute("aria-label") || "")) || "";
+      if (
+        t === "🇺🇦" ||
+        t.includes("🇺🇦") ||
+        /ukrayna|ukraine/i.test(t) ||
+        /ukrayna|ukraine|🇺🇦/i.test(title)
+      ) {
+        if (el.children.length === 0) {
+          el.textContent = "";
+          el.style.display = "none";
+        }
+      }
+    });
+
+    // 3) Sag-alt kosede muzik/ses kontrolu varsa bayragi onun ustune binmeyecek sekilde sola kaydir
+    const flagEl = document.getElementById("eken-tr-flag-badge");
+    if (flagEl) {
+      let shiftRight = 14;
+      document.querySelectorAll("audio, [class*='music'], [id*='music'], [class*='audio'], [id*='audio'], [class*='player'], [id*='player']").forEach((ctrl) => {
+        if (!ctrl || ctrl === flagEl) return;
+        const rect = ctrl.getBoundingClientRect();
+        const cs = window.getComputedStyle(ctrl);
+        if (cs.display === "none" || cs.visibility === "hidden" || rect.width === 0 || rect.height === 0) return;
+        const nearBottom = (window.innerHeight - rect.bottom) < 90;
+        const nearRight = (window.innerWidth - rect.right) < 260;
+        if (nearBottom && nearRight) {
+          shiftRight = Math.max(shiftRight, Math.round(window.innerWidth - rect.left + 12));
+        }
+      });
+      flagEl.style.right = `${shiftRight}px`;
+    }
+  };
+
+  scrubAttributionAndUkraine();
+  setInterval(scrubAttributionAndUkraine, 400);
+})();
+</script>
+<!-- EKEN ATTRIBUTION & TR FLAG SYNC END -->
 </body>
 </html>
