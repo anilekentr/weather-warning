@@ -36,6 +36,45 @@
       backdrop-filter: blur(8px);
     }
 
+
+    #brand-logo {
+      top: 10px;
+      left: 10px;
+      padding: 6px 12px 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border-radius: 10px;
+      background: rgba(9, 17, 34, 0.94);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      user-select: none;
+    }
+    #brand-logo img {
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      object-fit: cover;
+      display: block;
+    }
+    #brand-logo .logo-svg {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      background: rgba(12, 24, 46, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    #brand-logo .logo-text {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: #f8fafc;
+      white-space: nowrap;
+    }
+
     #cbar-box {
       top: 10px;
       right: 10px;
@@ -113,6 +152,18 @@
 <body>
   <div id="map"></div>
 
+  <div id="brand-logo" class="panel-box">
+    <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+    <div class="logo-svg" style="display:none;">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 12a5 5 0 0 1 9.6-1.7A4 4 0 1 1 22 18H10a4 4 0 0 1-1-6z"/>
+        <path d="M12 21v2M16 21v3M20 21v2"/>
+        <path d="M5 26c2.5-1.5 5-1.5 7.5 0s5 1.5 7.5 0 5-1.5 7 0"/>
+      </svg>
+    </div>
+    <span class="logo-text">Eken Weather</span>
+  </div>
+
   <div id="cbar-box" class="panel-box">
     <div id="cbar-top">
       <span id="cbar-name">2 m Sıcaklığı</span>
@@ -124,7 +175,6 @@
 
   <div id="simple-panel" class="panel-box">
     <div class="line">
-      <span class="tag-title">ECMWF</span>
       <span id="ecmwf-range" class="muted">Aralık: --</span>
       <span class="muted">|</span>
       <span id="live-clocks" class="muted">UTC: -- | İstanbul (TSİ): --</span>
