@@ -654,14 +654,15 @@
   })();
   </script>
 
-<div id="ew-var-panel" aria-label="90 Değişken ve Atmosfer Bölümleri">
+
+<div id="ew-var-panel" aria-label="ECMWF Değişkenleri ve Atmosfer Bölümleri">
   <div class="ew-panel-header">
-    <strong>Değişkenler (90)</strong>
+    <strong id="ew-panel-title">ECMWF Değişkenleri</strong>
     <button id="ew-panel-toggle" type="button" class="ew-sec-btn">Gizle / Aç</button>
   </div>
   <div class="ew-panel-body" style="display:flex;flex-direction:column;gap:8px;">
     <div id="ew-section-tabs" class="ew-sec-tabs">
-      <button type="button" class="ew-sec-btn active" data-sec="Tümü">Tümü (90)</button>
+      <button type="button" class="ew-sec-btn active" data-sec="Tümü">Tümü</button>
       <button type="button" class="ew-sec-btn" data-sec="Sıcaklık">Sıcaklık</button>
       <button type="button" class="ew-sec-btn" data-sec="Basınç">Basınç</button>
       <button type="button" class="ew-sec-btn" data-sec="Rüzgar">Rüzgar</button>
@@ -671,112 +672,182 @@
   </div>
 </div>
 
-<audio id="bg-music" src="/ambient.mp3" autoplay loop preload="auto" playsinline></audio>
-<div id="music-bar">
-  <span id="music-title" style="display:none;font-weight:500;">♪ Eken Weather — Atmospheric Forecast Music</span>
-  <button id="music-toggle" type="button" aria-label="Müzik Aç/Kapat"
-    style="padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.25);background:rgba(30,41,59,0.95);color:#fff;font-size:12px;cursor:pointer;">
-    ♪ Müzik: Açık
-  </button>
-</div>
-
 <script>
 (() => {
-  // 1) 90 değişken listesini oluştur (Sıcaklık, Basınç, Rüzgar, Basınç Seviyesi bölümlerine ayrılmış)
-  const sections = ["Sıcaklık", "Basınç", "Rüzgar", "Basınç Seviyesi"];
-  const levels = ["1000 hPa", "925 hPa", "850 hPa", "700 hPa", "500 hPa", "300 hPa", "250 hPa", "200 hPa", "100 hPa", "50 hPa", "10 hPa", "1 hPa"];
+  // Gerçek ECMWF / ERA5 değişken tanımları ve varsayılan ölçek/renk skalaları
+  const LEVELS = [1000, 925, 850, 700, 500, 300, 250, 200, 100, 50, 10, 1];
 
-  const baseDefs = [
-    // Sıcaklık (24)
-    { code: "2m_temp", label: "2m Sıcaklık (°C)", sec: "Sıcaklık" },
-    { code: "2m_dewpoint", label: "2m Çiy Noktası (°C)", sec: "Sıcaklık" },
-    { code: "sst", label: "Deniz Yüzeyi Sıcaklığı (°C)", sec: "Sıcaklık" },
-    { code: "delta_sst_t2m", label: "Δ = SST - T_air (°C)", sec: "Sıcaklık" },
-    { code: "max_temp", label: "Maksimum Sıcaklık (°C)", sec: "Sıcaklık" },
-    { code: "min_temp", label: "Minimum Sıcaklık (°C)", sec: "Sıcaklık" },
-    { code: "hwu", label: "Heatwave Unit (HWU)", sec: "Sıcaklık" },
-    { code: "hwc", label: "Climatological HWC", sec: "Sıcaklık" },
-    { code: "mhwo", label: "Marine Heatwave Unit (MHWU)", sec: "Sıcaklık" },
-    { code: "uhp", label: "Urban Heat Point (UHP)", sec: "Sıcaklık" },
-    { code: "pot_temp", label: "Potansiyel Sıcaklık θ (K)", sec: "Sıcaklık" },
-    { code: "equiv_pot_temp", label: "Eşdeğer Potansiyel θe (K)", sec: "Sıcaklık" },
-    // Basınç (22)
-    { code: "msl", label: "Deniz Seviyesi Basıncı (hPa)", sec: "Basınç" },
-    { code: "sp", label: "Yüzey Basıncı (hPa)", sec: "Basınç" },
-    { code: "press_tend_3h", label: "3 Saatlik Basınç Eğilimi", sec: "Basınç" },
-    { code: "press_tend_24h", label: "24 Saatlik Basınç Eğilimi", sec: "Basınç" },
-    { code: "geopot_500", label: "500 hPa Jeopotansiyel (gpm)", sec: "Basınç" },
-    { code: "geopot_850", label: "850 hPa Jeopotansiyel (gpm)", sec: "Basınç" },
-    { code: "geopot_1000", label: "1000 hPa Jeopotansiyel (gpm)", sec: "Basınç" },
-    { code: "thickness_1000_500", label: "1000-500 hPa Kalınlık (m)", sec: "Basınç" },
-    // Rüzgar (22)
-    { code: "u10", label: "10m Doğu-Batı Rüzgar u10", sec: "Rüzgar" },
-    { code: "v10", label: "10m Kuzey-Güney Rüzgar v10", sec: "Rüzgar" },
-    { code: "ws10", label: "10m Rüzgar Hızı (m/s)", sec: "Rüzgar" },
-    { code: "wd10", label: "10m Rüzgar Yönü (°)", sec: "Rüzgar" },
-    { code: "gust10", label: "10m Rüzgar Hamlesi (m/s)", sec: "Rüzgar" },
-    { code: "wind_shear_0_6km", label: "0-6 km Rüzgar Kesmesi", sec: "Rüzgar" },
-    { code: "omega", label: "Düşey Hız ω (Pa/s)", sec: "Rüzgar" },
-    { code: "vorticity", label: "Bağıl Vortisite (10^-5 s^-1)", sec: "Rüzgar" },
-    // Basınç Seviyesi (22)
-    { code: "p_lvl_t", label: "Basınç Seviyesi Sıcaklık", sec: "Basınç Seviyesi" },
-    { code: "p_lvl_rh", label: "Basınç Seviyesi Bağıl Nem", sec: "Basınç Seviyesi" },
-    { code: "p_lvl_ws", label: "Basınç Seviyesi Rüzgar Hızı", sec: "Basınç Seviyesi" },
-    { code: "p_lvl_z", label: "Basınç Seviyesi Yükseklik", sec: "Basınç Seviyesi" }
+  const PALETTES = {
+    temp: "linear-gradient(90deg, #313695 0%, #4575b4 20%, #74add1 38%, #fee090 58%, #f46d43 78%, #a50026 100%)",
+    press: "linear-gradient(90deg, #1d4ed8 0%, #0284c7 25%, #10b981 50%, #eab308 75%, #dc2626 100%)",
+    wind: "linear-gradient(90deg, #0f172a 0%, #0284c7 25%, #22c55e 50%, #eab308 75%, #ef4444 100%)",
+    rh: "linear-gradient(90deg, #92400e 0%, #eab308 30%, #38bdf8 65%, #1d4ed8 100%)",
+    z: "linear-gradient(90deg, #1e3a8a 0%, #0ea5e9 35%, #a3e635 70%, #f97316 100%)"
+  };
+
+  const ecmwfVars = [
+    // Sıcaklık
+    { code: "2t", name: "2m Temperature (2t)", sec: "Sıcaklık", unit: "°C", min: -5, max: 35, pal: PALETTES.temp },
+    { code: "2d", name: "2m Dewpoint Temp (2d)", sec: "Sıcaklık", unit: "°C", min: -10, max: 25, pal: PALETTES.temp },
+    { code: "sst", name: "Sea Surface Temp (sst)", sec: "Sıcaklık", unit: "°C", min: 5, max: 30, pal: PALETTES.temp },
+    { code: "skt", name: "Skin Temperature (skt)", sec: "Sıcaklık", unit: "°C", min: -5, max: 40, pal: PALETTES.temp },
+    { code: "mx2t", name: "Max 2m Temp (mx2t)", sec: "Sıcaklık", unit: "°C", min: 0, max: 42, pal: PALETTES.temp },
+    { code: "mn2t", name: "Min 2m Temp (mn2t)", sec: "Sıcaklık", unit: "°C", min: -12, max: 28, pal: PALETTES.temp },
+
+    // Basınç
+    { code: "msl", name: "Mean Sea Level Press (msl)", sec: "Basınç", unit: "hPa", min: 990, max: 1035, pal: PALETTES.press },
+    { code: "sp", name: "Surface Pressure (sp)", sec: "Basınç", unit: "hPa", min: 850, max: 1035, pal: PALETTES.press },
+    { code: "cape", name: "CAPE (cape)", sec: "Basınç", unit: "J/kg", min: 0, max: 3000, pal: PALETTES.press },
+    { code: "cin", name: "Convective Inhibition (cin)", sec: "Basınç", unit: "J/kg", min: 0, max: 500, pal: PALETTES.press },
+    { code: "tcwv", name: "Total Column Water (tcwv)", sec: "Basınç", unit: "kg/m²", min: 0, max: 60, pal: PALETTES.rh },
+    { code: "tcc", name: "Total Cloud Cover (tcc)", sec: "Basınç", unit: "%", min: 0, max: 100, pal: PALETTES.rh },
+
+    // Rüzgar
+    { code: "10u", name: "10m U Wind (10u)", sec: "Rüzgar", unit: "m/s", min: -20, max: 20, pal: PALETTES.wind },
+    { code: "10v", name: "10m V Wind (10v)", sec: "Rüzgar", unit: "m/s", min: -20, max: 20, pal: PALETTES.wind },
+    { code: "ws10", name: "10m Wind Speed (√u²+v²)", sec: "Rüzgar", unit: "m/s", min: 0, max: 25, pal: PALETTES.wind },
+    { code: "10fg", name: "10m Wind Gust (10fg)", sec: "Rüzgar", unit: "m/s", min: 0, max: 35, pal: PALETTES.wind },
+    { code: "100u", name: "100m U Wind (100u)", sec: "Rüzgar", unit: "m/s", min: -25, max: 25, pal: PALETTES.wind },
+    { code: "100v", name: "100m V Wind (100v)", sec: "Rüzgar", unit: "m/s", min: -25, max: 25, pal: PALETTES.wind }
   ];
 
-  const variables90 = [];
-  let idx = 1;
-  for (const d of baseDefs) {
-    if (variables90.length < 90) {
-      variables90.push({ id: idx++, code: d.code, label: d.label, sec: d.sec });
+  // Basınç Seviyesi değişkenleri (1000 hPa .. 1 hPa: t, z, u, v, r)
+  const plSpec = [
+    { key: "t", label: "Temp (t)", unit: "°C", min: -60, max: 30, pal: PALETTES.temp },
+    { key: "z", label: "Geopotential (z)", unit: "m²/s²", min: 0, max: 56000, pal: PALETTES.z },
+    { key: "u", label: "U Wind (u)", sec: "Basınç Seviyesi", unit: "m/s", min: -40, max: 40, pal: PALETTES.wind },
+    { key: "v", label: "V Wind (v)", unit: "m/s", min: -40, max: 40, pal: PALETTES.wind },
+    { key: "r", label: "Relative Humidity (r)", unit: "%", min: 0, max: 100, pal: PALETTES.rh }
+  ];
+
+  for (const lvl of LEVELS) {
+    for (const sp of plSpec) {
+      ecmwfVars.push({
+        code: `${sp.key}_${lvl}`,
+        level: lvl,
+        param: sp.key,
+        name: `${sp.label} @ ${lvl} hPa`,
+        sec: "Basınç Seviyesi",
+        unit: sp.unit,
+        min: sp.min,
+        max: sp.max,
+        pal: sp.pal
+      });
     }
-  }
-  const secCycle = ["Sıcaklık", "Basınç", "Rüzgar", "Basınç Seviyesi"];
-  while (variables90.length < 90) {
-    const sName = secCycle[(idx - 1) % secCycle.length];
-    const lvl = levels[(idx - 1) % levels.length];
-    const tagMap = {
-      "Sıcaklık": `T ${lvl} Anomali #${idx}`,
-      "Basınç": `Basınç ${lvl} Gradyan #${idx}`,
-      "Rüzgar": `Rüzgar ${lvl} Bileşen #${idx}`,
-      "Basınç Seviyesi": `Seviye Profili ${lvl} #${idx}`
-    };
-    variables90.push({
-      id: idx,
-      code: `var_${idx}`,
-      label: tagMap[sName],
-      sec: sName
-    });
-    idx++;
   }
 
   let activeSec = "Tümü";
-  let activeVarId = 1;
+  let activeCode = ecmwfVars[0].code;
 
+  const titleEl = document.getElementById("ew-panel-title");
   const gridEl = document.getElementById("ew-var-grid");
   const tabsEl = document.getElementById("ew-section-tabs");
   const panelEl = document.getElementById("ew-var-panel");
   const panelToggleBtn = document.getElementById("ew-panel-toggle");
 
+  if (titleEl) {
+    titleEl.textContent = `ECMWF Değişkenleri (${ecmwfVars.length})`;
+  }
+
+  // Colorbar (#cbar-box) bileşenini seçilen ECMWF değişkenine göre güncelle
+  const updateColorbar = (v) => {
+    const cbar = document.getElementById("cbar-box");
+    if (!cbar) return;
+
+    cbar.style.display = "block";
+    cbar.style.visibility = "visible";
+
+    // Mevcut gradient çubuğu veya kanvas varsa stilini güncelle
+    const barCandidates = cbar.querySelectorAll(
+      "[id*='cbar-grad'], [id*='colorbar'], .cbar-gradient, .colorbar-bar, canvas"
+    );
+    barCandidates.forEach(el => {
+      if (el.tagName === "CANVAS") {
+        const ctx = el.getContext("2d");
+        if (ctx && el.width > 0 && el.height > 0) {
+          const g = ctx.createLinearGradient(0, 0, el.width, 0);
+          g.addColorStop(0.0, "#313695");
+          g.addColorStop(0.25, "#0284c7");
+          g.addColorStop(0.5, "#22c55e");
+          g.addColorStop(0.75, "#eab308");
+          g.addColorStop(1.0, "#dc2626");
+          ctx.clearRect(0, 0, el.width, el.height);
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, el.width, el.height);
+        }
+      } else {
+        el.style.background = v.pal;
+      }
+    });
+
+    // Eğer #cbar-box içinde hiç renk çubuğu yoksa oluştur
+    let fallbackBar = cbar.querySelector("#ew-cbar-scale");
+    if (!fallbackBar) {
+      fallbackBar = document.createElement("div");
+      fallbackBar.id = "ew-cbar-scale";
+      fallbackBar.style.cssText = "height:10px;width:100%;border-radius:5px;margin:4px 0;border:1px solid rgba(255,255,255,0.2);";
+      cbar.appendChild(fallbackBar);
+    }
+    fallbackBar.style.background = v.pal;
+
+    let fallbackLabels = cbar.querySelector("#ew-cbar-labels");
+    if (!fallbackLabels) {
+      fallbackLabels = document.createElement("div");
+      fallbackLabels.id = "ew-cbar-labels";
+      fallbackLabels.style.cssText = "display:flex;justify-content:space-between;font-size:11px;color:#e2e8f0;";
+      cbar.appendChild(fallbackLabels);
+    }
+    const mid = ((v.min + v.max) / 2).toFixed(0);
+    fallbackLabels.innerHTML = `<span>${v.min} ${v.unit}</span><strong>${v.name}</strong><span>${mid}</span><span>${v.max} ${v.unit}</span>`;
+  };
+
+  // Sayfadaki mevcut değişken seçici/harita fonksiyonlarıyla entegrasyon
+  const applyEcmwfVariable = (v) => {
+    activeCode = v.code;
+
+    // 1) Sayfada mevcut <select> veya [data-var] / [data-variable] kontrolleri varsa eşle
+    document.querySelectorAll("select").forEach(sel => {
+      const opt = Array.from(sel.options).find(o =>
+        o.value === v.code || o.value === v.param || (v.level && o.value === String(v.level))
+      );
+      if (opt) {
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+
+    document.querySelectorAll("[data-var], [data-variable]").forEach(el => {
+      const val = el.getAttribute("data-var") || el.getAttribute("data-variable");
+      if (val === v.code || val === v.param) {
+        el.click();
+      }
+    });
+
+    // 2) Global fonksiyonlar varsa çağır
+    if (typeof window.setVariable === "function") window.setVariable(v.code, v);
+    if (typeof window.updateLayer === "function") window.updateLayer(v.code, v);
+    if (typeof window.renderMap === "function") window.renderMap(v);
+
+    // 3) Colorbar ve özel olay güncellemesi
+    updateColorbar(v);
+    window.dispatchEvent(new CustomEvent("eken-variable-change", { detail: v }));
+    renderVars();
+  };
+
   const renderVars = () => {
     if (!gridEl) return;
     const filtered = activeSec === "Tümü"
-      ? variables90
-      : variables90.filter(v => v.sec === activeSec);
+      ? ecmwfVars
+      : ecmwfVars.filter(v => v.sec === activeSec);
 
     gridEl.innerHTML = "";
     filtered.forEach(v => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "ew-var-btn" + (v.id === activeVarId ? " active" : "");
-      btn.title = `${v.id}. ${v.label} (${v.sec})`;
-      btn.textContent = `${v.id}. ${v.label}`;
-      btn.addEventListener("click", () => {
-        activeVarId = v.id;
-        renderVars();
-        window.dispatchEvent(new CustomEvent("eken-variable-change", { detail: v }));
-      });
+      btn.className = "ew-var-btn" + (v.code === activeCode ? " active" : "");
+      btn.title = `${v.name} [${v.unit}]`;
+      btn.textContent = `${v.name} (${v.unit})`;
+      btn.addEventListener("click", () => applyEcmwfVariable(v));
       gridEl.appendChild(btn);
     });
   };
@@ -798,104 +869,10 @@
     });
   }
 
+  // Başlangıçta ilk ECMWF değişkeni ve colorbar'ı çiz
+  const initialVar = ecmwfVars.find(v => v.code === activeCode) || ecmwfVars[0];
   renderVars();
-
-  // 2) Çakışma önleyici otomatik hizalama (logo, zoom, panel, cbar, müzik)
-  const avoidOverlaps = () => {
-    const logo = document.getElementById("brand-logo");
-    const zoom = document.querySelector(".leaflet-top.leaflet-left, [class*='zoom-control'], #zoom-controls, .zoom-controls");
-    const music = document.getElementById("music-bar");
-    const cbar = document.getElementById("cbar-box");
-
-    if (logo && zoom) {
-      const lr = logo.getBoundingClientRect();
-      const targetTop = Math.max(76, Math.round(lr.bottom + 12));
-      zoom.style.setProperty("top", targetTop + "px", "important");
-    }
-
-    if (cbar && music) {
-      const mr = music.getBoundingClientRect();
-      const cr = cbar.getBoundingClientRect();
-      const overlapX = !(cr.right < mr.left - 8 || cr.left > mr.right + 8);
-      if (overlapX && window.innerWidth > 768) {
-        const safeBottom = Math.max(64, Math.round(window.innerHeight - mr.top + 10));
-        cbar.style.setProperty("bottom", safeBottom + "px", "important");
-      }
-    }
-  };
-
-  window.addEventListener("resize", avoidOverlaps);
-  window.addEventListener("load", () => {
-    avoidOverlaps();
-    setTimeout(avoidOverlaps, 300);
-  });
-  avoidOverlaps();
-
-  // 3) Müzik oynatıcı ("Eken Weather — Atmospheric Forecast Music")
-  const audio = document.getElementById("bg-music");
-  const btn = document.getElementById("music-toggle");
-  const titleEl = document.getElementById("music-title");
-  if (!audio || !btn || !titleEl) return;
-
-  const VOL = 0.35;
-  const TRACK_LABEL = "Eken Weather — Atmospheric Forecast Music";
-  audio.volume = VOL;
-
-  const syncUI = () => {
-    const isPlaying = !audio.paused && !audio.muted;
-    btn.textContent = isPlaying ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
-    if (isPlaying) {
-      titleEl.textContent = "♪ " + TRACK_LABEL;
-      titleEl.style.display = "inline";
-    } else {
-      titleEl.style.display = "none";
-    }
-    avoidOverlaps();
-  };
-
-  const playNow = async () => {
-    try {
-      audio.muted = false;
-      audio.volume = VOL;
-      await audio.play();
-    } catch (_) {}
-    syncUI();
-  };
-
-  btn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    if (audio.paused || audio.muted) {
-      await playNow();
-    } else {
-      audio.pause();
-      syncUI();
-    }
-  });
-
-  audio.addEventListener("play", syncUI);
-  audio.addEventListener("pause", syncUI);
-  audio.addEventListener("volumechange", syncUI);
-
-  playNow();
-  window.addEventListener("DOMContentLoaded", playNow, { once: true });
-  window.addEventListener("load", () => {
-    playNow();
-    setTimeout(playNow, 250);
-  }, { once: true });
-
-  const onInteract = async () => {
-    await playNow();
-    if (!audio.paused && !audio.muted) {
-      ["pointerdown", "keydown", "touchstart", "click"].forEach(ev =>
-        window.removeEventListener(ev, onInteract)
-      );
-    }
-  };
-  ["pointerdown", "keydown", "touchstart", "click"].forEach(ev =>
-    window.addEventListener(ev, onInteract, { once: true })
-  );
-
-  syncUI();
+  updateColorbar(initialVar);
 })();
 </script>
 
