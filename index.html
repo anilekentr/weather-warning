@@ -8,7 +8,14 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #map { width: 100%; height: 100%; overflow: hidden; background: #0b111e; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; }
+    html, body, #map {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0f172a;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: #f8fafc;
+    }
 
     #smooth-canvas {
       position: absolute;
@@ -24,7 +31,7 @@
       position: fixed;
       z-index: 950;
       background: rgba(11, 17, 30, 0.92);
-      border: 1px solid rgba(148, 163, 184, 0.32);
+      border: 1px solid rgba(148, 163, 184, 0.35);
       border-radius: 10px;
       backdrop-filter: blur(8px);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -34,7 +41,7 @@
       top: 12px;
       left: 12px;
       width: 360px;
-      max-width: calc(100vw - 260px);
+      max-width: calc(100vw - 255px);
       padding: 10px 12px;
       font-size: 12px;
       line-height: 1.45;
@@ -69,7 +76,7 @@
 
     #point-card {
       left: 12px;
-      bottom: 84px;
+      bottom: 88px;
       width: 430px;
       max-width: calc(100vw - 24px);
       padding: 10px 12px;
@@ -99,7 +106,7 @@
       padding-bottom: 2px;
     }
     .control-row select, .control-row input, .control-row button {
-      background: rgba(30, 41, 59, 0.9);
+      background: #1e293b;
       color: #f8fafc;
       border: 1px solid rgba(148, 163, 184, 0.35);
       border-radius: 6px;
@@ -121,7 +128,7 @@
   <div id="map"></div>
 
   <div id="top-info" class="fixed-card">
-    <div id="top-title">Eken Weather · ECMWF</div>
+    <div id="top-title">Eken Weather · ECMWF (API Key Gerektirmez)</div>
     <div id="top-range">ECMWF zaman aralığı yükleniyor...</div>
     <div id="top-clocks">UTC: --:-- | İstanbul (TSİ): --:--:--</div>
   </div>
@@ -187,10 +194,28 @@
     })();
 
     const map = L.map("map", { center: [40.85, 29.0], zoom: 7, preferCanvas: true });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; OpenStreetMap &copy; CARTO",
+
+    // Harita tile katmani + yuklenemezse yedek izgarali altlik
+    const osmLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap",
       maxZoom: 18
-    }).addTo(map);
+    });
+    const fallbackGridLayer = L.gridLayer({ opacity: 0.45 });
+    fallbackGridLayer.createTile = function(coords) {
+      const tile = document.createElement("canvas");
+      tile.width = 256;
+      tile.height = 256;
+      const tctx = tile.getContext("2d");
+      tctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
+      tctx.lineWidth = 1;
+      tctx.strokeRect(0, 0, 256, 256);
+      tctx.fillStyle = "rgba(148, 163, 184, 0.45)";
+      tctx.font = "10px monospace";
+      tctx.fillText(`z${coords.z} ${coords.x},${coords.y}`, 8, 18);
+      return tile;
+    };
+    fallbackGridLayer.addTo(map);
+    osmLayer.addTo(map);
 
     const canvas = document.createElement("canvas");
     canvas.id = "smooth-canvas";
@@ -443,6 +468,7 @@
     buildVarRow();
     updateClocks();
     setInterval(updateClocks, 1000);
+    setTimeout(() => map.invalidateSize(), 200);
 
     document.getElementById("date-input").addEventListener("change", () => {
       renderCanvas(true);
