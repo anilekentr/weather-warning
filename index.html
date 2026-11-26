@@ -516,6 +516,60 @@
 }
 /* === END EKEN WEATHER === */
 
+
+/* === EKEN TIME BAR === */
+#ew-time-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 7px !important;
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 12px !important;
+  transform: translateX(-50%) !important;
+  z-index: 1680 !important;
+  max-width: calc(100vw - 256px) !important;
+  padding: 6px 10px !important;
+  border-radius: 10px !important;
+  background: rgba(9, 17, 34, 0.96) !important;
+  border: 1px solid rgba(56, 189, 248, 0.45) !important;
+  color: #f8fafc !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  font-size: 10.5px !important;
+  box-sizing: border-box !important;
+}
+.ewt-btn {
+  background: rgba(15, 23, 42, 0.95) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+  border-radius: 6px !important;
+  padding: 3px 7px !important;
+  font-size: 10px !important;
+  cursor: pointer !important;
+  line-height: 1.2 !important;
+}
+.ewt-btn.active {
+  background: rgba(2, 132, 199, 0.7) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+.ewt-meta {
+  color: #cbd5e1 !important;
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+}
+.ewt-hi {
+  color: #38bdf8 !important;
+  font-weight: 700 !important;
+}
+#ewt-slider {
+  width: 120px !important;
+  accent-color: #38bdf8 !important;
+  cursor: pointer !important;
+}
+/* === END EKEN TIME BAR === */
+
 </style>
 </head>
 <body>
@@ -1474,6 +1528,222 @@
 })();
 </script>
 <!-- EKEN WEATHER CLEAN END -->
+
+
+<!-- EKEN TIME BAR START -->
+<div id="ew-time-bar" role="region" aria-label="Zaman ve oynatma paneli">
+  <button id="ewt-play" type="button" class="ewt-btn" title="Oynat / Duraklat">▶ Oynat</button>
+  <button id="ewt-prev" type="button" class="ewt-btn" title="1 Saat Geri">-1s</button>
+  <input id="ewt-slider" type="range" min="-24" max="48" step="1" value="0" />
+  <button id="ewt-next" type="button" class="ewt-btn" title="1 Saat İleri">+1s</button>
+  <button id="ewt-now" type="button" class="ewt-btn" title="Şu Anki Zamana Dön">Şimdi</button>
+  <button id="ewt-tz" type="button" class="ewt-btn active" title="Yerel / UTC Gösterimi">TR / UTC</button>
+  <span id="ewt-clock" class="ewt-meta ews-v ewt-hi">—</span>
+  <span id="ewt-window" class="ewt-meta">Pencere: —</span>
+</div>
+
+<script>
+(() => {
+  const COMPASS_16 = [
+    { short: "K", full: "Kuzey" },
+    { short: "KKD", full: "Kuzey-Kuzeydoğu" },
+    { short: "KD", full: "Kuzeydoğu" },
+    { short: "DKD", full: "Doğu-Kuzeydoğu" },
+    { short: "D", full: "Doğu" },
+    { short: "DGD", full: "Doğu-Güneydoğu" },
+    { short: "GD", full: "Güneydoğu" },
+    { short: "GGD", full: "Güney-Güneydoğu" },
+    { short: "G", full: "Güney" },
+    { short: "GGK", full: "Güney-Güneybatı" },
+    { short: "GB", full: "Güneybatı" },
+    { short: "BGB", full: "Batı-Güneybatı" },
+    { short: "B", full: "Batı" },
+    { short: "BKB", full: "Batı-Kuzeybatı" },
+    { short: "KB", full: "Kuzeybatı" },
+    { short: "KKB", full: "Kuzey-Kuzeybatı" }
+  ];
+
+  const degToDir = (deg) => {
+    if (typeof deg !== "number" || !Number.isFinite(deg)) return "";
+    const norm = ((deg % 360) + 360) % 360;
+    const idx = Math.round(norm / 22.5) % 16;
+    return `${COMPASS_16[idx].short} (${COMPASS_16[idx].full})`;
+  };
+
+  const isAccumPrecipCode = (code) => ["tp", "rain", "shw", "sf"].includes(code);
+
+  let hourOffset = 0;
+  let playing = false;
+  let showUtcPrimary = false;
+  let playTimer = null;
+
+  const getTargetDate = () => new Date(Date.now() + hourOffset * 3600 * 1000);
+
+  const fmtTr = (d) => d.toLocaleString("tr-TR", {
+    timeZone: "Europe/Istanbul",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+
+  const fmtUtc = (d) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
+
+  const updateTimeUi = () => {
+    const tgt = getTargetDate();
+    const clockEl = document.getElementById("ewt-clock");
+    const winEl = document.getElementById("ewt-window");
+    const sliderEl = document.getElementById("ewt-slider");
+    if (sliderEl && Number(sliderEl.value) !== hourOffset) {
+      sliderEl.value = String(hourOffset);
+    }
+    if (clockEl) {
+      const trStr = fmtTr(tgt);
+      const utcStr = fmtUtc(tgt);
+      const offTag = hourOffset === 0 ? "ŞİMDİ" : (hourOffset > 0 ? `+${hourOffset}s` : `${hourOffset}s`);
+      clockEl.textContent = showUtcPrimary
+        ? `${utcStr} | TR ${trStr} (${offTag})`
+        : `${trStr} TR | ${utcStr} (${offTag})`;
+    }
+    if (winEl) {
+      const startDate = new Date(Date.now() + Math.min(0, hourOffset) * 3600 * 1000);
+      const endDate = tgt;
+      const spanHours = Math.max(1, Math.abs(hourOffset) || 1);
+      winEl.textContent = `Başlangıç: ${fmtTr(startDate)} (${fmtUtc(startDate)}) → Bitiş: ${fmtTr(endDate)} | Süre: ${spanHours} sa`;
+    }
+  };
+
+  // Ekrandaki deger ve pencere satiri guncelleyici
+  const decorateReadout = () => {
+    const vvEl = document.getElementById("ews-vval");
+    const panelBox = document.querySelector("#ew-single-panel .ews-box");
+    if (!vvEl || !panelBox) return;
+
+    const activeBtn = document.querySelector("#ews-vars .ews-btn.active");
+    const titleAttr = activeBtn ? (activeBtn.getAttribute("title") || "") : "";
+    const rawTxt = (vvEl.textContent || "").trim();
+
+    // Ruzgar yonu ise derece yanina yon ekle
+    const isWindDir = /rüzgar yön|yön|wind_direction|wd/i.test(titleAttr) || rawTxt.endsWith("°");
+    const numMatch = rawTxt.match(/^(-?\d+(?:\.\d+)?)\s*°(?:\s*·.*)?$/);
+    if (isWindDir && numMatch) {
+      const degNum = parseFloat(numMatch[1]);
+      const dirLabel = degToDir(degNum);
+      if (dirLabel && !rawTxt.includes(dirLabel)) {
+        vvEl.textContent = `${degNum.toFixed(1)}° · ${dirLabel}`;
+      }
+    }
+
+    // Yagis / kar degiskenlerinde zaman penceresi ve toplam suresi bilgisini goster
+    let winRow = document.getElementById("ews-time-window-row");
+    if (!winRow) {
+      winRow = document.createElement("div");
+      winRow.id = "ews-time-window-row";
+      winRow.className = "ews-row";
+      winRow.innerHTML = `<span class="ews-k">Zaman / Süre:</span><span id="ews-time-window-val" class="ews-v" style="font-size:10px;">—</span>`;
+      panelBox.appendChild(winRow);
+    }
+    const winValEl = document.getElementById("ews-time-window-val");
+    const tgt = getTargetDate();
+    const isPrecip = /yağış|yağmur|sağanak|kar|precipitation|rain|showers|snowfall/i.test(titleAttr);
+
+    if (winValEl) {
+      if (isPrecip) {
+        const startD = new Date(Date.now() + Math.min(0, hourOffset) * 3600 * 1000);
+        const durH = Math.max(1, Math.abs(hourOffset) || 1);
+        winValEl.textContent = `Başl: ${fmtTr(startD)} (${fmtUtc(startD)}) · Süre: ${durH} sa`;
+      } else {
+        winValEl.textContent = `Anlık: ${fmtTr(tgt)} (${fmtUtc(tgt)})`;
+      }
+    }
+  };
+
+  const triggerTimeRefresh = () => {
+    updateTimeUi();
+    decorateReadout();
+    const cEl = document.getElementById("ews-coord");
+    const cTxt = cEl ? cEl.textContent : "";
+    const mCoord = cTxt.match(/(-?\d+(?:\.\d+)?)°K,\s*(-?\d+(?:\.\d+)?)°D/);
+    if (mCoord && window.map && typeof window.map.fire === "function") {
+      window.map.fire("click", {
+        latlng: { lat: parseFloat(mCoord[1]), lng: parseFloat(mCoord[2]) }
+      });
+    }
+  };
+
+  const setPlaying = (nextState) => {
+    playing = Boolean(nextState);
+    const playBtn = document.getElementById("ewt-play");
+    if (playBtn) {
+      playBtn.textContent = playing ? "❚❚ Duraklat" : "▶ Oynat";
+      playBtn.classList.toggle("active", playing);
+    }
+    if (playTimer) {
+      clearInterval(playTimer);
+      playTimer = null;
+    }
+    if (playing) {
+      playTimer = setInterval(() => {
+        hourOffset = (hourOffset >= 48) ? -24 : (hourOffset + 1);
+        triggerTimeRefresh();
+      }, 1500);
+    }
+  };
+
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!t || !t.id) return;
+    if (t.id === "ewt-play") {
+      e.stopPropagation();
+      setPlaying(!playing);
+    } else if (t.id === "ewt-prev") {
+      e.stopPropagation();
+      setPlaying(false);
+      hourOffset = Math.max(-24, hourOffset - 1);
+      triggerTimeRefresh();
+    } else if (t.id === "ewt-next") {
+      e.stopPropagation();
+      setPlaying(false);
+      hourOffset = Math.min(48, hourOffset + 1);
+      triggerTimeRefresh();
+    } else if (t.id === "ewt-now") {
+      e.stopPropagation();
+      setPlaying(false);
+      hourOffset = 0;
+      triggerTimeRefresh();
+    } else if (t.id === "ewt-tz") {
+      e.stopPropagation();
+      showUtcPrimary = !showUtcPrimary;
+      t.classList.toggle("active", showUtcPrimary);
+      updateTimeUi();
+      decorateReadout();
+    }
+  });
+
+  document.addEventListener("input", (e) => {
+    if (e.target && e.target.id === "ewt-slider") {
+      setPlaying(false);
+      hourOffset = parseInt(e.target.value, 10) || 0;
+      updateTimeUi();
+      decorateReadout();
+    }
+  });
+
+  document.addEventListener("change", (e) => {
+    if (e.target && e.target.id === "ewt-slider") {
+      setPlaying(false);
+      hourOffset = parseInt(e.target.value, 10) || 0;
+      triggerTimeRefresh();
+    }
+  });
+
+  updateTimeUi();
+  decorateReadout();
+  setInterval(() => {
+    updateTimeUi();
+    decorateReadout();
+  }, 1000);
+})();
+</script>
+<!-- EKEN TIME BAR END -->
 
 </body>
 </html>
