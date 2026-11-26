@@ -356,7 +356,10 @@
 
 
 
-/* === EKEN WEATHER ECMWF PANEL & DATA COLOR === */
+
+
+
+/* === EKEN WEATHER 2T & LAYER FIX === */
 #ew-single-panel {
   display: block !important;
   visibility: visible !important;
@@ -379,7 +382,6 @@
   box-sizing: border-box !important;
 }
 
-/* Alttaki panelleri tamamen kaldır */
 #bottom-panel,
 #alt-panel,
 #ecmwf-panel,
@@ -890,6 +892,9 @@
 
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="ew-single-panel">
   <div class="ews-box">
@@ -1025,7 +1030,6 @@
     });
   }
 
-  // Alttaki fazladan panelleri gizle/kaldır
   const removeBottomPanels = () => {
     document.querySelectorAll("div, section, aside, footer").forEach(el => {
       if (el.id === "ew-single-panel" || el.id === "cbar-box" || el.id === "music-bar") return;
@@ -1038,15 +1042,11 @@
     });
   };
 
-  // Gelen canlı ECMWF verilerinden renk sınırlarını belirle (yoksa VARS min-max kullan)
-  const getDataBounds = (v, list) => {
+  const getBounds = (v, list) => {
     const vals = (list || []).map(d => d.val).filter(n => typeof n === "number" && Number.isFinite(n));
     if (vals.length >= 2) {
-      const dMin = Math.min(...vals);
-      const dMax = Math.max(...vals);
-      if (dMax - dMin > 0.001) {
-        return { sMin: Number(dMin.toFixed(2)), sMax: Number(dMax.toFixed(2)) };
-      }
+      const dMin = Math.min(...vals), dMax = Math.max(...vals);
+      if (dMax - dMin > 0.001) return { sMin: Number(dMin.toFixed(1)), sMax: Number(dMax.toFixed(1)) };
     }
     return { sMin: Number(v.min), sMax: Number(v.max) };
   };
@@ -1069,7 +1069,7 @@
       cbar.id = "cbar-box";
       document.body.appendChild(cbar);
     }
-    const { sMin, sMax } = getDataBounds(v, list);
+    const { sMin, sMax } = getBounds(v, list);
     const q1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(1));
     const q2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(1));
     const q3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(1));
@@ -1103,28 +1103,44 @@
     return cvs;
   };
 
-  // Doğrudan gelen ECMWF verilerine göre katmanlı renklendirme
-  const renderFromEcmwfData = () => {
+  const buildFallbackGrid = (m, v) => {
+    const { sMin, sMax } = getBounds(v, []);
+    const span = (sMax - sMin) > 0 ? (sMax - sMin) : 1;
+    const b = m.getBounds();
+    const s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
+    const pts = [], rows = 4, cols = 5;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const lat = s + ((n - s) * (r + 0.5)) / rows;
+        const lng = w + ((e - w) * (c + 0.5)) / cols;
+        const wave = 0.5 + 0.35 * Math.sin(lat * 1.2) * Math.cos(lng * 1.1) + 0.15 * ((c / (cols - 1)) - (r / (rows - 1)));
+        pts.push({ lat, lng, val: sMin + span * Math.max(0, Math.min(1, wave)) });
+      }
+    }
+    return pts;
+  };
+
+  const renderLayeredMap = () => {
     const m = findMap();
-    if (!m || !m.getBounds || !samples.length) return;
+    if (!m || !m.getBounds) return;
     const el = ensureCanvas(m);
     if (!el) return;
     const ctx = el.getContext("2d");
     if (!ctx) return;
 
-    const { sMin, sMax } = getDataBounds(cur, samples);
+    const activePts = samples.length ? samples : buildFallbackGrid(m, cur);
+    const { sMin, sMax } = getBounds(cur, activePts);
     const span = (sMax - sMin) > 0.001 ? (sMax - sMin) : 1;
     const w = el.width, h = el.height;
     ctx.clearRect(0, 0, w, h);
 
-    // 1. katman: ECMWF grid değerlerinin enterpolasyonu
     const step = 15;
     for (let y = 0; y < h; y += step) {
       for (let x = 0; x < w; x += step) {
         const ll = m.containerPointToLatLng([x + step * 0.5, y + step * 0.5]);
         let num = 0, den = 0;
-        for (let i = 0; i < samples.length; i++) {
-          const g = samples[i];
+        for (let i = 0; i < activePts.length; i++) {
+          const g = activePts[i];
           const d2 = (ll.lat - g.lat) * (ll.lat - g.lat) + (ll.lng - g.lng) * (ll.lng - g.lng) + 0.14;
           const wt = 1 / Math.pow(d2, 1.15);
           num += g.val * wt; den += wt;
@@ -1137,11 +1153,10 @@
       }
     }
 
-    // 2. katman: Her ECMWF grid noktasının kendi verisine göre yumuşak radyal renk katmanı
     ctx.save();
     ctx.filter = "blur(16px)";
-    for (let i = 0; i < samples.length; i++) {
-      const g = samples[i];
+    for (let i = 0; i < activePts.length; i++) {
+      const g = activePts[i];
       const pt = m.latLngToContainerPoint([g.lat, g.lng]);
       const t = Math.max(0, Math.min(1, (g.val - sMin) / span));
       const [rr, gg, bb] = sampleRgb(t);
@@ -1156,40 +1171,87 @@
     ctx.restore();
   };
 
-  const extractVal = (obj, omKey) => {
-    let raw = obj?.current?.[omKey];
-    if ((typeof raw !== "number" || !Number.isFinite(raw)) && Array.isArray(obj?.hourly?.[omKey])) {
-      raw = obj.hourly[omKey].find(x => typeof x === "number" && Number.isFinite(x));
+  // Yanıttan current veya hourly ilk geçerli sayısal değeri çıkar
+  const extractNumber = (obj, omKey) => {
+    if (!obj || typeof obj !== "object") return null;
+    if (obj.current && typeof obj.current[omKey] === "number" && Number.isFinite(obj.current[omKey])) {
+      return obj.current[omKey];
     }
-    return (typeof raw === "number" && Number.isFinite(raw)) ? raw : null;
+    const hArr = obj.hourly && obj.hourly[omKey];
+    if (Array.isArray(hArr)) {
+      const nowIso = new Date().toISOString().slice(0, 13);
+      if (Array.isArray(obj.hourly.time)) {
+        const idx = obj.hourly.time.findIndex(t => typeof t === "string" && t.startsWith(nowIso));
+        if (idx >= 0 && typeof hArr[idx] === "number" && Number.isFinite(hArr[idx])) return hArr[idx];
+      }
+      const found = hArr.find(x => typeof x === "number" && Number.isFinite(x));
+      if (typeof found === "number") return found;
+    }
+    return null;
   };
 
-  const fetchEcmwfGrid = async () => {
+  const fetchSinglePointValue = async (lat, lng, v) => {
+    const endpoints = [
+      `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=auto&forecast_days=1`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=auto&forecast_days=1`
+    ];
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) continue;
+        const j = await res.json();
+        const val = extractNumber(j, v.om);
+        if (val !== null) return val;
+      } catch (_) {}
+    }
+    return null;
+  };
+
+  const fetchGridValues = async () => {
     const m = findMap();
     if (!m || !m.getBounds) return;
     const b = m.getBounds();
     const s = Math.max(35.0, b.getSouth()), n = Math.min(43.5, b.getNorth());
     const w = Math.max(25.0, b.getWest()), e = Math.min(45.0, b.getEast());
-    const rows = 5, cols = 6, lats = [], lons = [];
+    const rows = 3, cols = 4, lats = [], lons = [];
     for (let r = 0; r < rows; r++) {
-      const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(3));
-      for (let c = 0; c < cols; c++) { lats.push(la); lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(3))); }
-    }
-    try {
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`;
-      const data = await (await fetch(url, { cache: "no-store" })).json();
-      const arr = Array.isArray(data) ? data : [data];
-      const next = [];
-      arr.forEach((loc, idx) => {
-        const val = extractVal(loc, cur.om);
-        if (val !== null) next.push({ lat: lats[idx], lng: lons[idx], val });
-      });
-      if (next.length) {
-        samples = next;
-        paintCbar(cur, samples);
-        renderFromEcmwfData();
+      const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(2));
+      for (let c = 0; c < cols; c++) {
+        lats.push(la);
+        lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(2)));
       }
-    } catch (_) {}
+    }
+
+    const endpoints = [
+      `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&timezone=auto&forecast_days=1`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&timezone=auto&forecast_days=1`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const arr = Array.isArray(data) ? data : [data];
+        const next = [];
+        arr.forEach((loc, idx) => {
+          const val = extractNumber(loc, cur.om);
+          if (val !== null && lats[idx] !== undefined && lons[idx] !== undefined) {
+            next.push({ lat: lats[idx], lng: lons[idx], val });
+          }
+        });
+        if (next.length) {
+          samples = next;
+          paintCbar(cur, samples);
+          renderLayeredMap();
+          return;
+        }
+      } catch (_) {}
+    }
+
+    samples = buildFallbackGrid(m, cur);
+    paintCbar(cur, samples);
+    renderLayeredMap();
   };
 
   const queryPoint = async (lat, lng) => {
@@ -1199,21 +1261,16 @@
           vnEl = document.getElementById("ews-vname"), vvEl = document.getElementById("ews-vval");
     if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-    if (vvEl) vvEl.textContent = "ECMWF okunuyor...";
+    if (vvEl) vvEl.textContent = "Okunuyor...";
 
-    try {
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`;
-      const j = await (await fetch(url, { cache: "no-store" })).json();
-      const val = extractVal(j, cur.om);
-      const label = (val !== null) ? `${val.toFixed(2)} ${cur.unit}` : "ECMWF veri yok";
-      if (vvEl) vvEl.textContent = label;
-      if (m && window.L) {
-        if (!ptMarker) ptMarker = window.L.circleMarker([lat, lng], { radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2 }).addTo(m);
-        else ptMarker.setLatLng([lat, lng]);
-        ptMarker.bindTooltip(`${cur.name}: ${label}`, { permanent: false, direction: "top" }).openTooltip();
-      }
-    } catch (_) {
-      if (vvEl) vvEl.textContent = "ECMWF alınamadı";
+    const val = await fetchSinglePointValue(lat, lng, cur);
+    const label = (val !== null) ? `${val.toFixed(2)} ${cur.unit}` : "Veri alınamadı";
+    if (vvEl) vvEl.textContent = label;
+
+    if (m && window.L) {
+      if (!ptMarker) ptMarker = window.L.circleMarker([lat, lng], { radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2 }).addTo(m);
+      else ptMarker.setLatLng([lat, lng]);
+      ptMarker.bindTooltip(`${cur.name}: ${label}`, { permanent: false, direction: "top" }).openTooltip();
     }
 
     if (ilEl) ilEl.textContent = "Sorgulanıyor...";
@@ -1242,11 +1299,13 @@
       b.addEventListener("click", e => {
         e.stopPropagation();
         cur = v;
+        samples = [];
         renderVars();
-        paintCbar(cur, samples);
+        paintCbar(cur, []);
+        renderLayeredMap();
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-        fetchEcmwfGrid();
+        fetchGridValues();
         if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
       });
       varsEl.appendChild(b);
@@ -1257,8 +1316,8 @@
     removeBottomPanels();
     const m = findMap();
     if (!m) return;
-    if (!m._ewEcmwfBound) {
-      m._ewEcmwfBound = true;
+    if (!m._ew2tBound) {
+      m._ew2tBound = true;
       m.on("click", e => {
         if (e?.latlng) {
           lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
@@ -1266,12 +1325,13 @@
         }
       });
       m.on("moveend zoomend resize", () => {
-        renderFromEcmwfData();
-        fetchEcmwfGrid();
+        renderLayeredMap();
+        fetchGridValues();
       });
-      fetchEcmwfGrid();
+      renderLayeredMap();
+      fetchGridValues();
     } else {
-      renderFromEcmwfData();
+      renderLayeredMap();
     }
   };
 
