@@ -1761,7 +1761,10 @@
 
 
 
-<!-- EKEN FINAL LOCK START -->
+
+
+
+<!-- EKEN DAILY 429 GUARD START -->
 <script>
 (() => {
   const PRECIP_DEFS = {
@@ -1771,20 +1774,21 @@
     "sf": { om: "snowfall", unit: "cm" }
   };
 
-  let lockedCoord = null;
-  let lastAppliedSig = "";
+  const DAILY_LOCK_KEY = "ew_ecmwf_daily_429_until";
+  let dailyLockedUntil = Number(localStorage.getItem(DAILY_LOCK_KEY) || 0) || 0;
+  let lastCoord = null;
+  let lastSig = "";
   let inFlight = false;
+  const payloadCache = new Map();
 
-  const readCoord = () => {
+  const getCoord = () => {
     const el = document.getElementById("ews-coord");
     const m = (el?.textContent || "").match(/(-?\d+(?:\.\d+)?)°K,\s*(-?\d+(?:\.\d+)?)°D/);
-    if (m) {
-      lockedCoord = { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-    }
-    return lockedCoord;
+    if (m) lastCoord = { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+    return lastCoord;
   };
 
-  const readActiveVar = () => {
+  const getActiveVar = () => {
     const btn = document.querySelector("#ews-vars .ews-btn.active");
     const title = btn ? (btn.getAttribute("title") || "") : "";
     const label = btn ? (btn.textContent || "") : "";
@@ -1796,25 +1800,23 @@
     }
     const omM = title.match(/—\s*([a-zA-Z0-9_]+)\s*\[/);
     const uM = title.match(/\[([^\]]+)\]/);
-    if (omM) {
-      return { code: omM[1], om: omM[1], unit: uM ? uM[1] : "", isPrecip: false };
-    }
+    if (omM) return { code: omM[1], om: omM[1], unit: uM ? uM[1] : "", isPrecip: false };
     if (/yağış/i.test(label)) return { code: "tp", om: "precipitation", unit: "mm", isPrecip: true };
     return { code: "2t", om: "temperature_2m", unit: "°C", isPrecip: false };
   };
 
-  const readHourOffset = () => {
+  const getOffsetHours = () => {
     const sl = document.getElementById("ewt-slider");
     return sl ? (parseInt(sl.value, 10) || 0) : 0;
   };
 
   const fmtUtc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ") + " UTC";
 
-  const applyVeriYok = (vvEl, winEl, startMs, endMs, hours, note) => {
+  const clearOverlaysAndSetNoData = (vvEl, winEl, startMs, endMs, hours, reason) => {
     vvEl.textContent = "Veri yok";
     vvEl.dataset.ewState = "no-data";
     if (winEl) {
-      winEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${hours} sa · ${note}`;
+      winEl.textContent = `${fmtUtc(startMs)} → ${fmtUtc(endMs)} · Süre: ${hours} sa · ${reason}`;
     }
     const marker = document.querySelector("#cbar-box [data-ew-marker='1']");
     if (marker) marker.style.display = "none";
@@ -1825,17 +1827,60 @@
     }
   };
 
-  const runStrictEcmwfCheck = async (force = false) => {
+  // Ayni koordinat icin tum degiskenleri tek cagrida cek ve bellekte tut
+  const getCoordPayload = async (lat, lng) => {
+    const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    const mem = payloadCache.get(key);
+    if (mem && (Date.now() - mem.ts < 900000)) {
+      return { ok: true, hourly: mem.hourly, reason: "önbellek" };
+    }
+
+    if (Date.now() < dailyLockedUntil) {
+      return { ok: false, hourly: null, reason: "ECMWF günlük 429 kotası doldu" };
+    }
+
+    const allFields = [
+      "temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature",
+      "pressure_msl", "surface_pressure", "precipitation", "rain", "showers", "snowfall",
+      "cloud_cover", "wind_speed_10m", "wind_direction_10m", "wind_gusts_10m", "cape", "visibility"
+    ];
+
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${allFields.join(",")}&past_days=2&forecast_days=3&timezone=UTC`;
+
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.status === 429) {
+        const retryHdr = Number(res.headers.get("Retry-After") || 0);
+        const lockSec = retryHdr > 0 ? Math.min(retryHdr, 43200) : 3600;
+        dailyLockedUntil = Date.now() + lockSec * 1000;
+        try { localStorage.setItem(DAILY_LOCK_KEY, String(dailyLockedUntil)); } catch (_) {}
+        return { ok: false, hourly: null, reason: "ECMWF günlük 429 kotası doldu" };
+      }
+      if (!res.ok) {
+        return { ok: false, hourly: null, reason: `ECMWF HTTP ${res.status}` };
+      }
+      const j = await res.json();
+      if (!j || j.error || !j.hourly || !Array.isArray(j.hourly.time)) {
+        return { ok: false, hourly: null, reason: "ECMWF veri yok" };
+      }
+      payloadCache.set(key, { ts: Date.now(), hourly: j.hourly });
+      return { ok: true, hourly: j.hourly, reason: "ECMWF" };
+    } catch (_) {
+      return { ok: false, hourly: null, reason: "ECMWF bağlantı yok" };
+    }
+  };
+
+  const evaluate = async (force = false) => {
     if (inFlight) return;
-    const coord = readCoord();
-    const vInfo = readActiveVar();
+    const coord = getCoord();
+    const vInfo = getActiveVar();
     const vvEl = document.getElementById("ews-vval");
     const winEl = document.getElementById("ews-time-window-val");
     if (!coord || !vInfo || !vvEl) return;
 
-    const off = readHourOffset();
+    const off = getOffsetHours();
     const sig = `${coord.lat.toFixed(4)}|${coord.lng.toFixed(4)}|${vInfo.om}|${off}`;
-    if (!force && sig === lastAppliedSig) return;
+    if (!force && sig === lastSig) return;
 
     inFlight = true;
     const nowMs = Date.now();
@@ -1845,20 +1890,18 @@
     const spanHours = Math.max(1, Math.round((endMs - startMs) / 3600000) || Math.abs(off) || 1);
 
     try {
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${coord.lat.toFixed(4)}&longitude=${coord.lng.toFixed(4)}&hourly=${encodeURIComponent(vInfo.om)}&past_days=2&forecast_days=3&timezone=UTC`;
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) {
-        lastAppliedSig = sig;
-        applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, `ECMWF ${res.status}`);
+      const pack = await getCoordPayload(coord.lat, coord.lng);
+      lastSig = sig;
+
+      if (!pack.ok || !pack.hourly) {
+        clearOverlaysAndSetNoData(vvEl, winEl, startMs, endMs, spanHours, pack.reason);
         return;
       }
-      const j = await res.json();
-      const times = j?.hourly?.time;
-      const arr = j?.hourly?.[vInfo.om];
 
-      if (!Array.isArray(times) || !Array.isArray(arr) || !times.length || !arr.length) {
-        lastAppliedSig = sig;
-        applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, "ECMWF alan yok");
+      const times = pack.hourly.time;
+      const arr = pack.hourly[vInfo.om];
+      if (!Array.isArray(arr) || !times.length || !arr.length) {
+        clearOverlaysAndSetNoData(vvEl, winEl, startMs, endMs, spanHours, "Bu değişken ECMWF yanıtında yok");
         return;
       }
 
@@ -1871,27 +1914,20 @@
         for (let i = 0; i < n; i++) {
           const tMs = Date.parse(times[i]);
           if (!Number.isFinite(tMs)) continue;
-          if (tMs >= startMs && tMs <= endMs) {
-            const val = arr[i];
-            if (typeof val === "number" && Number.isFinite(val)) {
-              sum += val;
-              count += 1;
-              if (minT === null || tMs < minT) minT = tMs;
-              if (maxT === null || tMs > maxT) maxT = tMs;
-            }
+          if (tMs >= startMs && tMs <= endMs && typeof arr[i] === "number" && Number.isFinite(arr[i])) {
+            sum += arr[i];
+            count += 1;
+            if (minT === null || tMs < minT) minT = tMs;
+            if (maxT === null || tMs > maxT) maxT = tMs;
           }
         }
-        lastAppliedSig = sig;
         if (count === 0 || minT === null || maxT === null) {
-          applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, "Aralıkta veri yok");
+          clearOverlaysAndSetNoData(vvEl, winEl, startMs, endMs, spanHours, "Seçili aralıkta veri yok");
           return;
         }
-        const total = Number(sum.toFixed(2));
-        vvEl.textContent = `${total.toFixed(2)} ${vInfo.unit}`.trim();
+        vvEl.textContent = `${Number(sum).toFixed(2)} ${vInfo.unit}`.trim();
         vvEl.dataset.ewState = "ok";
-        if (winEl) {
-          winEl.textContent = `${fmtUtc(minT)} → ${fmtUtc(maxT)} · Süre: ${count} sa · ECMWF`;
-        }
+        if (winEl) winEl.textContent = `${fmtUtc(minT)} → ${fmtUtc(maxT)} · Süre: ${count} sa · ${pack.reason}`;
         return;
       }
 
@@ -1900,57 +1936,46 @@
       for (let i = 0; i < times.length; i++) {
         const tMs = Date.parse(times[i]);
         if (!Number.isFinite(tMs)) continue;
-        const d = Math.abs(tMs - targetMs);
-        if (d < bestDiff) {
-          bestDiff = d;
+        const diff = Math.abs(tMs - targetMs);
+        if (diff < bestDiff) {
+          bestDiff = diff;
           bestIdx = i;
         }
       }
 
       const ptVal = bestIdx >= 0 ? arr[bestIdx] : null;
-      lastAppliedSig = sig;
       if (typeof ptVal !== "number" || !Number.isFinite(ptVal)) {
-        applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, "Bu saatte veri yok");
+        clearOverlaysAndSetNoData(vvEl, winEl, startMs, endMs, spanHours, "Bu saatte veri yok");
         return;
       }
 
       vvEl.textContent = `${ptVal.toFixed(2)} ${vInfo.unit}`.trim();
       vvEl.dataset.ewState = "ok";
-      if (winEl) {
-        winEl.textContent = `${fmtUtc(Date.parse(times[bestIdx]))} · Pencere: ${fmtUtc(startMs)} → ${fmtUtc(endMs)} (${spanHours} sa) · ECMWF`;
-      }
-    } catch (_) {
-      lastAppliedSig = sig;
-      applyVeriYok(vvEl, winEl, startMs, endMs, spanHours, "ECMWF hata");
+      if (winEl) winEl.textContent = `${fmtUtc(Date.parse(times[bestIdx]))} · Süre: ${spanHours} sa · ${pack.reason}`;
     } finally {
       inFlight = false;
     }
   };
 
-  // Harita tiklamasinda koordinati al ve tek kontrolu tetikle
-  const attachClick = () => {
+  setInterval(() => {
     const m = window.map;
-    if (m && typeof m.on === "function" && !m._ewFinalLockClick) {
-      m._ewFinalLockClick = true;
+    if (m && typeof m.on === "function" && !m._ewDailyGuardClick) {
+      m._ewDailyGuardClick = true;
       m.on("click", (ev) => {
         if (ev?.latlng) {
-          lockedCoord = { lat: ev.latlng.lat, lng: ev.latlng.lng };
+          lastCoord = { lat: ev.latlng.lat, lng: ev.latlng.lng };
           const cEl = document.getElementById("ews-coord");
           if (cEl) cEl.textContent = `${ev.latlng.lat.toFixed(4)}°K, ${ev.latlng.lng.toFixed(4)}°D`;
-          lastAppliedSig = "";
-          runStrictEcmwfCheck(true);
+          lastSig = "";
+          evaluate(true);
         }
       });
     }
-  };
-
-  setInterval(() => {
-    attachClick();
-    runStrictEcmwfCheck(false);
-  }, 400);
+    evaluate(false);
+  }, 450);
 })();
 </script>
-<!-- EKEN FINAL LOCK END -->
+<!-- EKEN DAILY 429 GUARD END -->
 
 </body>
 </html>
