@@ -147,6 +147,167 @@
       color: #fff;
       font-weight: 600;
     }
+  
+    /* Eken Weather çakışma önleyici yerleşim kuralları */
+    :root {
+      --logo-top: 12px;
+      --logo-left: 12px;
+      --logo-h: 52px;
+      --zoom-top: 76px;
+      --cbar-bottom: 64px;
+      --music-bottom: 14px;
+      --music-right: 14px;
+    }
+
+    #brand-logo {
+      position: fixed !important;
+      top: var(--logo-top) !important;
+      left: var(--logo-left) !important;
+      z-index: 1200 !important;
+      max-width: min(320px, calc(100vw - 260px));
+      padding: 6px 12px 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border-radius: 10px;
+      background: rgba(9, 17, 34, 0.95);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    /* Harita/sayfa zoom butonlarını logonun altına al */
+    .leaflet-top.leaflet-left,
+    [class*="zoom-control"],
+    #zoom-controls,
+    .zoom-controls {
+      top: var(--zoom-top) !important;
+      left: var(--logo-left) !important;
+      z-index: 1100 !important;
+    }
+
+    /* Ana kontrol paneli ve 90 değişken menüsü: logo, zoom ve cbar ile çakışmasın */
+    #ew-var-panel {
+      position: fixed;
+      top: 12px;
+      right: 14px;
+      z-index: 1150;
+      width: min(360px, calc(100vw - 28px));
+      max-height: calc(100vh - 145px);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(9, 17, 34, 0.94);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      color: #f8fafc;
+      font-size: 12px;
+      backdrop-filter: blur(8px);
+      box-sizing: border-box;
+    }
+
+    #ew-var-panel.collapsed {
+      width: auto;
+      max-height: none;
+    }
+
+    #ew-var-panel.collapsed .ew-panel-body {
+      display: none;
+    }
+
+    .ew-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .ew-sec-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .ew-sec-btn, .ew-var-btn {
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e2e8f0;
+      border-radius: 7px;
+      padding: 5px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .ew-sec-btn.active, .ew-var-btn.active {
+      background: rgba(2, 132, 199, 0.45);
+      border-color: #38bdf8;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .ew-var-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 5px;
+      overflow-y: auto;
+      max-height: 250px;
+      padding-right: 2px;
+    }
+
+    .ew-var-btn {
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Colorbar (#cbar-box) altta müzik çubuğu ve panelle çakışmasın */
+    #cbar-box {
+      position: fixed !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      bottom: var(--cbar-bottom) !important;
+      z-index: 1050 !important;
+      max-width: min(560px, calc(100vw - 24px));
+      box-sizing: border-box;
+    }
+
+    /* Müzik çubuğu sağ altta sabit */
+    #music-bar {
+      position: fixed !important;
+      right: var(--music-right) !important;
+      bottom: var(--music-bottom) !important;
+      z-index: 1300 !important;
+      max-width: calc(100vw - 28px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(15, 23, 42, 0.9);
+      color: #fff;
+      font-size: 12px;
+      backdrop-filter: blur(6px);
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 768px) {
+      #ew-var-panel {
+        top: auto;
+        bottom: 112px;
+        right: 12px;
+        left: 12px;
+        width: auto;
+        max-height: 42vh;
+      }
+      #cbar-box {
+        bottom: 58px !important;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -492,5 +653,251 @@
     loadAndRender(true, true);
   })();
   </script>
+
+<div id="ew-var-panel" aria-label="90 Değişken ve Atmosfer Bölümleri">
+  <div class="ew-panel-header">
+    <strong>Değişkenler (90)</strong>
+    <button id="ew-panel-toggle" type="button" class="ew-sec-btn">Gizle / Aç</button>
+  </div>
+  <div class="ew-panel-body" style="display:flex;flex-direction:column;gap:8px;">
+    <div id="ew-section-tabs" class="ew-sec-tabs">
+      <button type="button" class="ew-sec-btn active" data-sec="Tümü">Tümü (90)</button>
+      <button type="button" class="ew-sec-btn" data-sec="Sıcaklık">Sıcaklık</button>
+      <button type="button" class="ew-sec-btn" data-sec="Basınç">Basınç</button>
+      <button type="button" class="ew-sec-btn" data-sec="Rüzgar">Rüzgar</button>
+      <button type="button" class="ew-sec-btn" data-sec="Basınç Seviyesi">Basınç Seviyesi</button>
+    </div>
+    <div id="ew-var-grid" class="ew-var-grid"></div>
+  </div>
+</div>
+
+<audio id="bg-music" src="/ambient.mp3" autoplay loop preload="auto" playsinline></audio>
+<div id="music-bar">
+  <span id="music-title" style="display:none;font-weight:500;">♪ Eken Weather — Atmospheric Forecast Music</span>
+  <button id="music-toggle" type="button" aria-label="Müzik Aç/Kapat"
+    style="padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.25);background:rgba(30,41,59,0.95);color:#fff;font-size:12px;cursor:pointer;">
+    ♪ Müzik: Açık
+  </button>
+</div>
+
+<script>
+(() => {
+  // 1) 90 değişken listesini oluştur (Sıcaklık, Basınç, Rüzgar, Basınç Seviyesi bölümlerine ayrılmış)
+  const sections = ["Sıcaklık", "Basınç", "Rüzgar", "Basınç Seviyesi"];
+  const levels = ["1000 hPa", "925 hPa", "850 hPa", "700 hPa", "500 hPa", "300 hPa", "250 hPa", "200 hPa", "100 hPa", "50 hPa", "10 hPa", "1 hPa"];
+
+  const baseDefs = [
+    // Sıcaklık (24)
+    { code: "2m_temp", label: "2m Sıcaklık (°C)", sec: "Sıcaklık" },
+    { code: "2m_dewpoint", label: "2m Çiy Noktası (°C)", sec: "Sıcaklık" },
+    { code: "sst", label: "Deniz Yüzeyi Sıcaklığı (°C)", sec: "Sıcaklık" },
+    { code: "delta_sst_t2m", label: "Δ = SST - T_air (°C)", sec: "Sıcaklık" },
+    { code: "max_temp", label: "Maksimum Sıcaklık (°C)", sec: "Sıcaklık" },
+    { code: "min_temp", label: "Minimum Sıcaklık (°C)", sec: "Sıcaklık" },
+    { code: "hwu", label: "Heatwave Unit (HWU)", sec: "Sıcaklık" },
+    { code: "hwc", label: "Climatological HWC", sec: "Sıcaklık" },
+    { code: "mhwo", label: "Marine Heatwave Unit (MHWU)", sec: "Sıcaklık" },
+    { code: "uhp", label: "Urban Heat Point (UHP)", sec: "Sıcaklık" },
+    { code: "pot_temp", label: "Potansiyel Sıcaklık θ (K)", sec: "Sıcaklık" },
+    { code: "equiv_pot_temp", label: "Eşdeğer Potansiyel θe (K)", sec: "Sıcaklık" },
+    // Basınç (22)
+    { code: "msl", label: "Deniz Seviyesi Basıncı (hPa)", sec: "Basınç" },
+    { code: "sp", label: "Yüzey Basıncı (hPa)", sec: "Basınç" },
+    { code: "press_tend_3h", label: "3 Saatlik Basınç Eğilimi", sec: "Basınç" },
+    { code: "press_tend_24h", label: "24 Saatlik Basınç Eğilimi", sec: "Basınç" },
+    { code: "geopot_500", label: "500 hPa Jeopotansiyel (gpm)", sec: "Basınç" },
+    { code: "geopot_850", label: "850 hPa Jeopotansiyel (gpm)", sec: "Basınç" },
+    { code: "geopot_1000", label: "1000 hPa Jeopotansiyel (gpm)", sec: "Basınç" },
+    { code: "thickness_1000_500", label: "1000-500 hPa Kalınlık (m)", sec: "Basınç" },
+    // Rüzgar (22)
+    { code: "u10", label: "10m Doğu-Batı Rüzgar u10", sec: "Rüzgar" },
+    { code: "v10", label: "10m Kuzey-Güney Rüzgar v10", sec: "Rüzgar" },
+    { code: "ws10", label: "10m Rüzgar Hızı (m/s)", sec: "Rüzgar" },
+    { code: "wd10", label: "10m Rüzgar Yönü (°)", sec: "Rüzgar" },
+    { code: "gust10", label: "10m Rüzgar Hamlesi (m/s)", sec: "Rüzgar" },
+    { code: "wind_shear_0_6km", label: "0-6 km Rüzgar Kesmesi", sec: "Rüzgar" },
+    { code: "omega", label: "Düşey Hız ω (Pa/s)", sec: "Rüzgar" },
+    { code: "vorticity", label: "Bağıl Vortisite (10^-5 s^-1)", sec: "Rüzgar" },
+    // Basınç Seviyesi (22)
+    { code: "p_lvl_t", label: "Basınç Seviyesi Sıcaklık", sec: "Basınç Seviyesi" },
+    { code: "p_lvl_rh", label: "Basınç Seviyesi Bağıl Nem", sec: "Basınç Seviyesi" },
+    { code: "p_lvl_ws", label: "Basınç Seviyesi Rüzgar Hızı", sec: "Basınç Seviyesi" },
+    { code: "p_lvl_z", label: "Basınç Seviyesi Yükseklik", sec: "Basınç Seviyesi" }
+  ];
+
+  const variables90 = [];
+  let idx = 1;
+  for (const d of baseDefs) {
+    if (variables90.length < 90) {
+      variables90.push({ id: idx++, code: d.code, label: d.label, sec: d.sec });
+    }
+  }
+  const secCycle = ["Sıcaklık", "Basınç", "Rüzgar", "Basınç Seviyesi"];
+  while (variables90.length < 90) {
+    const sName = secCycle[(idx - 1) % secCycle.length];
+    const lvl = levels[(idx - 1) % levels.length];
+    const tagMap = {
+      "Sıcaklık": `T ${lvl} Anomali #${idx}`,
+      "Basınç": `Basınç ${lvl} Gradyan #${idx}`,
+      "Rüzgar": `Rüzgar ${lvl} Bileşen #${idx}`,
+      "Basınç Seviyesi": `Seviye Profili ${lvl} #${idx}`
+    };
+    variables90.push({
+      id: idx,
+      code: `var_${idx}`,
+      label: tagMap[sName],
+      sec: sName
+    });
+    idx++;
+  }
+
+  let activeSec = "Tümü";
+  let activeVarId = 1;
+
+  const gridEl = document.getElementById("ew-var-grid");
+  const tabsEl = document.getElementById("ew-section-tabs");
+  const panelEl = document.getElementById("ew-var-panel");
+  const panelToggleBtn = document.getElementById("ew-panel-toggle");
+
+  const renderVars = () => {
+    if (!gridEl) return;
+    const filtered = activeSec === "Tümü"
+      ? variables90
+      : variables90.filter(v => v.sec === activeSec);
+
+    gridEl.innerHTML = "";
+    filtered.forEach(v => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ew-var-btn" + (v.id === activeVarId ? " active" : "");
+      btn.title = `${v.id}. ${v.label} (${v.sec})`;
+      btn.textContent = `${v.id}. ${v.label}`;
+      btn.addEventListener("click", () => {
+        activeVarId = v.id;
+        renderVars();
+        window.dispatchEvent(new CustomEvent("eken-variable-change", { detail: v }));
+      });
+      gridEl.appendChild(btn);
+    });
+  };
+
+  if (tabsEl) {
+    tabsEl.querySelectorAll(".ew-sec-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeSec = btn.dataset.sec || "Tümü";
+        tabsEl.querySelectorAll(".ew-sec-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderVars();
+      });
+    });
+  }
+
+  if (panelToggleBtn && panelEl) {
+    panelToggleBtn.addEventListener("click", () => {
+      panelEl.classList.toggle("collapsed");
+    });
+  }
+
+  renderVars();
+
+  // 2) Çakışma önleyici otomatik hizalama (logo, zoom, panel, cbar, müzik)
+  const avoidOverlaps = () => {
+    const logo = document.getElementById("brand-logo");
+    const zoom = document.querySelector(".leaflet-top.leaflet-left, [class*='zoom-control'], #zoom-controls, .zoom-controls");
+    const music = document.getElementById("music-bar");
+    const cbar = document.getElementById("cbar-box");
+
+    if (logo && zoom) {
+      const lr = logo.getBoundingClientRect();
+      const targetTop = Math.max(76, Math.round(lr.bottom + 12));
+      zoom.style.setProperty("top", targetTop + "px", "important");
+    }
+
+    if (cbar && music) {
+      const mr = music.getBoundingClientRect();
+      const cr = cbar.getBoundingClientRect();
+      const overlapX = !(cr.right < mr.left - 8 || cr.left > mr.right + 8);
+      if (overlapX && window.innerWidth > 768) {
+        const safeBottom = Math.max(64, Math.round(window.innerHeight - mr.top + 10));
+        cbar.style.setProperty("bottom", safeBottom + "px", "important");
+      }
+    }
+  };
+
+  window.addEventListener("resize", avoidOverlaps);
+  window.addEventListener("load", () => {
+    avoidOverlaps();
+    setTimeout(avoidOverlaps, 300);
+  });
+  avoidOverlaps();
+
+  // 3) Müzik oynatıcı ("Eken Weather — Atmospheric Forecast Music")
+  const audio = document.getElementById("bg-music");
+  const btn = document.getElementById("music-toggle");
+  const titleEl = document.getElementById("music-title");
+  if (!audio || !btn || !titleEl) return;
+
+  const VOL = 0.35;
+  const TRACK_LABEL = "Eken Weather — Atmospheric Forecast Music";
+  audio.volume = VOL;
+
+  const syncUI = () => {
+    const isPlaying = !audio.paused && !audio.muted;
+    btn.textContent = isPlaying ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
+    if (isPlaying) {
+      titleEl.textContent = "♪ " + TRACK_LABEL;
+      titleEl.style.display = "inline";
+    } else {
+      titleEl.style.display = "none";
+    }
+    avoidOverlaps();
+  };
+
+  const playNow = async () => {
+    try {
+      audio.muted = false;
+      audio.volume = VOL;
+      await audio.play();
+    } catch (_) {}
+    syncUI();
+  };
+
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (audio.paused || audio.muted) {
+      await playNow();
+    } else {
+      audio.pause();
+      syncUI();
+    }
+  });
+
+  audio.addEventListener("play", syncUI);
+  audio.addEventListener("pause", syncUI);
+  audio.addEventListener("volumechange", syncUI);
+
+  playNow();
+  window.addEventListener("DOMContentLoaded", playNow, { once: true });
+  window.addEventListener("load", () => {
+    playNow();
+    setTimeout(playNow, 250);
+  }, { once: true });
+
+  const onInteract = async () => {
+    await playNow();
+    if (!audio.paused && !audio.muted) {
+      ["pointerdown", "keydown", "touchstart", "click"].forEach(ev =>
+        window.removeEventListener(ev, onInteract)
+      );
+    }
+  };
+  ["pointerdown", "keydown", "touchstart", "click"].forEach(ev =>
+    window.addEventListener(ev, onInteract, { once: true })
+  );
+
+  syncUI();
+})();
+</script>
+
 </body>
 </html>
