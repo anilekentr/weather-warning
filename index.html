@@ -350,7 +350,102 @@
 
 
 
-/* === EKEN WEATHER CBAR SYNC FIX === */
+
+
+
+/* === EKEN WEATHER 90 VARS === */
+#ew-single-panel {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  top: 76px !important;
+  left: 12px !important;
+  z-index: 1600 !important;
+  width: 326px !important;
+  max-width: calc(100vw - 24px) !important;
+  max-height: calc(100vh - 115px) !important;
+  overflow-y: auto !important;
+  padding: 9px 11px !important;
+  border-radius: 11px !important;
+  background: rgba(9, 17, 34, 0.96) !important;
+  border: 1px solid rgba(56, 189, 248, 0.45) !important;
+  color: #f8fafc !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  font-size: 11.5px !important;
+  box-sizing: border-box !important;
+}
+
+#bottom-panel,
+#alt-panel,
+#ecmwf-panel,
+#point-info,
+#location-panel,
+.bottom-panel,
+.alt-panel,
+.info-panel {
+  display: none !important;
+}
+
+.ews-box {
+  background: rgba(15, 23, 42, 0.92) !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  border-radius: 8px !important;
+  padding: 7px 9px !important;
+  margin-bottom: 7px !important;
+}
+.ews-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 2px 0 !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08) !important;
+}
+.ews-row:last-child { border-bottom: none !important; }
+.ews-k { color: #94a3b8 !important; }
+.ews-v { color: #f8fafc !important; font-weight: 600 !important; text-align: right !important; }
+.ews-hi { color: #38bdf8 !important; font-weight: 700 !important; }
+
+.ews-search {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 5px 8px !important;
+  margin-bottom: 6px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  color: #f8fafc !important;
+  font-size: 11px !important;
+  outline: none !important;
+}
+
+.ews-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+  max-height: 240px !important;
+  overflow-y: auto !important;
+}
+.ews-btn {
+  background: rgba(15, 23, 42, 0.92) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  border-radius: 6px !important;
+  padding: 4px 6px !important;
+  font-size: 10px !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.ews-btn.active {
+  background: rgba(2, 132, 199, 0.58) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
 #ew-cbar-canvas {
   position: absolute !important;
   inset: 0 !important;
@@ -778,84 +873,168 @@
 
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
+<div id="ew-single-panel">
+  <div class="ews-box">
+    <div class="ews-row"><span class="ews-k">Koordinat:</span><span id="ews-coord" class="ews-v">Haritaya tıklayın</span></div>
+    <div class="ews-row"><span class="ews-k">İl:</span><span id="ews-il" class="ews-v">—</span></div>
+    <div class="ews-row"><span class="ews-k">İlçe:</span><span id="ews-ilce" class="ews-v">—</span></div>
+    <div class="ews-row"><span class="ews-k">Mahalle:</span><span id="ews-mah" class="ews-v">—</span></div>
+    <div class="ews-row"><span id="ews-vname" class="ews-k">2m Sıcaklık (2t):</span><span id="ews-vval" class="ews-v ews-hi">—</span></div>
+  </div>
+  <input id="ews-filter" class="ews-search" type="text" placeholder="90 ECMWF değişkeni ara (ör: 850, rüzgar, nem, cape)..." />
+  <div id="ews-vars" class="ews-grid"></div>
+</div>
+
 <script>
 (() => {
-  const FALLBACK_STOPS = [
-    [29, 78, 216],
-    [6, 182, 212],
-    [34, 197, 94],
-    [132, 204, 22],
-    [234, 179, 8],
-    [249, 115, 22],
-    [220, 38, 38]
+  const VARS = [
+    { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: 2, max: 30 },
+    { code: "rh2m", om: "relative_humidity_2m", name: "2m Bağıl Nem", unit: "%", min: 20, max: 100 },
+    { code: "2d", om: "dew_point_2m", name: "2m Çiy Noktası", unit: "°C", min: -4, max: 22 },
+    { code: "app", om: "apparent_temperature", name: "Hissedilen Sıcaklık", unit: "°C", min: 0, max: 34 },
+    { code: "msl", om: "pressure_msl", name: "Deniz Seviyesi Basıncı", unit: "hPa", min: 995, max: 1030 },
+    { code: "sp", om: "surface_pressure", name: "Yüzey Basıncı", unit: "hPa", min: 880, max: 1025 },
+    { code: "tp", om: "precipitation", name: "Toplam Yağış", unit: "mm", min: 0, max: 15 },
+    { code: "rain", om: "rain", name: "Yağmur", unit: "mm", min: 0, max: 15 },
+    { code: "shw", om: "showers", name: "Sağanak Yağış", unit: "mm", min: 0, max: 12 },
+    { code: "sf", om: "snowfall", name: "Kar Yağışı", unit: "cm", min: 0, max: 15 },
+    { code: "sd", om: "snow_depth", name: "Kar Kalınlığı", unit: "m", min: 0, max: 1.5 },
+    { code: "wmo", om: "weather_code", name: "Hava Durumu Kodu", unit: "WMO", min: 0, max: 99 },
+    { code: "tcc", om: "cloud_cover", name: "Toplam Bulutluluk", unit: "%", min: 0, max: 100 },
+    { code: "lcc", om: "cloud_cover_low", name: "Alçak Bulut", unit: "%", min: 0, max: 100 },
+    { code: "mcc", om: "cloud_cover_mid", name: "Orta Bulut", unit: "%", min: 0, max: 100 },
+    { code: "hcc", om: "cloud_cover_high", name: "Yüksek Bulut", unit: "%", min: 0, max: 100 },
+    { code: "ws10", om: "wind_speed_10m", name: "10m Rüzgar Hızı", unit: "km/h", min: 0, max: 60 },
+    { code: "wd10", om: "wind_direction_10m", name: "10m Rüzgar Yönü", unit: "°", min: 0, max: 360 },
+    { code: "10fg", om: "wind_gusts_10m", name: "10m Rüzgar Hamlesi", unit: "km/h", min: 0, max: 90 },
+    { code: "ws100", om: "wind_speed_100m", name: "100m Rüzgar Hızı", unit: "km/h", min: 0, max: 80 },
+    { code: "wd100", om: "wind_direction_100m", name: "100m Rüzgar Yönü", unit: "°", min: 0, max: 360 },
+    { code: "ws200", om: "wind_speed_200m", name: "200m Rüzgar Hızı", unit: "km/h", min: 0, max: 95 },
+    { code: "wd200", om: "wind_direction_200m", name: "200m Rüzgar Yönü", unit: "°", min: 0, max: 360 },
+    { code: "cape", om: "cape", name: "CAPE Kararsızlık", unit: "J/kg", min: 0, max: 2500 },
+    { code: "cin", om: "convective_inhibition", name: "CIN Engelleme", unit: "J/kg", min: 0, max: 400 },
+    { code: "li", om: "lifted_index", name: "Lifted Index", unit: "°C", min: -8, max: 8 },
+    { code: "fz", om: "freezing_level_height", name: "0°C Donma Seviyesi", unit: "m", min: 500, max: 4500 },
+    { code: "vis", om: "visibility", name: "Görüş Mesafesi", unit: "m", min: 500, max: 25000 },
+    { code: "swr", om: "shortwave_radiation", name: "Kısa Dalga Radyasyon", unit: "W/m²", min: 0, max: 900 },
+    { code: "dir", om: "direct_radiation", name: "Doğrudan Radyasyon", unit: "W/m²", min: 0, max: 800 },
+    { code: "dif", om: "diffuse_radiation", name: "Difüz Radyasyon", unit: "W/m²", min: 0, max: 400 },
+    { code: "dni", om: "direct_normal_irradiance", name: "DNI Radyasyon", unit: "W/m²", min: 0, max: 900 },
+    { code: "gti", om: "global_tilted_irradiance", name: "Eğimli Yüzey Işınımı", unit: "W/m²", min: 0, max: 900 },
+    { code: "uv", om: "uv_index", name: "UV İndeksi", unit: "UV", min: 0, max: 11 },
+    { code: "uvc", om: "uv_index_clear_sky", name: "Açık Gökyüzü UV", unit: "UV", min: 0, max: 12 },
+    { code: "sun", om: "sunshine_duration", name: "Güneşlenme Süresi", unit: "s", min: 0, max: 3600 },
+    { code: "et0", om: "et0_fao_evapotranspiration", name: "ET0 Evapotranspirasyon", unit: "mm", min: 0, max: 8 },
+    { code: "vpd", om: "vapour_pressure_deficit", name: "Buhar Basıncı Açığı", unit: "kPa", min: 0, max: 3.5 },
+    { code: "st0", om: "soil_temperature_0_to_7cm", name: "Toprak Sıcaklığı 0-7cm", unit: "°C", min: 2, max: 30 },
+    { code: "st7", om: "soil_temperature_7_to_28cm", name: "Toprak Sıcaklığı 7-28cm", unit: "°C", min: 3, max: 28 },
+    { code: "st28", om: "soil_temperature_28_to_100cm", name: "Toprak Sıcaklığı 28-100cm", unit: "°C", min: 5, max: 26 },
+    { code: "st100", om: "soil_temperature_100_to_255cm", name: "Toprak Sıcaklığı 1-2.5m", unit: "°C", min: 7, max: 24 },
+    { code: "sm0", om: "soil_moisture_0_to_7cm", name: "Toprak Nemi 0-7cm", unit: "m³/m³", min: 0.05, max: 0.55 },
+    { code: "sm7", om: "soil_moisture_7_to_28cm", name: "Toprak Nemi 7-28cm", unit: "m³/m³", min: 0.05, max: 0.55 },
+    { code: "sm28", om: "soil_moisture_28_to_100cm", name: "Toprak Nemi 28-100cm", unit: "m³/m³", min: 0.05, max: 0.55 },
+    { code: "sm100", om: "soil_moisture_100_to_255cm", name: "Toprak Nemi 1-2.5m", unit: "m³/m³", min: 0.05, max: 0.55 },
+    { code: "t1000", om: "temperature_1000hPa", name: "1000hPa Sıcaklık", unit: "°C", min: 0, max: 30 },
+    { code: "t925", om: "temperature_925hPa", name: "925hPa Sıcaklık", unit: "°C", min: -4, max: 26 },
+    { code: "t850", om: "temperature_850hPa", name: "850hPa Sıcaklık", unit: "°C", min: -8, max: 22 },
+    { code: "t700", om: "temperature_700hPa", name: "700hPa Sıcaklık", unit: "°C", min: -16, max: 12 },
+    { code: "t600", om: "temperature_600hPa", name: "600hPa Sıcaklık", unit: "°C", min: -24, max: 4 },
+    { code: "t500", om: "temperature_500hPa", name: "500hPa Sıcaklık", unit: "°C", min: -35, max: -5 },
+    { code: "t400", om: "temperature_400hPa", name: "400hPa Sıcaklık", unit: "°C", min: -46, max: -16 },
+    { code: "t300", om: "temperature_300hPa", name: "300hPa Sıcaklık", unit: "°C", min: -56, max: -30 },
+    { code: "t250", om: "temperature_250hPa", name: "250hPa Sıcaklık", unit: "°C", min: -62, max: -38 },
+    { code: "t200", om: "temperature_200hPa", name: "200hPa Sıcaklık", unit: "°C", min: -65, max: -42 },
+    { code: "z1000", om: "geopotential_height_1000hPa", name: "1000hPa Yükseklik", unit: "m", min: -50, max: 250 },
+    { code: "z925", om: "geopotential_height_925hPa", name: "925hPa Yükseklik", unit: "m", min: 550, max: 900 },
+    { code: "z850", om: "geopotential_height_850hPa", name: "850hPa Yükseklik", unit: "m", min: 1250, max: 1620 },
+    { code: "z700", om: "geopotential_height_700hPa", name: "700hPa Yükseklik", unit: "m", min: 2750, max: 3200 },
+    { code: "z600", om: "geopotential_height_600hPa", name: "600hPa Yükseklik", unit: "m", min: 3900, max: 4400 },
+    { code: "z500", om: "geopotential_height_500hPa", name: "500hPa Yükseklik", unit: "m", min: 5250, max: 5880 },
+    { code: "z400", om: "geopotential_height_400hPa", name: "400hPa Yükseklik", unit: "m", min: 6800, max: 7550 },
+    { code: "z300", om: "geopotential_height_300hPa", name: "300hPa Yükseklik", unit: "m", min: 8650, max: 9650 },
+    { code: "z250", om: "geopotential_height_250hPa", name: "250hPa Yükseklik", unit: "m", min: 9800, max: 10900 },
+    { code: "z200", om: "geopotential_height_200hPa", name: "200hPa Yükseklik", unit: "m", min: 11200, max: 12400 },
+    { code: "ws1000", om: "wind_speed_1000hPa", name: "1000hPa Rüzgar", unit: "km/h", min: 0, max: 70 },
+    { code: "ws925", om: "wind_speed_925hPa", name: "925hPa Rüzgar", unit: "km/h", min: 0, max: 95 },
+    { code: "ws850", om: "wind_speed_850hPa", name: "850hPa Rüzgar", unit: "km/h", min: 0, max: 110 },
+    { code: "ws700", om: "wind_speed_700hPa", name: "700hPa Rüzgar", unit: "km/h", min: 0, max: 125 },
+    { code: "ws600", om: "wind_speed_600hPa", name: "600hPa Rüzgar", unit: "km/h", min: 0, max: 140 },
+    { code: "ws500", om: "wind_speed_500hPa", name: "500hPa Rüzgar", unit: "km/h", min: 0, max: 165 },
+    { code: "ws400", om: "wind_speed_400hPa", name: "400hPa Rüzgar", unit: "km/h", min: 0, max: 190 },
+    { code: "ws300", om: "wind_speed_300hPa", name: "300hPa Rüzgar", unit: "km/h", min: 0, max: 220 },
+    { code: "ws250", om: "wind_speed_250hPa", name: "250hPa Rüzgar", unit: "km/h", min: 0, max: 240 },
+    { code: "ws200", om: "wind_speed_200hPa", name: "200hPa Rüzgar", unit: "km/h", min: 0, max: 240 },
+    { code: "wd1000", om: "wind_direction_1000hPa", name: "1000hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd925", om: "wind_direction_925hPa", name: "925hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd850", om: "wind_direction_850hPa", name: "850hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd700", om: "wind_direction_700hPa", name: "700hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd600", om: "wind_direction_600hPa", name: "600hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd500", om: "wind_direction_500hPa", name: "500hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd400", om: "wind_direction_400hPa", name: "400hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd300", om: "wind_direction_300hPa", name: "300hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd250", om: "wind_direction_250hPa", name: "250hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "wd200", om: "wind_direction_200hPa", name: "200hPa Yön", unit: "°", min: 0, max: 360 },
+    { code: "rh850", om: "relative_humidity_850hPa", name: "850hPa Bağıl Nem", unit: "%", min: 0, max: 100 },
+    { code: "rh700", om: "relative_humidity_700hPa", name: "700hPa Bağıl Nem", unit: "%", min: 0, max: 100 },
+    { code: "rh500", om: "relative_humidity_500hPa", name: "500hPa Bağıl Nem", unit: "%", min: 0, max: 100 },
+    { code: "dp850", om: "dew_point_850hPa", name: "850hPa Çiy Noktası", unit: "°C", min: -20, max: 20 }
   ];
 
-  let cvs = null;
-  let samples = [];
-  let lastFetchKey = "";
-
-  const parseRgb = (str) => {
-    const m = String(str || "").match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-    if (!m) return null;
-    return [Number(m[1]), Number(m[2]), Number(m[3])];
+  // Her bir VARS parametresi için min-max aralığına bağlı deterministik renk durakları üret
+  const buildParamStops = (v) => {
+    const code = v.code;
+    if (code.startsWith("ws") || code.startsWith("wd") || code === "10fg") {
+      return [[16, 185, 129], [132, 204, 22], [234, 179, 8], [249, 115, 22], [225, 29, 72], [147, 51, 234]];
+    }
+    if (code.startsWith("rh") || code.startsWith("sm") || code.endsWith("cc") || code === "2d" || code === "vis" || code === "vpd") {
+      return [[124, 58, 237], [37, 99, 235], [6, 182, 212], [20, 184, 166], [34, 197, 94], [234, 179, 8]];
+    }
+    if (["tp", "rain", "shw", "sf", "sd", "wmo", "et0"].includes(code)) {
+      return [[15, 23, 42], [29, 78, 216], [6, 182, 212], [34, 197, 94], [250, 204, 21], [239, 68, 68]];
+    }
+    if (code.startsWith("z") || ["msl", "sp"].includes(code)) {
+      return [[30, 64, 175], [14, 165, 233], [34, 197, 94], [234, 179, 8], [249, 115, 22], [185, 28, 28]];
+    }
+    if (["cape", "cin", "li"].includes(code)) {
+      return [[22, 163, 74], [132, 204, 22], [250, 204, 21], [249, 115, 22], [220, 38, 38], [168, 85, 247]];
+    }
+    return [[29, 78, 216], [6, 182, 212], [34, 197, 94], [132, 204, 22], [234, 179, 8], [249, 115, 22], [220, 38, 38]];
   };
 
-  const parseHex = (hex) => {
-    const h = String(hex || "").trim().replace("#", "");
-    if (h.length === 3) {
-      return [parseInt(h[0] + h[0], 16), parseInt(h[1] + h[1], 16), parseInt(h[2] + h[2], 16)];
-    }
-    if (h.length === 6) {
-      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-    }
-    return null;
+  let cur = VARS[0], filterText = "", lastPt = null, cvs = null, samples = [], ptMarker = null;
+  const panel = document.getElementById("ew-single-panel");
+  const varsEl = document.getElementById("ews-vars");
+  const filterEl = document.getElementById("ews-filter");
+
+  if (panel) {
+    panel.addEventListener("click", e => e.stopPropagation());
+    panel.addEventListener("mousedown", e => e.stopPropagation());
+  }
+  if (filterEl) {
+    filterEl.addEventListener("input", e => {
+      filterText = (e.target.value || "").toLowerCase().trim();
+      renderVars();
+    });
+  }
+
+  // Renklendirme sınırları doğrudan seçili VARS parametresinin min-max değerlerinden gelir
+  const getParamBounds = (v) => {
+    const sMin = Number(v.min);
+    const sMax = Number(v.max);
+    return {
+      sMin: Number.isFinite(sMin) ? sMin : 0,
+      sMax: (Number.isFinite(sMax) && sMax > sMin) ? sMax : (Number.isFinite(sMin) ? sMin + 1 : 1)
+    };
   };
 
-  // #cbar-box içindeki gradyan çubuğundan aktif renk duraklarını ve min-max değerlerini oku
-  const readCbarScale = () => {
-    const cbar = document.getElementById("cbar-box");
-    let stops = FALLBACK_STOPS;
-    let minVal = 0;
-    let maxVal = 30;
-
-    if (cbar) {
-      const gradEl = Array.from(cbar.querySelectorAll("div")).find(d => {
-        const bg = getComputedStyle(d).backgroundImage || "";
-        return bg.includes("gradient");
-      });
-      if (gradEl) {
-        const bg = getComputedStyle(gradEl).backgroundImage || "";
-        const rgbMatches = [...bg.matchAll(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/gi)].map(m => [
-          Number(m[1]), Number(m[2]), Number(m[3])
-        ]);
-        const hexMatches = [...bg.matchAll(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})/g)].map(m => parseHex(m[1])).filter(Boolean);
-        const found = rgbMatches.length >= 2 ? rgbMatches : (hexMatches.length >= 2 ? hexMatches : []);
-        if (found.length >= 2) stops = found;
-      }
-
-      const nums = (cbar.innerText || "")
-        .replace(/,/g, ".")
-        .match(/-?\d+(?:\.\d+)?/g);
-      if (nums && nums.length >= 2) {
-        const parsed = nums.map(Number).filter(n => Number.isFinite(n));
-        if (parsed.length >= 2) {
-          minVal = parsed[0];
-          maxVal = parsed[parsed.length - 1];
-        }
-      }
-    }
-
-    if (!(maxVal > minVal)) {
-      maxVal = minVal + 1;
-    }
-    return { stops, minVal, maxVal };
-  };
-
-  const colorFromRatio = (t, stops) => {
+  const sampleParamColor = (t, v) => {
+    const stops = buildParamStops(v);
     const x = Math.max(0, Math.min(1, t)) * (stops.length - 1);
-    const i0 = Math.floor(x);
-    const i1 = Math.min(stops.length - 1, i0 + 1);
+    const i0 = Math.floor(x), i1 = Math.min(stops.length - 1, i0 + 1);
     const f = x - i0;
     return [
       Math.round(stops[i0][0] + (stops[i1][0] - stops[i0][0]) * f),
@@ -864,15 +1043,29 @@
     ];
   };
 
+  const paintParamCbar = (v) => {
+    let cbar = document.getElementById("cbar-box");
+    if (!cbar) {
+      cbar = document.createElement("div");
+      cbar.id = "cbar-box";
+      document.body.appendChild(cbar);
+    }
+    const { sMin, sMax } = getParamBounds(v);
+    const stops = buildParamStops(v);
+    const grad = `linear-gradient(90deg,${stops.map(([r, g, b]) => `rgb(${r},${g},${b})`).join(",")})`;
+    const q1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(2));
+    const q2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(2));
+    const q3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(2));
+    cbar.innerHTML = `<div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:700;"><span>${v.name} (${v.code})</span><span>${v.unit}</span></div><div style="height:8px;border-radius:4px;margin:3px 0;background:${grad};border:1px solid rgba(255,255,255,0.25);"></div><div style="display:flex;justify-content:space-between;color:#e2e8f0;line-height:1.1;font-size:9px;"><span>${sMin}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${sMax}</span></div>`;
+  };
+
   const findMap = () => {
-    if (window.__ewMap && typeof window.__ewMap.getBounds === "function") return window.__ewMap;
-    if (window.map && typeof window.map.getBounds === "function") return window.map;
+    if (window.map && typeof window.map.on === "function" && typeof window.map.getBounds === "function") return window.map;
     for (const k of Object.keys(window)) {
       try {
-        const v = window[k];
-        if (v && typeof v.getBounds === "function" && typeof v.latLngToContainerPoint === "function") {
-          window.__ewMap = window.map = v;
-          return v;
+        const obj = window[k];
+        if (obj && typeof obj.on === "function" && typeof obj.getBounds === "function" && typeof obj.latLngToContainerPoint === "function") {
+          window.map = obj; return obj;
         }
       } catch (_) {}
     }
@@ -882,46 +1075,37 @@
   const ensureCanvas = (m) => {
     const container = m.getContainer && m.getContainer();
     if (!container) return null;
-    if (!cvs) {
-      cvs = document.createElement("canvas");
-      cvs.id = "ew-cbar-canvas";
-    }
+    if (!cvs) { cvs = document.createElement("canvas"); cvs.id = "ew-cbar-canvas"; }
     if (cvs.parentElement !== container) {
-      const overlayPane = container.querySelector(".leaflet-overlay-pane");
-      if (overlayPane && overlayPane.parentElement === container) {
-        container.insertBefore(cvs, overlayPane.nextSibling);
-      } else {
-        container.appendChild(cvs);
-      }
+      const ov = container.querySelector(".leaflet-overlay-pane");
+      if (ov && ov.parentElement === container) container.insertBefore(cvs, ov.nextSibling);
+      else container.appendChild(cvs);
     }
-    const rect = container.getBoundingClientRect();
-    const w = Math.max(1, Math.floor(rect.width));
-    const h = Math.max(1, Math.floor(rect.height));
-    if (cvs.width !== w || cvs.height !== h) {
-      cvs.width = w;
-      cvs.height = h;
-    }
+    const r = container.getBoundingClientRect(), w = Math.max(1, Math.floor(r.width)), h = Math.max(1, Math.floor(r.height));
+    if (cvs.width !== w || cvs.height !== h) { cvs.width = w; cvs.height = h; }
     return cvs;
   };
 
-  const buildFallbackSamples = (m, minVal, maxVal) => {
+  const buildParamFieldPoints = (m, v) => {
+    const { sMin, sMax } = getParamBounds(v);
+    const span = sMax - sMin;
     const b = m.getBounds();
     const s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
-    const pts = [];
-    const rows = 4, cols = 5;
+    const pts = [], rows = 4, cols = 5;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const lat = s + ((n - s) * (r + 0.5)) / rows;
         const lng = w + ((e - w) * (c + 0.5)) / cols;
-        const wave = 0.5 + 0.35 * Math.sin(lat * 1.3) * Math.cos(lng * 1.1) + 0.15 * ((c / (cols - 1)) - (r / (rows - 1)));
-        const clamped = Math.max(0, Math.min(1, wave));
-        pts.push({ lat, lng, val: minVal + (maxVal - minVal) * clamped });
+        const norm = 0.5 + 0.35 * Math.sin(lat * 1.25) * Math.cos(lng * 1.15) + 0.15 * ((c / (cols - 1)) - (r / (rows - 1)));
+        const clamped = Math.max(0, Math.min(1, norm));
+        pts.push({ lat, lng, val: sMin + span * clamped });
       }
     }
     return pts;
   };
 
-  const renderMapByCbar = () => {
+  // Seçili VARS parametresinin min-max aralığına göre katmanlı renklendirme
+  const renderBySelectedParam = () => {
     const m = findMap();
     if (!m || !m.getBounds) return;
     const el = ensureCanvas(m);
@@ -929,14 +1113,12 @@
     const ctx = el.getContext("2d");
     if (!ctx) return;
 
-    const { stops, minVal, maxVal } = readCbarScale();
-    const span = (maxVal - minVal) || 1;
-    const activePts = samples.length ? samples : buildFallbackSamples(m, minVal, maxVal);
-
+    const { sMin, sMax } = getParamBounds(cur);
+    const span = (sMax - sMin) > 0 ? (sMax - sMin) : 1;
+    const activePts = samples.length ? samples : buildParamFieldPoints(m, cur);
     const w = el.width, h = el.height;
     ctx.clearRect(0, 0, w, h);
 
-    // Katman 1: Alt sürekli gradyan katman
     const step = 16;
     for (let y = 0; y < h; y += step) {
       for (let x = 0; x < w; x += step) {
@@ -946,114 +1128,138 @@
           const g = activePts[i];
           const d2 = (ll.lat - g.lat) * (ll.lat - g.lat) + (ll.lng - g.lng) * (ll.lng - g.lng) + 0.16;
           const wt = 1 / Math.pow(d2, 1.1);
-          num += g.val * wt;
-          den += wt;
+          num += g.val * wt; den += wt;
         }
         if (den > 0) {
-          const t = ((num / den) - minVal) / span;
-          const [rr, gg, bb] = colorFromRatio(t, stops);
+          const t = ((num / den) - sMin) / span;
+          const [rr, gg, bb] = sampleParamColor(t, cur);
           ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.36)`;
           ctx.fillRect(x, y, step + 1, step + 1);
         }
       }
     }
 
-    // Katman 2: Katmanlı radyal renk hücreleri
     ctx.save();
     ctx.filter = "blur(16px)";
     for (let i = 0; i < activePts.length; i++) {
       const g = activePts[i];
       const pt = m.latLngToContainerPoint([g.lat, g.lng]);
-      const t = Math.max(0, Math.min(1, (g.val - minVal) / span));
-      const [rr, gg, bb] = colorFromRatio(t, stops);
+      const t = Math.max(0, Math.min(1, (g.val - sMin) / span));
+      const [rr, gg, bb] = sampleParamColor(t, cur);
       const rad = Math.max(90, Math.min(230, Math.hypot(w, h) * (0.11 + t * 0.08)));
       const grd = ctx.createRadialGradient(pt.x, pt.y, rad * 0.05, pt.x, pt.y, rad);
       grd.addColorStop(0, `rgba(${rr}, ${gg}, ${bb}, ${(0.28 + t * 0.32).toFixed(2)})`);
       grd.addColorStop(0.55, `rgba(${rr}, ${gg}, ${bb}, ${(0.14 + t * 0.16).toFixed(2)})`);
       grd.addColorStop(1, `rgba(${rr}, ${gg}, ${bb}, 0)`);
       ctx.fillStyle = grd;
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, rad, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, rad, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   };
 
-  const detectOmParam = () => {
-    const activeBtn = document.querySelector(".active[data-om], .active[data-var], .ews-btn.active");
-    const rawAttr = activeBtn?.getAttribute("data-om") || activeBtn?.getAttribute("data-var") || "";
-    if (rawAttr && /^[a-z0-9_]+$/i.test(rawAttr)) return rawAttr;
-    const txt = (document.getElementById("cbar-box")?.innerText || "").toLowerCase();
-    if (txt.includes("nem")) return "relative_humidity_2m";
-    if (txt.includes("rüzgar") && txt.includes("850")) return "wind_speed_850hPa";
-    if (txt.includes("rüzgar")) return "wind_speed_10m";
-    if (txt.includes("yağış")) return "precipitation";
-    if (txt.includes("basınç")) return "pressure_msl";
-    if (txt.includes("cape")) return "cape";
-    if (txt.includes("850")) return "temperature_850hPa";
-    if (txt.includes("500")) return "temperature_500hPa";
-    return "temperature_2m";
-  };
-
-  const syncLiveGrid = async () => {
+  const fetchParamGrid = async () => {
     const m = findMap();
     if (!m || !m.getBounds) return;
     const b = m.getBounds();
     const s = Math.max(35.0, b.getSouth()), n = Math.min(43.5, b.getNorth());
     const w = Math.max(25.0, b.getWest()), e = Math.min(45.0, b.getEast());
-    const omParam = detectOmParam();
-    const key = `${omParam}:${s.toFixed(1)},${n.toFixed(1)},${w.toFixed(1)},${e.toFixed(1)}`;
-    if (key === lastFetchKey && samples.length) return;
-    lastFetchKey = key;
-
     const rows = 4, cols = 5, lats = [], lons = [];
     for (let r = 0; r < rows; r++) {
       const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(2));
-      for (let c = 0; c < cols; c++) {
-        lats.push(la);
-        lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(2)));
-      }
+      for (let c = 0; c < cols; c++) { lats.push(la); lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(2))); }
     }
-
     try {
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(omParam)}&hourly=${encodeURIComponent(omParam)}&forecast_days=1`;
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json();
+      const data = await (await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" })).json();
       const arr = Array.isArray(data) ? data : [data];
       const next = [];
       arr.forEach((loc, idx) => {
-        let val = loc?.current?.[omParam];
-        if ((typeof val !== "number" || !Number.isFinite(val)) && Array.isArray(loc?.hourly?.[omParam])) {
-          val = loc.hourly[omParam].find(x => typeof x === "number" && Number.isFinite(x));
+        let raw = loc?.current?.[cur.om];
+        if ((typeof raw !== "number" || !Number.isFinite(raw)) && Array.isArray(loc?.hourly?.[cur.om])) {
+          raw = loc.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
         }
-        if (typeof val === "number" && Number.isFinite(val)) {
-          next.push({ lat: lats[idx], lng: lons[idx], val });
-        }
+        if (typeof raw === "number" && Number.isFinite(raw)) next.push({ lat: lats[idx], lng: lons[idx], val: raw });
       });
-      if (next.length) {
-        samples = next;
-        renderMapByCbar();
-      }
+      if (next.length) { samples = next; paintParamCbar(cur); renderBySelectedParam(); }
     } catch (_) {}
   };
 
-  const attachHooks = () => {
+  const queryPoint = async (lat, lng) => {
     const m = findMap();
-    if (m && !m._ewCbarSyncHooked) {
-      m._ewCbarSyncHooked = true;
-      m.on("moveend zoomend resize layeradd", () => {
-        renderMapByCbar();
-        syncLiveGrid();
-      });
-      syncLiveGrid();
-    }
-    renderMapByCbar();
+    const cEl = document.getElementById("ews-coord"), ilEl = document.getElementById("ews-il"),
+          ilceEl = document.getElementById("ews-ilce"), mahEl = document.getElementById("ews-mah"),
+          vnEl = document.getElementById("ews-vname"), vvEl = document.getElementById("ews-vval");
+    if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
+    if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
+    if (vvEl) vvEl.textContent = "Yükleniyor...";
+    try {
+      const j = await (await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" })).json();
+      let val = j?.current?.[cur.om];
+      if ((typeof val !== "number" || !Number.isFinite(val)) && Array.isArray(j?.hourly?.[cur.om])) {
+        val = j.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
+      }
+      const label = (typeof val === "number" && Number.isFinite(val)) ? `${val.toFixed(2)} ${cur.unit}` : "Veri yok";
+      if (vvEl) vvEl.textContent = label;
+      if (m && window.L) {
+        if (!ptMarker) ptMarker = window.L.circleMarker([lat, lng], { radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2 }).addTo(m);
+        else ptMarker.setLatLng([lat, lng]);
+        ptMarker.bindTooltip(`${cur.name}: ${label}`, { permanent: false, direction: "top" }).openTooltip();
+      }
+    } catch (_) { if (vvEl) vvEl.textContent = "Alınamadı"; }
+
+    if (ilEl) ilEl.textContent = "Sorgulanıyor...";
+    if (ilceEl) ilceEl.textContent = "—";
+    if (mahEl) mahEl.textContent = "—";
+    try {
+      const a = (await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=tr`)).json())?.address || {};
+      if (ilEl) ilEl.textContent = a.province || a.city || a.state || "Açık Alan / Deniz";
+      if (ilceEl) ilceEl.textContent = a.town || a.county || a.city_district || a.district || "—";
+      if (mahEl) mahEl.textContent = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || "—";
+    } catch (_) { if (ilEl) ilEl.textContent = "Konum alınamadı"; }
   };
 
-  setInterval(attachHooks, 500);
-  setInterval(syncLiveGrid, 15000);
-  window.addEventListener("load", attachHooks);
-  document.addEventListener("click", () => setTimeout(attachHooks, 80));
+  const renderVars = () => {
+    if (!varsEl) return;
+    varsEl.innerHTML = "";
+    const list = filterText ? VARS.filter(v => `${v.name} ${v.code} ${v.om} ${v.unit}`.toLowerCase().includes(filterText)) : VARS;
+    list.forEach(v => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ews-btn" + (v.code === cur.code ? " active" : "");
+      b.textContent = `${v.name} (${v.unit})`;
+      b.title = `${v.name} — ${v.om} [${v.unit}]`;
+      b.addEventListener("click", e => {
+        e.stopPropagation();
+        cur = v;
+        samples = [];
+        renderVars();
+        paintParamCbar(cur);
+        renderBySelectedParam();
+        const vnEl = document.getElementById("ews-vname");
+        if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
+        fetchParamGrid();
+        if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
+      });
+      varsEl.appendChild(b);
+    });
+  };
+
+  const bindMap = () => {
+    const m = findMap();
+    if (!m) return;
+    if (!m._ew90VarsBound) {
+      m._ew90VarsBound = true;
+      m.on("click", e => { if (e?.latlng) { lastPt = { lat: e.latlng.lat, lng: e.latlng.lng }; queryPoint(lastPt.lat, lastPt.lng); } });
+      m.on("moveend zoomend resize", () => { renderBySelectedParam(); fetchParamGrid(); });
+      fetchParamGrid();
+    } else {
+      renderBySelectedParam();
+    }
+  };
+
+  renderVars();
+  paintParamCbar(cur);
+  setInterval(bindMap, 450);
+  window.addEventListener("load", bindMap);
 })();
 </script>
 <!-- EKEN WEATHER CLEAN END -->
