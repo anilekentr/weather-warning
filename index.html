@@ -326,7 +326,7 @@
 
 
 
-/* === EKEN WEATHER SINGLE PANEL & LIVE LAYER === */
+/* === EKEN WEATHER SIMPLE SINGLE PANEL === */
 #brand-logo {
   position: fixed !important;
   top: 10px !important;
@@ -362,12 +362,9 @@
   z-index: 1250 !important;
 }
 
-/* Ayrı duran eski/ikincil panelleri gizle; her şey tek panelde olsun */
-.panel:not(#ew-single-panel),
-.info-panel:not(#ew-single-panel),
-#ecmwf-panel:not(#ew-single-panel),
-#point-info:not(#ew-single-panel),
-#location-panel:not(#ew-single-panel) {
+[id*="ecmwf"]:not(#ew-single-panel):not(#ew-single-panel *),
+[id*="info-panel"]:not(#ew-single-panel):not(#ew-single-panel *),
+[id*="detail-panel"]:not(#ew-single-panel):not(#ew-single-panel *) {
   display: none !important;
 }
 
@@ -376,7 +373,7 @@
   top: 86px !important;
   left: 12px !important;
   z-index: 1320 !important;
-  width: 315px !important;
+  width: 310px !important;
   max-width: calc(100vw - 24px) !important;
   max-height: calc(100vh - 125px) !important;
   overflow-y: auto !important;
@@ -397,7 +394,6 @@
   padding: 7px 9px !important;
   margin-bottom: 8px !important;
 }
-
 .ews-row {
   display: flex !important;
   justify-content: space-between !important;
@@ -414,10 +410,9 @@
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   gap: 4px !important;
-  max-height: 220px !important;
+  max-height: 210px !important;
   overflow-y: auto !important;
 }
-
 .ews-btn {
   background: rgba(15, 23, 42, 0.92) !important;
   color: #cbd5e1 !important;
@@ -455,7 +450,7 @@ canvas.ew-live-field {
   top: auto !important;
   transform: none !important;
   z-index: 1200 !important;
-  width: 192px !important;
+  width: 190px !important;
   height: auto !important;
   min-height: 52px !important;
   max-height: 62px !important;
@@ -935,17 +930,12 @@ canvas.ew-live-field {
     let sMin = v.min, sMax = v.max;
     const vals = samples.map(d => d.val).filter(n => typeof n === "number" && Number.isFinite(n));
     if (vals.length > 0) {
-      const dMin = Math.min(...vals);
-      const dMax = Math.max(...vals);
-      if (dMax > dMin) {
-        sMin = Number(dMin.toFixed(1));
-        sMax = Number(dMax.toFixed(1));
-      }
+      const dMin = Math.min(...vals), dMax = Math.max(...vals);
+      if (dMax > dMin) { sMin = Number(dMin.toFixed(1)); sMax = Number(dMax.toFixed(1)); }
     }
     const q1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(1));
     const q2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(1));
     const q3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(1));
-
     cbar.innerHTML = `
       <div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:600;">
         <span>${v.name}</span><span>${v.unit}</span>
@@ -973,8 +963,7 @@ canvas.ew-live-field {
     const w = Math.max(1, Math.floor(rect.width));
     const h = Math.max(1, Math.floor(rect.height));
     if (fieldCanvas.width !== w || fieldCanvas.height !== h) {
-      fieldCanvas.width = w;
-      fieldCanvas.height = h;
+      fieldCanvas.width = w; fieldCanvas.height = h;
     }
     return fieldCanvas;
   };
@@ -986,13 +975,11 @@ canvas.ew-live-field {
     if (!cvs) return;
     const ctx = cvs.getContext("2d");
     if (!ctx) return;
-
     const w = cvs.width, h = cvs.height;
     ctx.clearRect(0, 0, w, h);
 
     const vals = gridSamples.map(d => d.val);
-    const minV = Math.min(...vals);
-    const maxV = Math.max(...vals);
+    const minV = Math.min(...vals), maxV = Math.max(...vals);
     const span = (maxV - minV) > 0.01 ? (maxV - minV) : ((cur.max - cur.min) || 1);
     const baseMin = (maxV - minV) > 0.01 ? minV : cur.min;
 
@@ -1005,12 +992,10 @@ canvas.ew-live-field {
           const g = gridSamples[i];
           const d2 = (ll.lat - g.lat) * (ll.lat - g.lat) + (ll.lng - g.lng) * (ll.lng - g.lng) + 0.06;
           const wt = 1 / Math.pow(d2, 1.35);
-          num += g.val * wt;
-          den += wt;
+          num += g.val * wt; den += wt;
         }
         if (den > 0) {
-          const interp = num / den;
-          const t = (interp - baseMin) / span;
+          const t = ((num / den) - baseMin) / span;
           const [rr, gg, bb] = ratioToRgb(t);
           ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.38)`;
           ctx.fillRect(x, y, step + 1, step + 1);
@@ -1023,25 +1008,18 @@ canvas.ew-live-field {
     const m = window.map;
     if (!m || !m.getBounds) return;
     const b = m.getBounds();
-    const s = Math.max(35.0, b.getSouth());
-    const n = Math.min(43.5, b.getNorth());
-    const w = Math.max(25.0, b.getWest());
-    const e = Math.min(45.0, b.getEast());
-
-    const rows = 4, cols = 5;
-    const lats = [], lons = [];
+    const s = Math.max(35.0, b.getSouth()), n = Math.min(43.5, b.getNorth());
+    const w = Math.max(25.0, b.getWest()), e = Math.min(45.0, b.getEast());
+    const rows = 4, cols = 5, lats = [], lons = [];
     for (let r = 0; r < rows; r++) {
       const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(3));
       for (let c = 0; c < cols; c++) {
-        const lo = Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(3));
-        lats.push(la); lons.push(lo);
+        lats.push(la); lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(3)));
       }
     }
-
     try {
       const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lons.join(",")}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`;
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json();
+      const data = await (await fetch(url, { cache: "no-store" })).json();
       const arr = Array.isArray(data) ? data : [data];
       const next = [];
       arr.forEach((loc, idx) => {
@@ -1049,68 +1027,43 @@ canvas.ew-live-field {
         if ((typeof raw !== "number" || !Number.isFinite(raw)) && Array.isArray(loc?.hourly?.[cur.om])) {
           raw = loc.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
         }
-        if (typeof raw === "number" && Number.isFinite(raw)) {
-          next.push({ lat: lats[idx], lng: lons[idx], val: raw });
-        }
+        if (typeof raw === "number" && Number.isFinite(raw)) next.push({ lat: lats[idx], lng: lons[idx], val: raw });
       });
-      if (next.length) {
-        gridSamples = next;
-        paintSampledCbar(cur, gridSamples);
-        renderField();
-      }
+      if (next.length) { gridSamples = next; paintSampledCbar(cur, gridSamples); renderField(); }
     } catch (_) {}
   };
 
   const queryPoint = async (lat, lng) => {
-    const cEl = document.getElementById("ews-coord");
-    const ilEl = document.getElementById("ews-il");
-    const ilceEl = document.getElementById("ews-ilce");
-    const mahEl = document.getElementById("ews-mah");
-    const vnEl = document.getElementById("ews-vname");
-    const vvEl = document.getElementById("ews-vval");
-
+    const cEl = document.getElementById("ews-coord"), ilEl = document.getElementById("ews-il"),
+          ilceEl = document.getElementById("ews-ilce"), mahEl = document.getElementById("ews-mah"),
+          vnEl = document.getElementById("ews-vname"), vvEl = document.getElementById("ews-vval");
     if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
     if (vvEl) vvEl.textContent = "Yükleniyor...";
-
     try {
-      const r = await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" });
-      const j = await r.json();
+      const j = await (await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" })).json();
       let val = j?.current?.[cur.om];
       if ((typeof val !== "number" || !Number.isFinite(val)) && Array.isArray(j?.hourly?.[cur.om])) {
         val = j.hourly[cur.om].find(x => typeof x === "number" && Number.isFinite(x));
       }
       const label = (typeof val === "number" && Number.isFinite(val)) ? `${val.toFixed(2)} ${cur.unit}` : "Veri yok";
       if (vvEl) vvEl.textContent = label;
-
       if (window.map && window.L) {
-        if (!pointMarker) {
-          pointMarker = window.L.circleMarker([lat, lng], {
-            radius: 6, color: "#ffffff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2
-          }).addTo(window.map);
-        } else {
-          pointMarker.setLatLng([lat, lng]);
-        }
+        if (!pointMarker) pointMarker = window.L.circleMarker([lat, lng], { radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2 }).addTo(window.map);
+        else pointMarker.setLatLng([lat, lng]);
         pointMarker.bindTooltip(`${cur.name}: ${label}`, { permanent: false, direction: "top" }).openTooltip();
       }
-    } catch (_) {
-      if (vvEl) vvEl.textContent = "Alınamadı";
-    }
+    } catch (_) { if (vvEl) vvEl.textContent = "Alınamadı"; }
 
     if (ilEl) ilEl.textContent = "Sorgulanıyor...";
     if (ilceEl) ilceEl.textContent = "—";
     if (mahEl) mahEl.textContent = "—";
-
     try {
-      const gr = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=tr`);
-      const gj = await gr.json();
-      const a = gj?.address || {};
+      const a = (await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=tr`)).json())?.address || {};
       if (ilEl) ilEl.textContent = a.province || a.city || a.state || "Açık Alan / Deniz";
       if (ilceEl) ilceEl.textContent = a.town || a.county || a.city_district || a.district || "—";
       if (mahEl) mahEl.textContent = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || "—";
-    } catch (_) {
-      if (ilEl) ilEl.textContent = "Konum alınamadı";
-    }
+    } catch (_) { if (ilEl) ilEl.textContent = "Konum alınamadı"; }
   };
 
   const renderVars = () => {
@@ -1122,10 +1075,7 @@ canvas.ew-live-field {
       b.className = "ews-btn" + (v.code === cur.code ? " active" : "");
       b.textContent = `${v.name} (${v.unit})`;
       b.addEventListener("click", (e) => {
-        e.stopPropagation();
-        cur = v;
-        renderVars();
-        paintSampledCbar(cur, gridSamples);
+        e.stopPropagation(); cur = v; renderVars(); paintSampledCbar(cur, gridSamples);
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
         loadGrid();
@@ -1140,30 +1090,16 @@ canvas.ew-live-field {
     if (!m || typeof m.on !== "function") return;
     if (!m._ewsAttached) {
       m._ewsAttached = true;
-      m.on("click", (e) => {
-        if (!e || !e.latlng) return;
-        lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
-        queryPoint(lastPt.lat, lastPt.lng);
-      });
-      m.on("moveend zoomend resize", () => {
-        renderField();
-        loadGrid();
-      });
+      m.on("click", (e) => { if (e?.latlng) { lastPt = { lat: e.latlng.lat, lng: e.latlng.lng }; queryPoint(lastPt.lat, lastPt.lng); } });
+      m.on("moveend zoomend resize", () => { renderField(); loadGrid(); });
       loadGrid();
-    } else {
-      renderField();
-    }
-    document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
-      if (el.innerHTML !== "🇹🇷") el.innerHTML = "🇹🇷";
-    });
+    } else renderField();
+    document.querySelectorAll(".leaflet-control-attribution").forEach(el => { if (el.innerHTML !== "🇹🇷") el.innerHTML = "🇹🇷"; });
   };
 
   renderVars();
   paintSampledCbar(cur, []);
-  const timer = setInterval(() => {
-    attachMap();
-    if (window.map && window.map._ewsAttached) clearInterval(timer);
-  }, 300);
+  const tmr = setInterval(() => { attachMap(); if (window.map && window.map._ewsAttached) clearInterval(tmr); }, 300);
   window.addEventListener("load", attachMap);
 })();
 </script>
