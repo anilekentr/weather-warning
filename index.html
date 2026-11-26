@@ -1495,21 +1495,8 @@
   };
 
   const fetchRealVal = async (lat, lng, v) => {
-    const key = `${lat.toFixed(2)}_${lng.toFixed(2)}_${v.om}`;
-    const cached = obsCache[key];
-    if (cached && (Date.now() - cached.ts < 900000)) {
-      return { val: cached.val, tag: "önbellek" };
-    }
-
     if (Date.now() < rateLimitUntil) {
-      const metVal = await fetchMetNoVal(lat, lng, v);
-      if (typeof metVal === "number" && Number.isFinite(metVal)) {
-        obsCache[key] = { val: metVal, ts: Date.now() };
-        saveStorage(obsCache);
-        return { val: metVal, tag: "MET Norway" };
-      }
-      if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
-      return { val: null, tag: "Veri bekleniyor" };
+      return { val: null, tag: "Veri yok" };
     }
 
     const waitMs = Math.max(0, 1400 - (Date.now() - lastNetAt));
@@ -1521,28 +1508,18 @@
       const res = await fetch(url, { cache: "no-store" });
       if (res.status === 429) {
         rateLimitUntil = Date.now() + 25000;
-        if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
-        return { val: null, tag: "Kota siniri" };
+        return { val: null, tag: "Veri yok" };
       }
       if (res.ok) {
         const j = await res.json();
         const val = extractNowVal(j, v.om);
         if (typeof val === "number" && Number.isFinite(val)) {
-          obsCache[key] = { val, ts: Date.now() };
-          saveStorage(obsCache);
-          return { val, tag: "canlı" };
+          return { val, tag: "ECMWF" };
         }
       }
     } catch (_) {}
 
-    const metFallback = await fetchMetNoVal(lat, lng, v);
-    if (typeof metFallback === "number" && Number.isFinite(metFallback)) {
-      obsCache[key] = { val: metFallback, ts: Date.now() };
-      saveStorage(obsCache);
-      return { val: metFallback, tag: "MET Norway" };
-    }
-    if (cached && typeof cached.val === "number") return { val: cached.val, tag: "son veri" };
-    return { val: null, tag: "veri yok" };
+    return { val: null, tag: "Veri yok" };
   };
 
   const refreshPoint = async (lat, lng) => {
