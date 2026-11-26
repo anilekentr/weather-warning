@@ -601,6 +601,20 @@
   }
 </style>
 <!-- EKEN WEATHER OFFICIAL LOGO END -->
+<!-- EKEN AUTO CLEAR LOCK START -->
+<script>
+(() => {
+  try {
+    const ONCE_KEY = "ew_429_lock_cleared_once";
+    localStorage.removeItem("ew_ecmwf_daily_429_until");
+    if (!sessionStorage.getItem(ONCE_KEY)) {
+      sessionStorage.setItem(ONCE_KEY, "1");
+      setTimeout(() => window.location.reload(), 150);
+    }
+  } catch (_) {}
+})();
+</script>
+<!-- EKEN AUTO CLEAR LOCK END -->
 </head>
 <body>
   <div id="map"></div>
