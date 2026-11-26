@@ -2409,122 +2409,7 @@
 <!-- EKEN WEATHER OFFICIAL LOGO END -->
 
 
-<!-- EKEN TR FLAG & MUSIC FIX START -->
-<style>
-  .leaflet-control-attribution,
-  .leaflet-bottom.leaflet-right .leaflet-control-attribution {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
 
-  #eken-tr-flag-map {
-    position: fixed;
-    right: 16px;
-    bottom: 16px;
-    z-index: 2147483000;
-    display: inline-flex !important;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: rgba(11, 20, 32, 0.92);
-    border: 1.5px solid rgba(227, 10, 23, 0.85);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-    pointer-events: none;
-    user-select: none;
-    visibility: visible !important;
-    opacity: 1 !important;
-  }
-  #eken-tr-flag-map svg {
-    width: 24px;
-    height: 16px;
-    display: block;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-</style>
-
-<div id="eken-tr-flag-map" aria-label="Türkiye" title="Türkiye">
-  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Türk Bayrağı">
-    <rect width="1200" height="800" fill="#E30A17"/>
-    <circle cx="425" cy="400" r="200" fill="#FFFFFF"/>
-    <circle cx="475" cy="400" r="160" fill="#E30A17"/>
-    <polygon
-      fill="#FFFFFF"
-      points="583.33333,400 764.23593,458.77853 652.53263,305.05485 652.53263,494.94515 764.23593,341.22147"
-    />
-  </svg>
-</div>
-
-<script>
-(() => {
-  const ensureFlagPlacement = () => {
-    const flag = document.getElementById("eken-tr-flag-map");
-    if (!flag) return;
-    if (flag.parentElement !== document.body) {
-      document.body.appendChild(flag);
-    }
-
-    let shiftRight = 16;
-    const candidates = document.querySelectorAll(
-      "audio, button[id*='music'], button[class*='music'], button[id*='audio'], button[class*='audio'], [id*='music-player'], [class*='music-player'], [id*='sound'], [class*='sound']"
-    );
-    candidates.forEach((el) => {
-      if (!el || el === flag || flag.contains(el)) return;
-      const r = el.getBoundingClientRect();
-      const cs = window.getComputedStyle(el);
-      if (cs.display === "none" || cs.visibility === "hidden" || r.width === 0 || r.height === 0) return;
-      const nearBottom = (window.innerHeight - r.bottom) < 95;
-      const nearRight = (window.innerWidth - r.right) < 280;
-      if (nearBottom && nearRight) {
-        shiftRight = Math.max(shiftRight, Math.round(window.innerWidth - r.left + 12));
-      }
-    });
-    flag.style.right = `${shiftRight}px`;
-  };
-
-  const tryPlayAudios = async (fromUserGesture = false) => {
-    const audios = Array.from(document.querySelectorAll("audio"));
-    for (const aud of audios) {
-      try {
-        aud.muted = false;
-        if (!aud.src && !aud.querySelector("source")) {
-          const ds = aud.dataset.src || aud.getAttribute("data-audio") || "";
-          if (ds) aud.src = ds;
-        }
-        if (aud.paused && (aud.src || aud.currentSrc || aud.querySelector("source"))) {
-          await aud.play();
-        }
-      } catch (err) {
-        if (fromUserGesture) {
-          console.warn("[Eken Weather Audio]", aud.id || aud.src || "audio", err && err.message ? err.message : err);
-        }
-      }
-    }
-  };
-
-  // Muzik dugmelerine tiklandiginda ses oynatmayi garantiye al
-  document.addEventListener("click", (e) => {
-    const t = e.target;
-    if (!t) return;
-    const isMusicBtn = t.closest && t.closest(
-      "[id*='music'], [class*='music'], [id*='audio'], [class*='audio'], [id*='player'], [class*='player'], [id*='sound'], [class*='sound']"
-    );
-    if (isMusicBtn) {
-      setTimeout(() => tryPlayAudios(true), 60);
-    } else {
-      tryPlayAudios(false);
-    }
-  }, true);
-
-  ensureFlagPlacement();
-  tryPlayAudios(false);
-  setInterval(ensureFlagPlacement, 500);
-})();
-</script>
-<!-- EKEN TR FLAG & MUSIC FIX END -->
 
 <!-- EKEN BG MUSIC FIX START -->
 <script>
@@ -2627,5 +2512,115 @@
 })();
 </script>
 <!-- EKEN AUTO POLL MAP END -->
+<!-- EKEN TR FLAG FORCE VISIBLE START -->
+<style>
+  .leaflet-control-attribution,
+  .leaflet-bottom.leaflet-right .leaflet-control-attribution {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  #eken-tr-flag-force {
+    position: fixed !important;
+    right: 16px !important;
+    bottom: 16px !important;
+    z-index: 2147483647 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 42px !important;
+    height: 30px !important;
+    padding: 2px !important;
+    border-radius: 6px !important;
+    background: rgba(11, 20, 32, 0.95) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55) !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  #eken-tr-flag-force img,
+  #eken-tr-flag-force svg {
+    width: 36px !important;
+    height: 24px !important;
+    display: block !important;
+    border-radius: 2px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+</style>
+
+<script>
+(() => {
+  const FLAG_ID = "eken-tr-flag-force";
+  const SVG_MARKUP = `<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Türk Bayrağı">
+    <rect width="1200" height="800" fill="#E30A17"/>
+    <circle cx="425" cy="400" r="200" fill="#FFFFFF"/>
+    <circle cx="475" cy="400" r="160" fill="#E30A17"/>
+    <polygon
+      fill="#FFFFFF"
+      points="583.33333,400 764.23593,458.77853 652.53263,305.05485 652.53263,494.94515 764.23593,341.22147"
+    />
+  </svg>`;
+
+  const ensureFlag = () => {
+    if (!document.body) return;
+
+    let el = document.getElementById(FLAG_ID);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = FLAG_ID;
+      el.setAttribute("aria-label", "Türkiye");
+      el.setAttribute("title", "Türkiye");
+      el.innerHTML = SVG_MARKUP;
+      document.body.appendChild(el);
+    } else if (el.parentElement !== document.body) {
+      document.body.appendChild(el);
+    }
+
+    if (!el.querySelector("svg")) {
+      el.innerHTML = SVG_MARKUP;
+    }
+
+    // Sag-alt kosede muzik/ses kontrolu varsa bayragi ustune binmeyecek sekilde sola kaydir
+    let shiftRight = 16;
+    const controls = document.querySelectorAll(
+      "audio, button[id*='music'], button[class*='music'], button[id*='audio'], button[class*='audio'], [id*='music'], [class*='music'], [id*='audio'], [class*='audio'], [id*='sound'], [class*='sound']"
+    );
+    controls.forEach((ctrl) => {
+      if (!ctrl || ctrl.id === FLAG_ID || ctrl.contains(el)) return;
+      const r = ctrl.getBoundingClientRect();
+      const cs = window.getComputedStyle(ctrl);
+      if (cs.display === "none" || cs.visibility === "hidden" || r.width === 0 || r.height === 0) return;
+      const nearBottom = (window.innerHeight - r.bottom) < 100;
+      const nearRight = (window.innerWidth - r.right) < 280;
+      if (nearBottom && nearRight) {
+        shiftRight = Math.max(shiftRight, Math.round(window.innerWidth - r.left + 12));
+      }
+    });
+
+    el.style.setProperty("right", `${shiftRight}px`, "important");
+    el.style.setProperty("bottom", "16px", "important");
+    el.style.setProperty("z-index", "2147483647", "important");
+    el.style.setProperty("display", "inline-flex", "important");
+    el.style.setProperty("visibility", "visible", "important");
+    el.style.setProperty("opacity", "1", "important");
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", ensureFlag, { once: true });
+  } else {
+    ensureFlag();
+  }
+  window.addEventListener("load", ensureFlag);
+  setInterval(ensureFlag, 500);
+})();
+</script>
+<!-- EKEN TR FLAG FORCE VISIBLE END -->
 </body>
 </html>
