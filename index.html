@@ -571,6 +571,86 @@
 /* === END EKEN TIME BAR === */
 
 </style>
+<!-- EKEN EARLY NOMINATIM & FAVICON FIX START -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%2338bdf8'/></svg>" />
+<script>
+(() => {
+  const origFetch = window.fetch ? window.fetch.bind(window) : null;
+  if (!origFetch) return;
+
+  const geoCache = new Map();
+
+  const applyGeoToDom = (info) => {
+    if (!info) return;
+    const ilEl = document.getElementById("ews-city") || document.getElementById("ews-il");
+    const ilceEl = document.getElementById("ews-district") || document.getElementById("ews-ilce");
+    const mahEl = document.getElementById("ews-neighborhood") || document.getElementById("ews-mah");
+    if (ilEl && info.city) ilEl.textContent = info.city;
+    if (ilceEl && info.district) ilceEl.textContent = info.district;
+    if (mahEl && info.neighborhood) mahEl.textContent = info.neighborhood;
+  };
+
+  const fetchBigDataCloud = async (lat, lon) => {
+    const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
+    if (geoCache.has(key)) return geoCache.get(key);
+
+    try {
+      const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=tr`;
+      const r = await origFetch(url, { cache: "force-cache" });
+      if (!r.ok) return null;
+      const j = await r.json();
+      const city = j.principalSubdivision || j.city || "—";
+      const district = j.locality || j.city || "—";
+      const neighborhood =
+        j.neighbourhood ||
+        (j.localityInfo && j.localityInfo.informative && j.localityInfo.informative[0] && j.localityInfo.informative[0].name) ||
+        "—";
+      const out = { city, district, neighborhood };
+      geoCache.set(key, out);
+      return out;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  window.fetch = async (input, init) => {
+    const urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
+
+    if (urlStr.includes("nominatim.openstreetmap.org")) {
+      const mLat = urlStr.match(/[?&]lat=(-?\d+(?:\.\d+)?)/);
+      const mLon = urlStr.match(/[?&]lon=(-?\d+(?:\.\d+)?)/);
+      if (mLat && mLon) {
+        const lat = parseFloat(mLat[1]);
+        const lon = parseFloat(mLon[1]);
+        const info = await fetchBigDataCloud(lat, lon);
+        if (info) {
+          setTimeout(() => applyGeoToDom(info), 50);
+          return new Response(
+            JSON.stringify({
+              address: {
+                province: info.city,
+                city: info.city,
+                town: info.district,
+                county: info.district,
+                neighbourhood: info.neighborhood,
+                suburb: info.neighborhood
+              }
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+      return new Response(JSON.stringify({ address: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return origFetch(input, init);
+  };
+})();
+</script>
+<!-- EKEN EARLY NOMINATIM & FAVICON FIX END -->
 </head>
 <body>
   <div id="map"></div>
