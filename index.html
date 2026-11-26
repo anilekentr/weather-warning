@@ -1171,38 +1171,39 @@
     ctx.restore();
   };
 
-  // Yanıttan current veya hourly ilk geçerli sayısal değeri çıkar
+  // Yanıttan current veya hourly içindeki geçerli sayısal değeri çıkar
   const extractNumber = (obj, omKey) => {
     if (!obj || typeof obj !== "object") return null;
-    if (obj.current && typeof obj.current[omKey] === "number" && Number.isFinite(obj.current[omKey])) {
-      return obj.current[omKey];
-    }
-    const hArr = obj.hourly && obj.hourly[omKey];
-    if (Array.isArray(hArr)) {
-      const nowIso = new Date().toISOString().slice(0, 13);
-      if (Array.isArray(obj.hourly.time)) {
-        const idx = obj.hourly.time.findIndex(t => typeof t === "string" && t.startsWith(nowIso));
-        if (idx >= 0 && typeof hArr[idx] === "number" && Number.isFinite(hArr[idx])) return hArr[idx];
+    const keys = [omKey, "temperature_2m"];
+    for (const k of keys) {
+      if (obj.current && typeof obj.current[k] === "number" && Number.isFinite(obj.current[k])) {
+        return obj.current[k];
       }
-      const found = hArr.find(x => typeof x === "number" && Number.isFinite(x));
-      if (typeof found === "number") return found;
+      const hArr = obj.hourly && obj.hourly[k];
+      if (Array.isArray(hArr)) {
+        const valid = hArr.filter(x => typeof x === "number" && Number.isFinite(x));
+        if (valid.length) return valid[Math.min(valid.length - 1, 3)];
+      }
     }
     return null;
   };
 
   const fetchSinglePointValue = async (lat, lng, v) => {
-    const endpoints = [
-      `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=auto&forecast_days=1`,
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=auto&forecast_days=1`
-    ];
-    for (const url of endpoints) {
-      try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) continue;
-        const j = await res.json();
-        const val = extractNumber(j, v.om);
-        if (val !== null) return val;
-      } catch (_) {}
+    const params = [v.om, "temperature_2m"];
+    for (const param of [...new Set(params)]) {
+      const endpoints = [
+        `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${encodeURIComponent(param)}&past_hours=3&forecast_hours=6&timezone=Europe%2FIstanbul`,
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${encodeURIComponent(param)}&past_hours=3&forecast_hours=6&timezone=Europe%2FIstanbul`
+      ];
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) continue;
+          const j = await res.json();
+          const val = extractNumber(j, param);
+          if (val !== null) return val;
+        } catch (_) {}
+      }
     }
     return null;
   };
