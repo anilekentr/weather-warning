@@ -2114,5 +2114,71 @@
 </script>
 <!-- EKEN STALE QUOTA CLEANER END -->
 
+
+<!-- EKEN MAP NO-DATA SYNC START -->
+<script>
+(() => {
+  const LOCK_KEY = "ew_ecmwf_daily_429_until";
+
+  const isEcmwfUnavailable = () => {
+    const vvEl = document.getElementById("ews-vval");
+    const lockedUntil = Number(localStorage.getItem(LOCK_KEY) || 0) || 0;
+    if (Date.now() < lockedUntil) return true;
+    if (vvEl && vvEl.textContent.trim() === "Veri yok") return true;
+    return false;
+  };
+
+  const scrubMapDomElements = () => {
+    if (!isEcmwfUnavailable()) return;
+
+    // Harita kapsayicisindaki acik popup, tooltip ve deger etiketlerini temizle
+    const selectors = [
+      ".leaflet-popup-content",
+      ".leaflet-tooltip",
+      "[class*='map-val']",
+      "[class*='marker-val']",
+      "[id*='map-val']",
+      "[id*='marker-val']"
+    ];
+
+    document.querySelectorAll(selectors.join(",")).forEach((el) => {
+      if (!el || el.closest("#ew-time-bar")) return;
+      const txtVal = (el.textContent || "").trim();
+      if (!txtVal || txtVal === "Veri yok") return;
+      // Sayisal deger veya birim iceren harita etiketlerini "Veri yok" yap
+      if (/(-?\d+(?:[.,]\d+)?)\s*(°C|°|mm|cm|hPa|km\/h|m\/s|%)/i.test(txtVal) || /yağış|sıcaklık|basınç|rüzgar/i.test(txtVal)) {
+        el.textContent = "Veri yok";
+      }
+    });
+
+    // Leaflet acik popup / tooltip nesneleri varsa icerigini guncelle
+    const m = window.map;
+    if (m && typeof m.eachLayer === "function") {
+      try {
+        m.eachLayer((layer) => {
+          if (!layer) return;
+          if (typeof layer.getPopup === "function") {
+            const pop = layer.getPopup();
+            if (pop && pop.isOpen && pop.isOpen()) {
+              pop.setContent("Veri yok");
+            }
+          }
+          if (typeof layer.getTooltip === "function") {
+            const tip = layer.getTooltip();
+            if (tip) {
+              tip.setContent("Veri yok");
+            }
+          }
+        });
+      } catch (_) {}
+    }
+  };
+
+  scrubMapDomElements();
+  setInterval(scrubMapDomElements, 250);
+})();
+</script>
+<!-- EKEN MAP NO-DATA SYNC END -->
+
 </body>
 </html>
