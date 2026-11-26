@@ -501,7 +501,178 @@
       font-size: 14px !important;
     }
 
-  </style>
+  
+/* === EKEN WEATHER MASTER CLEAN STYLE === */
+#brand-logo {
+  position: fixed !important;
+  top: 10px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 1300 !important;
+  height: 38px !important;
+  padding: 4px 12px 4px 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  border-radius: 999px !important;
+  background: rgba(9, 17, 34, 0.92) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  pointer-events: none !important;
+}
+#brand-logo img {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+}
+#brand-logo .logo-text {
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: #f8fafc !important;
+  white-space: nowrap !important;
+}
+
+.leaflet-top.leaflet-left {
+  top: 12px !important;
+  left: 12px !important;
+  z-index: 1200 !important;
+}
+
+#ew-master-panel {
+  position: fixed !important;
+  top: 86px !important;
+  left: 12px !important;
+  z-index: 1250 !important;
+  width: 310px !important;
+  max-width: calc(100vw - 24px) !important;
+  max-height: calc(100vh - 125px) !important;
+  overflow-y: auto !important;
+  padding: 9px 11px !important;
+  border-radius: 11px !important;
+  background: rgba(9, 17, 34, 0.94) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  color: #f8fafc !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  font-size: 11.5px !important;
+  box-sizing: border-box !important;
+}
+
+.ewm-box {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  border-radius: 8px !important;
+  padding: 7px 9px !important;
+  margin-bottom: 8px !important;
+}
+
+.ewm-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 2px 0 !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08) !important;
+}
+.ewm-row:last-child { border-bottom: none !important; }
+.ewm-k { color: #94a3b8 !important; }
+.ewm-v { color: #f8fafc !important; font-weight: 600 !important; text-align: right !important; }
+.ewm-val { color: #38bdf8 !important; font-weight: 700 !important; }
+
+.ewm-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  margin-bottom: 8px !important;
+}
+
+.ewm-btn {
+  background: rgba(15, 23, 42, 0.92) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  border-radius: 6px !important;
+  padding: 4px 6px !important;
+  font-size: 10.5px !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.ewm-btn.active {
+  background: rgba(2, 132, 199, 0.5) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.ewm-info-btn {
+  width: 100% !important;
+  background: rgba(14, 165, 233, 0.18) !important;
+  color: #e0f2fe !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  border-radius: 7px !important;
+  padding: 5px 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+}
+
+#ewm-info-box {
+  display: none;
+  margin-top: 6px !important;
+  padding: 7px 8px !important;
+  border-radius: 7px !important;
+  background: rgba(2, 6, 23, 0.92) !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+  font-size: 10.5px !important;
+  line-height: 1.4 !important;
+  color: #cbd5e1 !important;
+}
+#ewm-info-box.open { display: block !important; }
+
+/* Colorbar küçük ve dikey yer kaplamayan kompakt formda */
+#cbar-box {
+  position: fixed !important;
+  right: 12px !important;
+  bottom: 72px !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  z-index: 1150 !important;
+  width: 175px !important;
+  height: auto !important;
+  max-height: 52px !important;
+  padding: 5px 8px !important;
+  border-radius: 8px !important;
+  background: rgba(9, 17, 34, 0.92) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  font-size: 10px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+#cbar-box * {
+  max-height: 22px !important;
+}
+
+#music-bar {
+  position: fixed !important;
+  right: 12px !important;
+  bottom: 34px !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 1280 !important;
+}
+
+.leaflet-control-attribution {
+  font-size: 14px !important;
+  padding: 2px 8px !important;
+  border-radius: 8px !important;
+}
+/* === END EKEN WEATHER === */
+
+</style>
 </head>
 <body>
   <div id="map"></div>
@@ -848,415 +1019,200 @@
     <span class="logo-text">Eken Weather</span>
   </div>
 
-  <div id="ew-single-panel">
-    <div class="ew-box">
-      <div class="ew-row"><span class="ew-k">Koordinat:</span><span id="ew-coord" class="ew-v">Haritaya tıklayın</span></div>
-      <div class="ew-row"><span class="ew-k">İl:</span><span id="ew-city" class="ew-v">—</span></div>
-      <div class="ew-row"><span class="ew-k">İlçe:</span><span id="ew-dist" class="ew-v">—</span></div>
-      <div class="ew-row"><span class="ew-k">Mahalle:</span><span id="ew-hood" class="ew-v">—</span></div>
-      <div class="ew-row"><span class="ew-k" id="ew-vlabel">2m Sıcaklık (2t):</span><span id="ew-vval" class="ew-v ew-hi">—</span></div>
-    </div>
+  
 
-    <div id="ew-var-list" class="ew-list"></div>
 
-    <button id="ew-bottom-info-btn" type="button" class="ew-ibtn">ℹ Canlı Veri Doğrulama & Değişken Bilgisi</button>
-    <div id="ew-audit-box"></div>
+<!-- EKEN WEATHER CLEAN START -->
+<div id="brand-logo">
+  <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
+  <span class="logo-text">Eken Weather</span>
+</div>
+
+<div id="ew-master-panel">
+  <div class="ewm-box">
+    <div class="ewm-row"><span class="ewm-k">Koordinat:</span><span id="ewm-coord" class="ewm-v">Haritaya tıklayın</span></div>
+    <div class="ewm-row"><span class="ewm-k">İl:</span><span id="ewm-city" class="ewm-v">—</span></div>
+    <div class="ewm-row"><span class="ewm-k">İlçe:</span><span id="ewm-dist" class="ewm-v">—</span></div>
+    <div class="ewm-row"><span class="ewm-k">Mahalle:</span><span id="ewm-hood" class="ewm-v">—</span></div>
+    <div class="ewm-row"><span id="ewm-vlabel" class="ewm-k">2m Sıcaklık (2t):</span><span id="ewm-vval" class="ewm-v ewm-val">—</span></div>
   </div>
 
-  <audio id="bg-music" src="/ambient.mp3" autoplay loop preload="auto" playsinline></audio>
-  <div id="music-bar">
-    <span id="music-title" style="display:none;">♪ Eken Weather — Atmospheric Forecast Music</span>
-    <button id="music-toggle" type="button" class="ew-mbtn" style="border-radius:999px;">♪ Müzik: Açık</button>
-  </div>
+  <div id="ewm-vars" class="ewm-grid"></div>
 
-  <script>
-  (() => {
-    const PAL = {
-      temp: [[0,"#2563eb"],[0.25,"#06b6d4"],[0.5,"#22c55e"],[0.75,"#eab308"],[1,"#dc2626"]],
-      cold: [[0,"#312e81"],[0.35,"#2563eb"],[0.7,"#38bdf8"],[1,"#e2e8f0"]],
-      hum:  [[0,"#d97706"],[0.4,"#eab308"],[0.75,"#38bdf8"],[1,"#1d4ed8"]],
-      rain: [[0,"rgba(56,189,248,0.12)"],[0.25,"#38bdf8"],[0.55,"#2563eb"],[0.8,"#a855f7"],[1,"#f43f5e"]],
-      pres: [[0,"#1e3a8a"],[0.35,"#0284c7"],[0.65,"#10b981"],[1,"#ef4444"]],
-      wind: [[0,"#0284c7"],[0.35,"#22c55e"],[0.7,"#eab308"],[1,"#dc2626"]],
-      rad:  [[0,"#0f172a"],[0.3,"#4f46e5"],[0.6,"#eab308"],[1,"#f97316"]]
-    };
+  <button id="ewm-info-toggle" type="button" class="ewm-info-btn">ℹ Değişken & Canlı Veri Bilgisi</button>
+  <div id="ewm-info-box"></div>
+</div>
 
-    const VERIFIED_VARS = [
-      { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: -50, max: 55, scaleMin: -5, scaleMax: 35, stops: PAL.temp },
-      { code: "app_t", om: "apparent_temperature", name: "Hissedilen T", unit: "°C", min: -55, max: 60, scaleMin: -5, scaleMax: 40, stops: PAL.temp },
-      { code: "2d", om: "dew_point_2m", name: "2m Çiy Noktası", unit: "°C", min: -55, max: 35, scaleMin: -10, scaleMax: 25, stops: PAL.hum },
-      { code: "rh2m", om: "relative_humidity_2m", name: "2m Bağıl Nem", unit: "%", min: 0, max: 100, scaleMin: 10, scaleMax: 100, stops: PAL.hum },
-      { code: "msl", om: "pressure_msl", name: "Deniz Basıncı", unit: "hPa", min: 880, max: 1080, scaleMin: 990, scaleMax: 1035, stops: PAL.pres },
-      { code: "sp", om: "surface_pressure", name: "Yüzey Basıncı", unit: "hPa", min: 500, max: 1080, scaleMin: 860, scaleMax: 1030, stops: PAL.pres },
-      { code: "tp", om: "precipitation", name: "Toplam Yağış", unit: "mm", min: 0, max: 300, scaleMin: 0, scaleMax: 25, stops: PAL.rain },
-      { code: "rain", om: "rain", name: "Yağmur", unit: "mm", min: 0, max: 300, scaleMin: 0, scaleMax: 25, stops: PAL.rain },
-      { code: "showers", om: "showers", name: "Sağanak Yağış", unit: "mm", min: 0, max: 250, scaleMin: 0, scaleMax: 20, stops: PAL.rain },
-      { code: "sf", om: "snowfall", name: "Kar Yağışı", unit: "cm", min: 0, max: 250, scaleMin: 0, scaleMax: 20, stops: PAL.cold },
-      { code: "tcc", om: "cloud_cover", name: "Toplam Bulut", unit: "%", min: 0, max: 100, scaleMin: 0, scaleMax: 100, stops: PAL.hum },
-      { code: "lcc", om: "cloud_cover_low", name: "Alçak Bulut", unit: "%", min: 0, max: 100, scaleMin: 0, scaleMax: 100, stops: PAL.hum },
-      { code: "mcc", om: "cloud_cover_mid", name: "Orta Bulut", unit: "%", min: 0, max: 100, scaleMin: 0, scaleMax: 100, stops: PAL.hum },
-      { code: "hcc", om: "cloud_cover_high", name: "Yüksek Bulut", unit: "%", min: 0, max: 100, scaleMin: 0, scaleMax: 100, stops: PAL.hum },
-      { code: "ssrd", om: "shortwave_radiation", name: "Kısa Dalga Rad", unit: "W/m²", min: 0, max: 1400, scaleMin: 0, scaleMax: 1000, stops: PAL.rad },
-      { code: "ws10", om: "wind_speed_10m", name: "10m Rüzgar", unit: "km/h", min: 0, max: 260, scaleMin: 0, scaleMax: 80, stops: PAL.wind },
-      { code: "wd10", om: "wind_direction_10m", name: "10m Yön", unit: "°", min: 0, max: 360, scaleMin: 0, scaleMax: 360, stops: PAL.wind },
-      { code: "gust10", om: "wind_gusts_10m", name: "10m Hamle", unit: "km/h", min: 0, max: 320, scaleMin: 0, scaleMax: 110, stops: PAL.wind },
-      { code: "ws100", om: "wind_speed_100m", name: "100m Rüzgar", unit: "km/h", min: 0, max: 280, scaleMin: 0, scaleMax: 110, stops: PAL.wind },
-      { code: "wd100", om: "wind_direction_100m", name: "100m Yön", unit: "°", min: 0, max: 360, scaleMin: 0, scaleMax: 360, stops: PAL.wind },
-      { code: "st0_7", om: "soil_temperature_0_to_7cm", name: "Toprak T 0-7cm", unit: "°C", min: -50, max: 60, scaleMin: -5, scaleMax: 35, stops: PAL.temp },
-      { code: "sm0_7", om: "soil_moisture_0_to_7cm", name: "Toprak Nem 0-7cm", unit: "m³/m³", min: 0, max: 1, scaleMin: 0, scaleMax: 0.5, stops: PAL.hum },
-      ...(function() {
-        const lvls = [1000, 925, 850, 700, 500, 300, 250, 200, 150, 100, 50];
-        const list = [];
-        for (const l of lvls) {
-          list.push({ code: `t${l}`, om: `temperature_${l}hPa`, name: `${l}hPa T`, unit: "°C", min: -95, max: 50, scaleMin: l >= 700 ? -25 : -65, scaleMax: l >= 700 ? 32 : -5, stops: l >= 700 ? PAL.temp : PAL.cold });
-          list.push({ code: `z${l}`, om: `geopotential_height_${l}hPa`, name: `${l}hPa Z`, unit: "m", min: -500, max: 25000, scaleMin: Math.round(l * 5.2), scaleMax: Math.round(l * 11.5), stops: PAL.pres });
-          list.push({ code: `ws${l}`, om: `wind_speed_${l}hPa`, name: `${l}hPa Rüzgar`, unit: "km/h", min: 0, max: 400, scaleMin: 0, scaleMax: l <= 300 ? 220 : 120, stops: PAL.wind });
-          list.push({ code: `wd${l}`, om: `wind_direction_${l}hPa`, name: `${l}hPa Yön`, unit: "°", min: 0, max: 360, scaleMin: 0, scaleMax: 360, stops: PAL.wind });
-          list.push({ code: `rh${l}`, om: `relative_humidity_${l}hPa`, name: `${l}hPa Nem`, unit: "%", min: 0, max: 100, scaleMin: 0, scaleMax: 100, stops: PAL.hum });
-        }
-        return list;
-      })()
-    ];
+<script>
+(() => {
+  const VARS = [
+    { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: -5, max: 35, grad: "linear-gradient(90deg,#2563eb,#06b6d4,#22c55e,#eab308,#dc2626)" },
+    { code: "2d", om: "dew_point_2m", name: "Çiy Noktası", unit: "°C", min: -10, max: 25, grad: "linear-gradient(90deg,#1d4ed8,#38bdf8,#4ade80,#f97316)" },
+    { code: "rh2m", om: "relative_humidity_2m", name: "Bağıl Nem", unit: "%", min: 0, max: 100, grad: "linear-gradient(90deg,#d97706,#eab308,#38bdf8,#1d4ed8)" },
+    { code: "msl", om: "pressure_msl", name: "Deniz Basıncı", unit: "hPa", min: 990, max: 1035, grad: "linear-gradient(90deg,#1e3a8a,#0284c7,#10b981,#ef4444)" },
+    { code: "sp", om: "surface_pressure", name: "Yüzey Basıncı", unit: "hPa", min: 860, max: 1030, grad: "linear-gradient(90deg,#1e3a8a,#0ea5e9,#22c55e,#f97316)" },
+    { code: "tp", om: "precipitation", name: "Toplam Yağış", unit: "mm", min: 0, max: 25, grad: "linear-gradient(90deg,#0f172a,#38bdf8,#2563eb,#a855f7,#f43f5e)" },
+    { code: "rain", om: "rain", name: "Yağmur", unit: "mm", min: 0, max: 25, grad: "linear-gradient(90deg,#0f172a,#0ea5e9,#2563eb,#ef4444)" },
+    { code: "sf", om: "snowfall", name: "Kar Yağışı", unit: "cm", min: 0, max: 20, grad: "linear-gradient(90deg,#1e293b,#bae6fd,#7dd3fc,#f8fafc)" },
+    { code: "tcc", om: "cloud_cover", name: "Bulutluluk", unit: "%", min: 0, max: 100, grad: "linear-gradient(90deg,#1e293b,#64748b,#94a3b8,#e2e8f0)" },
+    { code: "ws10", om: "wind_speed_10m", name: "10m Rüzgar", unit: "km/h", min: 0, max: 80, grad: "linear-gradient(90deg,#0284c7,#22c55e,#eab308,#dc2626)" },
+    { code: "wd10", om: "wind_direction_10m", name: "10m Yön", unit: "°", min: 0, max: 360, grad: "linear-gradient(90deg,#38bdf8,#22c55e,#eab308,#f97316)" },
+    { code: "10fg", om: "wind_gusts_10m", name: "10m Hamle", unit: "km/h", min: 0, max: 110, grad: "linear-gradient(90deg,#0ea5e9,#22c55e,#f59e0b,#ef4444)" },
+    { code: "t850", om: "temperature_850hPa", name: "850hPa Sıcaklık", unit: "°C", min: -20, max: 28, grad: "linear-gradient(90deg,#1d4ed8,#38bdf8,#4ade80,#dc2626)" },
+    { code: "z500", om: "geopotential_height_500hPa", name: "500hPa Yükseklik", unit: "m", min: 5150, max: 5900, grad: "linear-gradient(90deg,#1e3a8a,#0284c7,#22c55e,#f97316)" }
+  ];
 
-    let curVar = VERIFIED_VARS[0];
-    let lastPt = null;
-    let mapRef = null;
-    let smoothCanvasLayer = null;
-    let clickMarker = null;
-    let lastGridSamples = [];
-    let lastAudit = { status: "Kontrol ediliyor...", validCount: 0, totalCount: 0, time: "—", valText: "—", locText: "—" };
+  let cur = VARS[0];
+  let pt = null;
+  let lastTime = "—";
+  let lastValStr = "—";
+  let lastLocStr = "—";
+  let mapInstance = null;
 
-    const listEl = document.getElementById("ew-var-list");
-    const auditBox = document.getElementById("ew-audit-box");
-    const infoBtn = document.getElementById("ew-bottom-info-btn");
+  const varsContainer = document.getElementById("ewm-vars");
+  const infoBtn = document.getElementById("ewm-info-toggle");
+  const infoBox = document.getElementById("ewm-info-box");
+  const panel = document.getElementById("ew-master-panel");
 
-    const validateSample = (rawVal, v) => {
-      if (typeof rawVal !== "number" || !Number.isFinite(rawVal)) return { ok: false, val: null, reason: "Veri yok" };
-      if (rawVal < v.min || rawVal > v.max) return { ok: false, val: rawVal, reason: "Sınır dışı" };
-      return { ok: true, val: rawVal, reason: "Canlı" };
-    };
+  if (panel) {
+    panel.addEventListener("click", e => e.stopPropagation());
+    panel.addEventListener("dblclick", e => e.stopPropagation());
+    panel.addEventListener("mousedown", e => e.stopPropagation());
+  }
 
-    const buildGrad = (v) => {
-      const parts = v.stops.map(([pos, col]) => `${col} ${Math.round(pos * 100)}%`).join(", ");
-      return `linear-gradient(90deg, ${parts})`;
-    };
+  const updateCbar = (v) => {
+    const cbar = document.getElementById("cbar-box");
+    if (!cbar) return;
+    cbar.innerHTML = `
+      <div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.1;">
+        <span>${v.name}</span><span>${v.unit}</span>
+      </div>
+      <div style="height:6px;border-radius:3px;margin:3px 0;background:${v.grad};"></div>
+      <div style="display:flex;justify-content:space-between;color:#cbd5e1;line-height:1.1;">
+        <span>${v.min}</span><span>${v.max}</span>
+      </div>
+    `;
+  };
 
-    const hexToRgb = (hex) => {
-      if (!hex || hex.startsWith("rgba")) return [56, 189, 248];
-      const n = parseInt(hex.replace("#", ""), 16);
-      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-    };
+  const updateInfoBox = () => {
+    if (!infoBox) return;
+    infoBox.innerHTML = `
+      <div><strong>Değişken:</strong> ${cur.name} (${cur.om})</div>
+      <div><strong>Birim / Aralık:</strong> ${cur.unit} | ${cur.min} .. ${cur.max}</div>
+      <div><strong>Son Değer:</strong> ${lastValStr}</div>
+      <div><strong>Konum:</strong> ${lastLocStr}</div>
+      <div><strong>Model Zamanı:</strong> ${lastTime}</div>
+    `;
+  };
 
-    const valToRgb = (val, v) => {
-      const ratio = Math.max(0, Math.min(1, (val - v.scaleMin) / (v.scaleMax - v.scaleMin || 1)));
-      let s0 = v.stops[0], s1 = v.stops[v.stops.length - 1];
-      for (let i = 0; i < v.stops.length - 1; i++) {
-        if (ratio >= v.stops[i][0] && ratio <= v.stops[i + 1][0]) {
-          s0 = v.stops[i];
-          s1 = v.stops[i + 1];
-          break;
-        }
+  const fetchPointData = async (lat, lng) => {
+    const cEl = document.getElementById("ewm-coord");
+    const cityEl = document.getElementById("ewm-city");
+    const distEl = document.getElementById("ewm-dist");
+    const hoodEl = document.getElementById("ewm-hood");
+    const vlEl = document.getElementById("ewm-vlabel");
+    const vvEl = document.getElementById("ewm-vval");
+
+    if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
+    if (vlEl) vlEl.textContent = `${cur.name} (${cur.code}):`;
+    if (vvEl) vvEl.textContent = "Yükleniyor...";
+
+    try {
+      const r = await fetch(`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(cur.om)}&hourly=${encodeURIComponent(cur.om)}&forecast_days=1`, { cache: "no-store" });
+      const j = await r.json();
+      let val = j?.current?.[cur.om];
+      if (val === undefined && Array.isArray(j?.hourly?.[cur.om])) val = j.hourly[cur.om][0];
+      if (j?.current?.time) lastTime = j.current.time.replace("T", " ");
+      if (typeof val === "number" && Number.isFinite(val)) {
+        lastValStr = `${val.toFixed(2)} ${cur.unit}`;
+      } else {
+        lastValStr = "Veri yok";
       }
-      const span = (s1[0] - s0[0]) || 1;
-      const t = (ratio - s0[0]) / span;
-      const c0 = hexToRgb(s0[1]);
-      const c1 = hexToRgb(s1[1]);
-      return [
-        Math.round(c0[0] + (c1[0] - c0[0]) * t),
-        Math.round(c0[1] + (c1[1] - c0[1]) * t),
-        Math.round(c0[2] + (c1[2] - c0[2]) * t)
-      ];
-    };
-
-    const paintCbar = (v) => {
-      const cbar = document.getElementById("cbar-box");
-      if (!cbar) return;
-      cbar.innerHTML = `
-        <div style="display:flex;justify-content:space-between;color:#e2e8f0;margin-bottom:3px;">
-          <span>${v.name}</span><span>${v.unit}</span>
-        </div>
-        <div style="height:8px;border-radius:4px;background:${buildGrad(v)};border:1px solid rgba(255,255,255,0.18);"></div>
-        <div style="display:flex;justify-content:space-between;color:#cbd5e1;margin-top:2px;">
-          <span>${v.scaleMin}</span><span>${v.scaleMax}</span>
-        </div>
-      `;
-    };
-
-    const renderAuditBox = () => {
-      if (!auditBox) return;
-      auditBox.innerHTML = `
-        <div><strong>Değişken:</strong> ${curVar.name} (<code>${curVar.om}</code>) [${curVar.unit}]</div>
-        <div><strong>Canlı Durum:</strong> ${lastAudit.status} (${lastAudit.validCount}/${lastAudit.totalCount} nokta)</div>
-        <div><strong>Skala:</strong> ${curVar.scaleMin} .. ${curVar.scaleMax} ${curVar.unit} | <strong>Zaman:</strong> ${lastAudit.time}</div>
-        <div><strong>Son Nokta:</strong> ${lastAudit.valText}</div>
-        <div><strong>Konum:</strong> ${lastAudit.locText}</div>
-      `;
-    };
-
-    const drawSmoothLayerOnCanvas = (canvas) => {
-      if (!mapRef || !canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const w = canvas.width, h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      if (!lastGridSamples.length) return;
-
-      const step = 10;
-      for (let py = 0; py < h; py += step) {
-        for (let px = 0; px < w; px += step) {
-          const ll = mapRef.containerPointToLatLng([px + step * 0.5, py + step * 0.5]);
-          let num = 0, den = 0;
-          for (let i = 0; i < lastGridSamples.length; i++) {
-            const s = lastGridSamples[i];
-            const dLat = ll.lat - s.lat;
-            const dLng = ll.lng - s.lng;
-            const dist2 = dLat * dLat + dLng * dLng + 0.04;
-            const weight = 1 / Math.pow(dist2, 1.4);
-            num += s.val * weight;
-            den += weight;
-          }
-          if (den > 0) {
-            const interp = num / den;
-            const [r, g, b] = valToRgb(interp, curVar);
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.42)`;
-            ctx.fillRect(px, py, step + 1, step + 1);
-          }
-        }
-      }
-    };
-
-    const ensureSmoothLayer = () => {
-      if (!mapRef || typeof L === "undefined" || smoothCanvasLayer) return;
-      const SmoothOverlay = L.Layer.extend({
-        onAdd(map) {
-          this._map = map;
-          this._canvas = L.DomUtil.create("canvas", "ew-smooth-canvas");
-          this._canvas.style.position = "absolute";
-          this._canvas.style.pointerEvents = "none";
-          this._canvas.style.zIndex = "350";
-          map.getPanes().overlayPane.appendChild(this._canvas);
-          map.on("moveend zoomend resize", this._reset, this);
-          this._reset();
-        },
-        onRemove(map) {
-          L.DomUtil.remove(this._canvas);
-          map.off("moveend zoomend resize", this._reset, this);
-        },
-        _reset() {
-          if (!this._map || !this._canvas) return;
-          const size = this._map.getSize();
-          const topLeft = this._map.containerPointToLayerPoint([0, 0]);
-          L.DomUtil.setPosition(this._canvas, topLeft);
-          this._canvas.width = size.x;
-          this._canvas.height = size.y;
-          drawSmoothLayerOnCanvas(this._canvas);
-        }
-      });
-      smoothCanvasLayer = new SmoothOverlay().addTo(mapRef);
-    };
-
-    const fetchVerifiedEcmwf = async (latStr, lonStr, v) => {
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${latStr}&longitude=${lonStr}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&forecast_days=1`;
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const json = await res.json();
-      const rows = Array.isArray(json) ? json : [json];
-      return rows.map(item => {
-        const raw = item?.current?.[v.om] ?? (Array.isArray(item?.hourly?.[v.om]) ? item.hourly[v.om][0] : undefined);
-        const time = item?.current?.time ? item.current.time.replace("T", " ") : "—";
-        return { ...validateSample(raw, v), time };
-      });
-    };
-
-    const refreshSmoothMap = async () => {
-      if (!mapRef) return;
-      ensureSmoothLayer();
-      const b = mapRef.getBounds();
-      const s = Math.max(35.0, b.getSouth());
-      const n = Math.min(43.5, b.getNorth());
-      const w = Math.max(25.0, b.getWest());
-      const e = Math.min(45.0, b.getEast());
-
-      const rows = 4, cols = 5;
-      const gLat = [], gLon = [];
-      for (let r = 0; r < rows; r++) {
-        const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(3));
-        for (let c = 0; c < cols; c++) {
-          const lo = Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(3));
-          gLat.push(la);
-          gLon.push(lo);
-        }
-      }
-
-      try {
-        const samples = await fetchVerifiedEcmwf(gLat.join(","), gLon.join(","), curVar);
-        const validPts = [];
-        samples.forEach((smp, i) => {
-          if (!smp.ok) return;
-          if (smp.time !== "—") lastAudit.time = smp.time;
-          validPts.push({ lat: gLat[i], lng: gLon[i], val: smp.val });
-        });
-        lastGridSamples = validPts;
-        lastAudit.totalCount = samples.length;
-        lastAudit.validCount = validPts.length;
-        lastAudit.status = validPts.length > 0 ? "Canlı Veri Aktif" : "Veri Yok";
-        if (smoothCanvasLayer && smoothCanvasLayer._canvas) {
-          drawSmoothLayerOnCanvas(smoothCanvasLayer._canvas);
-        }
-        renderAuditBox();
-      } catch (_) {
-        lastAudit.status = "Veri Alınamadı";
-        renderAuditBox();
-      }
-    };
-
-    const inspectPoint = async (lat, lng) => {
-      const cEl = document.getElementById("ew-coord");
-      const cityEl = document.getElementById("ew-city");
-      const distEl = document.getElementById("ew-dist");
-      const hoodEl = document.getElementById("ew-hood");
-      const vlEl = document.getElementById("ew-vlabel");
-      const vvEl = document.getElementById("ew-vval");
-
-      if (mapRef && typeof L !== "undefined") {
-        if (!clickMarker) {
-          clickMarker = L.circleMarker([lat, lng], {
-            radius: 6, color: "#38bdf8", fillColor: "#0284c7", fillOpacity: 0.9, weight: 2
-          }).addTo(mapRef);
-        } else {
-          clickMarker.setLatLng([lat, lng]);
-        }
-      }
-
-      if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
-      if (vlEl) vlEl.textContent = `${curVar.name} (${curVar.code}):`;
-      if (vvEl) vvEl.textContent = "Yükleniyor...";
-
-      try {
-        const arr = await fetchVerifiedEcmwf(lat.toFixed(4), lng.toFixed(4), curVar);
-        const s0 = arr[0];
-        if (s0 && s0.time !== "—") lastAudit.time = s0.time;
-        if (s0 && s0.ok) {
-          lastAudit.valText = `${Number(s0.val).toFixed(2)} ${curVar.unit}`;
-          if (vvEl) vvEl.textContent = lastAudit.valText;
-        } else {
-          lastAudit.valText = s0 ? s0.reason : "Veri yok";
-          if (vvEl) vvEl.textContent = lastAudit.valText;
-        }
-      } catch (_) {
-        lastAudit.valText = "Veri alınamadı";
-        if (vvEl) vvEl.textContent = lastAudit.valText;
-      }
-
-      if (cityEl) cityEl.textContent = "Sorgulanıyor...";
-      if (distEl) distEl.textContent = "—";
-      if (hoodEl) hoodEl.textContent = "—";
-
-      try {
-        const gRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=tr`);
-        const gJson = await gRes.json();
-        const a = gJson?.address || {};
-        const il = a.province || a.city || a.state || "Açık Alan / Deniz";
-        const ilce = a.town || a.county || a.city_district || a.district || "—";
-        const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || "—";
-        if (cityEl) cityEl.textContent = il;
-        if (distEl) distEl.textContent = ilce;
-        if (hoodEl) hoodEl.textContent = mah;
-        lastAudit.locText = `${il} / ${ilce} / ${mah}`;
-      } catch (_) {
-        if (cityEl) cityEl.textContent = "Konum alınamadı";
-      }
-      renderAuditBox();
-    };
-
-    const selectVar = (v) => {
-      curVar = v;
-      paintCbar(v);
-      renderList();
-      const vlEl = document.getElementById("ew-vlabel");
-      if (vlEl) vlEl.textContent = `${v.name} (${v.code}):`;
-      refreshSmoothMap();
-      if (lastPt) inspectPoint(lastPt.lat, lastPt.lng);
-    };
-
-    const renderList = () => {
-      if (!listEl) return;
-      listEl.innerHTML = "";
-      VERIFIED_VARS.forEach((v, idx) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "ew-btn" + (v.code === curVar.code ? " active" : "");
-        b.textContent = `${idx + 1}. ${v.name} (${v.unit})`;
-        b.title = `${v.name} [${v.om}]`;
-        b.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          selectVar(v);
-        });
-        listEl.appendChild(b);
-      });
-    };
-
-    if (infoBtn && auditBox) {
-      infoBtn.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        auditBox.classList.toggle("open");
-        renderAuditBox();
-      });
+      if (vvEl) vvEl.textContent = lastValStr;
+    } catch (_) {
+      lastValStr = "Alınamadı";
+      if (vvEl) vvEl.textContent = lastValStr;
     }
 
-    const panelEl = document.getElementById("ew-single-panel");
-    if (panelEl) {
-      panelEl.addEventListener("click", (ev) => ev.stopPropagation());
-      panelEl.addEventListener("mousedown", (ev) => ev.stopPropagation());
+    if (cityEl) cityEl.textContent = "Sorgulanıyor...";
+    if (distEl) distEl.textContent = "—";
+    if (hoodEl) hoodEl.textContent = "—";
+
+    try {
+      const gr = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=tr`);
+      const gj = await gr.json();
+      const a = gj?.address || {};
+      const il = a.province || a.city || a.state || "Açık Alan / Deniz";
+      const ilce = a.town || a.county || a.city_district || a.district || "—";
+      const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || "—";
+      if (cityEl) cityEl.textContent = il;
+      if (distEl) distEl.textContent = ilce;
+      if (hoodEl) hoodEl.textContent = mah;
+      lastLocStr = `${il} / ${ilce} / ${mah}`;
+    } catch (_) {
+      lastLocStr = "Konum alınamadı";
+      if (cityEl) cityEl.textContent = lastLocStr;
     }
 
-    const hookMap = () => {
-      const m = window.map || Object.values(window).find(x => x && typeof x.on === "function" && typeof x.getCenter === "function");
-      if (m) {
-        mapRef = m;
-        if (!m._ewSmoothHooked) {
-          m._ewSmoothHooked = true;
-          m.on("click", (e) => {
-            if (!e || !e.latlng) return;
-            lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
-            inspectPoint(lastPt.lat, lastPt.lng);
-          });
-          m.on("moveend", () => {
-            refreshSmoothMap();
-          });
-          refreshSmoothMap();
-        }
-      }
-      document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
-        if (el.innerHTML !== "🇹🇷") el.innerHTML = "🇹🇷";
+    updateInfoBox();
+  };
+
+  const renderButtons = () => {
+    if (!varsContainer) return;
+    varsContainer.innerHTML = "";
+    VARS.forEach(v => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ewm-btn" + (v.code === cur.code ? " active" : "");
+      btn.textContent = `${v.name} (${v.unit})`;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        cur = v;
+        renderButtons();
+        updateCbar(cur);
+        const vlEl = document.getElementById("ewm-vlabel");
+        if (vlEl) vlEl.textContent = `${cur.name} (${cur.code}):`;
+        if (typeof window.setVariable === "function") window.setVariable(cur.code, cur);
+        if (typeof window.updateLayer === "function") window.updateLayer(cur.om, cur);
+        if (pt) fetchPointData(pt.lat, pt.lng);
+        updateInfoBox();
       });
-    };
+      varsContainer.appendChild(btn);
+    });
+  };
 
-    renderList();
-    paintCbar(curVar);
-    renderAuditBox();
-    hookMap();
-    setInterval(hookMap, 900);
+  if (infoBtn && infoBox) {
+    infoBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      infoBox.classList.toggle("open");
+      updateInfoBox();
+    });
+  }
 
-    const audio = document.getElementById("bg-music");
-    const mBtn = document.getElementById("music-toggle");
-    const mTitle = document.getElementById("music-title");
-    if (audio && mBtn && mTitle) {
-      audio.volume = 0.35;
-      const sync = () => {
-        const ok = !audio.paused && !audio.muted;
-        mBtn.textContent = ok ? "♪ Müzik: Açık" : "♪ Müzik: Kapalı";
-        mTitle.style.display = ok ? "inline" : "none";
-      };
-      const play = async () => { try { audio.muted = false; await audio.play(); } catch (_) {} sync(); };
-      mBtn.addEventListener("click", async e => { e.stopPropagation(); if (audio.paused || audio.muted) await play(); else { audio.pause(); sync(); } });
-      play();
-      window.addEventListener("pointerdown", play, { once: true });
-      sync();
+  const bindMap = () => {
+    const m = window.map || Object.values(window).find(x => x && typeof x.on === "function" && typeof x.getCenter === "function");
+    if (m && !m._ewmBound) {
+      mapInstance = m;
+      m._ewmBound = true;
+      m.on("click", (e) => {
+        if (!e || !e.latlng) return;
+        pt = { lat: e.latlng.lat, lng: e.latlng.lng };
+        fetchPointData(pt.lat, pt.lng);
+      });
     }
-  })();
-  </script>
+    document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
+      if (el.innerHTML !== "🇹🇷") el.innerHTML = "🇹🇷";
+    });
+  };
+
+  renderButtons();
+  updateCbar(cur);
+  updateInfoBox();
+  bindMap();
+  setInterval(bindMap, 700);
+})();
+</script>
+<!-- EKEN WEATHER CLEAN END -->
 
 </body>
 </html>
