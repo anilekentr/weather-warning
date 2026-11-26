@@ -313,7 +313,8 @@
     
     
     
-    /* === EKEN WEATHER SMOOTH GRADIENT LAYER & SINGLE PANEL === */
+    
+    /* === EKEN WEATHER VERIFIED SINGLE PANEL & LIVE GRADIENT === */
     :root {
       --ew-bg: rgba(9, 17, 34, 0.92);
       --ew-border: rgba(56, 189, 248, 0.34);
@@ -839,6 +840,9 @@
 
 
 
+  
+
+
   <div id="brand-logo">
     <img src="eken-weather.png" alt="Eken Weather" onerror="this.style.display='none'" />
     <span class="logo-text">Eken Weather</span>
@@ -998,7 +1002,6 @@
 
       if (!lastGridSamples.length) return;
 
-      // IDW (ters mesafe ağırlıklı) pürüzsüz harita gradyanı
       const step = 10;
       for (let py = 0; py < h; py += step) {
         for (let px = 0; px < w; px += step) {
