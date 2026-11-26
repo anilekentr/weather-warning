@@ -941,7 +941,12 @@
         const px = map.latLngToContainerPoint([g.lat, g.lon]);
         pts.push({ x: px.x / 3, y: px.y / 3, val });
       });
-      if (!pts.length) return;
+      if (!pts.length) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const ticksEl = document.getElementById("cbar-ticks");
+        if (ticksEl) ticksEl.innerHTML = "<span>Veri yok</span><span>-</span><span>Veri yok</span>";
+        return;
+      }
 
       const minV = Math.min(...pts.map(p => p.val));
       const maxV = Math.max(...pts.map(p => p.val));
