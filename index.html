@@ -2562,5 +2562,70 @@
 })();
 </script>
 <!-- EKEN BG MUSIC FIX END -->
+<!-- EKEN AUTO POLL MAP START -->
+<script>
+(() => {
+  const POLL_MS = 120000; // 2 dakikada bir kota acildi mi kontrol et
+  const PROBE_URL = "https://api.open-meteo.com/v1/ecmwf?latitude=41.0082&longitude=28.9784&hourly=temperature_2m&forecast_days=1&timezone=UTC";
+  const RELOAD_FLAG = "ew_auto_refreshed_on_200";
+  let timerId = null;
+  let checking = false;
+
+  const triggerMapRefresh = () => {
+    try {
+      localStorage.removeItem("ew_ecmwf_daily_429_until");
+    } catch (_) {}
+
+    const fnNames = [
+      "refreshAll", "updateAll", "loadWeather", "fetchWeather",
+      "fetchEcmwf", "updateMap", "renderMap", "redrawMap", "initApp"
+    ];
+    let calledAny = false;
+    for (const name of fnNames) {
+      if (typeof window[name] === "function") {
+        try {
+          window[name]();
+          calledAny = true;
+        } catch (_) {}
+      }
+    }
+
+    if (window.map && typeof window.map.fire === "function") {
+      try { window.map.fire("moveend"); } catch (_) {}
+    }
+
+    // Fonksiyon tetiklemesi yeterli olmazsa tek seferlik taze yukleme yap
+    try {
+      if (!sessionStorage.getItem(RELOAD_FLAG)) {
+        sessionStorage.setItem(RELOAD_FLAG, "1");
+        setTimeout(() => window.location.reload(), calledAny ? 1200 : 300);
+      }
+    } catch (_) {}
+  };
+
+  const pollQuota = async () => {
+    if (checking) return;
+    checking = true;
+    try {
+      const res = await fetch(PROBE_URL, { cache: "no-store" });
+      if (res && res.status === 200) {
+        if (timerId) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+        triggerMapRefresh();
+      }
+    } catch (_) {}
+    finally {
+      checking = false;
+    }
+  };
+
+  // Sayfa acildiktan 15 sn sonra ilk kontrolu yap, sonra 2 dakikada bir surdur
+  setTimeout(pollQuota, 15000);
+  timerId = setInterval(pollQuota, POLL_MS);
+})();
+</script>
+<!-- EKEN AUTO POLL MAP END -->
 </body>
 </html>
