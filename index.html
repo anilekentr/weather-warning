@@ -2511,79 +2511,40 @@
 })();
 </script>
 <!-- EKEN TR FLAG & MUSIC FIX END -->
+
 <!-- EKEN BG MUSIC FIX START -->
 <script>
 (() => {
-  const bgAudio = document.getElementById("bg-music");
-  let ambientCtx = null;
-  let ambientStarted = false;
-  let mp3Failed = false;
+  const getAudio = () => document.getElementById("bg-music");
+  let userMuted = false;
 
-  const startWebAmbientFallback = () => {
-    if (ambientStarted) return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
+  const playBgMusic = async () => {
+    const aud = getAudio();
+    if (!aud || userMuted) return;
     try {
-      ambientCtx = ambientCtx || new AudioCtx();
-      if (ambientCtx.state === "suspended") {
-        ambientCtx.resume();
+      if (!aud.getAttribute("src")) {
+        aud.src = "./ambient.mp3";
       }
-      const masterGain = ambientCtx.createGain();
-      masterGain.gain.setValueAtTime(0.035, ambientCtx.currentTime);
-      masterGain.connect(ambientCtx.destination);
-
-      // Yumusak iki sesli akor (D3 + A3)
-      [146.83, 220.0].forEach((freq, idx) => {
-        const osc = ambientCtx.createOscillator();
-        const filter = ambientCtx.createBiquadFilter();
-        const g = ambientCtx.createGain();
-        osc.type = idx === 0 ? "sine" : "triangle";
-        osc.frequency.setValueAtTime(freq, ambientCtx.currentTime);
-
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(420, ambientCtx.currentTime);
-
-        g.gain.setValueAtTime(idx === 0 ? 0.6 : 0.3, ambientCtx.currentTime);
-        osc.connect(filter);
-        filter.connect(g);
-        g.connect(masterGain);
-        osc.start();
-      });
-
-      ambientStarted = true;
+      aud.muted = false;
+      aud.volume = aud.volume > 0 ? aud.volume : 0.65;
+      if (aud.paused) {
+        await aud.play();
+      }
     } catch (_) {}
   };
 
-  const ensureMusicPlaying = async (fromGesture = false) => {
-    if (bgAudio && !mp3Failed) {
-      try {
-        bgAudio.muted = false;
-        await bgAudio.play();
-        return;
-      } catch (err) {
-        if (bgAudio.error || bgAudio.readyState === 0) {
-          mp3Failed = true;
-        }
-        if (fromGesture && mp3Failed) {
-          startWebAmbientFallback();
-        }
-      }
-    } else if (fromGesture) {
-      startWebAmbientFallback();
-    }
+  // Sayfadaki ilk tiklama, dokunma veya tus basiminda ambient.mp3 baslat
+  const onFirstGesture = () => {
+    playBgMusic();
   };
 
-  if (bgAudio) {
-    bgAudio.addEventListener("error", () => {
-      mp3Failed = true;
-    });
-  }
-
-  ["click", "keydown", "pointerdown", "touchstart"].forEach((ev) => {
-    document.addEventListener(ev, () => ensureMusicPlaying(true), { passive: true });
+  ["pointerdown", "click", "keydown", "touchstart"].forEach((ev) => {
+    window.addEventListener(ev, onFirstGesture, { passive: true });
   });
 
-  ensureMusicPlaying(false);
+  // Sayfa acilir acilmaz da bir kez dene (izin varsa hemen calar)
+  playBgMusic();
+  window.__ekenPlayMusic = playBgMusic;
 })();
 </script>
 <!-- EKEN BG MUSIC FIX END -->
