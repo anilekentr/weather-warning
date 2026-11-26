@@ -1977,5 +1977,45 @@
 </script>
 <!-- EKEN DAILY 429 GUARD END -->
 
+
+<!-- EKEN DYNAMIC VAR LABEL START -->
+<script>
+(() => {
+  const syncSelectedVarLabel = () => {
+    const activeBtn = document.querySelector("#ews-vars .ews-btn.active");
+    const vvEl = document.getElementById("ews-vval");
+    if (!activeBtn || !vvEl) return;
+
+    const btnText = (activeBtn.textContent || "").trim();
+    const titleAttr = (activeBtn.getAttribute("title") || "").trim();
+    const cleanName = btnText.replace(/\s*\([^)]+\)\s*$/, "").trim() || btnText;
+    const codeMatch = titleAttr.match(/\(([a-zA-Z0-9_]+)\)/) || titleAttr.match(/—\s*([a-zA-Z0-9_]+)\s*\[/);
+    const code = codeMatch ? codeMatch[1] : "";
+    const labelText = code ? `${cleanName} (${code}):` : `${cleanName}:`;
+
+    let vnEl = document.getElementById("ews-vname");
+    if (!vnEl) {
+      const row = vvEl.closest(".ews-row");
+      if (row) {
+        vnEl = row.querySelector(".ews-k") || row.firstElementChild;
+      }
+    }
+    if (vnEl && vnEl.textContent.trim() !== labelText) {
+      vnEl.textContent = labelText;
+    }
+  };
+
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.closest("#ews-vars .ews-btn")) {
+      setTimeout(syncSelectedVarLabel, 0);
+      setTimeout(syncSelectedVarLabel, 150);
+    }
+  }, true);
+
+  setInterval(syncSelectedVarLabel, 350);
+})();
+</script>
+<!-- EKEN DYNAMIC VAR LABEL END -->
+
 </body>
 </html>
