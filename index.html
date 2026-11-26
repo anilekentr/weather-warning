@@ -362,7 +362,10 @@
 
 
 
-/* === EKEN WEATHER 2T DIRECT === */
+
+
+
+/* === EKEN WEATHER REAL ECMWF & MUSIC SAFE === */
 #ew-single-panel {
   display: block !important;
   visibility: visible !important;
@@ -390,8 +393,6 @@
 #ecmwf-panel,
 #point-info,
 #location-panel,
-#info-bar,
-#status-bar,
 .bottom-panel,
 .alt-panel,
 .info-panel {
@@ -901,6 +902,9 @@
 
 
 
+
+
+
 <!-- EKEN WEATHER CLEAN START -->
 <div id="ew-single-panel">
   <div class="ews-box">
@@ -1020,7 +1024,13 @@
   ];
   const GRAD_CSS = `linear-gradient(90deg,${STOPS.map(([r, g, b]) => `rgb(${r},${g},${b})`).join(",")})`;
 
-  let cur = VARS[0], filterText = "", lastPt = null, cvs = null, samples = [], ptMarker = null;
+  let cur = VARS[0];
+  let filterText = "";
+  let lastPt = null;
+  let activeValue = null;
+  let cvs = null;
+  let ptMarker = null;
+
   const panel = document.getElementById("ew-single-panel");
   const varsEl = document.getElementById("ews-vars");
   const filterEl = document.getElementById("ews-filter");
@@ -1036,28 +1046,26 @@
     });
   }
 
-  const removeBottomPanels = () => {
-    document.querySelectorAll("div, section, aside, footer").forEach(el => {
-      if (el.id === "ew-single-panel" || el.id === "cbar-box" || el.id === "music-bar") return;
-      if (el.closest("#ew-single-panel") || el.closest("#cbar-box") || el.closest("#music-bar") || el.closest(".leaflet-container")) return;
-      const r = el.getBoundingClientRect();
-      const st = getComputedStyle(el);
-      if (st.position === "fixed" && r.top > window.innerHeight * 0.65 && r.height >= 32 && r.width >= 100) {
-        el.style.setProperty("display", "none", "important");
-      }
+  // Müzik çaları dokunulmadan koruyup yalnızca eski alt bilgi panellerini gizle
+  const preserveMusic = () => {
+    document.querySelectorAll("audio, video").forEach(m => {
+      m.style.removeProperty("display");
+      m.style.removeProperty("visibility");
+      m.style.removeProperty("pointer-events");
+    });
+    document.querySelectorAll("#bottom-panel, #alt-panel, #ecmwf-panel, #point-info, #location-panel, .bottom-panel, .alt-panel, .info-panel").forEach(el => {
+      el.style.setProperty("display", "none", "important");
     });
   };
 
-  const getBounds = (v, list) => {
-    const vals = (list || []).map(d => d.val).filter(n => typeof n === "number" && Number.isFinite(n));
-    if (vals.length >= 2) {
-      const dMin = Math.min(...vals), dMax = Math.max(...vals);
-      if (dMax - dMin > 0.001) return { sMin: Number(dMin.toFixed(1)), sMax: Number(dMax.toFixed(1)) };
-    }
-    return { sMin: Number(v.min), sMax: Number(v.max) };
+  const valueToRatio = (val, v) => {
+    const min = Number(v.min);
+    const max = Number(v.max);
+    const span = (max > min) ? (max - min) : 1;
+    return Math.max(0, Math.min(1, (Number(val) - min) / span));
   };
 
-  const sampleRgb = (t) => {
+  const ratioToRgb = (t) => {
     const x = Math.max(0, Math.min(1, t)) * (STOPS.length - 1);
     const i0 = Math.floor(x), i1 = Math.min(STOPS.length - 1, i0 + 1);
     const f = x - i0;
@@ -1068,18 +1076,23 @@
     ];
   };
 
-  const paintCbar = (v, list = []) => {
+  const paintCbar = (v, val) => {
     let cbar = document.getElementById("cbar-box");
     if (!cbar) {
       cbar = document.createElement("div");
       cbar.id = "cbar-box";
       document.body.appendChild(cbar);
     }
-    const { sMin, sMax } = getBounds(v, list);
-    const q1 = Number((sMin + (sMax - sMin) * 0.25).toFixed(1));
-    const q2 = Number((sMin + (sMax - sMin) * 0.50).toFixed(1));
-    const q3 = Number((sMin + (sMax - sMin) * 0.75).toFixed(1));
-    cbar.innerHTML = `<div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:700;"><span>${v.name} (${v.code})</span><span>${v.unit}</span></div><div style="height:8px;border-radius:4px;margin:3px 0;background:${GRAD_CSS};border:1px solid rgba(255,255,255,0.25);"></div><div style="display:flex;justify-content:space-between;color:#e2e8f0;line-height:1.1;font-size:9px;"><span>${sMin}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${sMax}</span></div>`;
+    const min = Number(v.min), max = Number(v.max);
+    const q1 = Number((min + (max - min) * 0.25).toFixed(1));
+    const q2 = Number((min + (max - min) * 0.50).toFixed(1));
+    const q3 = Number((min + (max - min) * 0.75).toFixed(1));
+    const hasVal = typeof val === "number" && Number.isFinite(val);
+    const pct = hasVal ? (valueToRatio(val, v) * 100).toFixed(1) : null;
+    const markerHtml = hasVal
+      ? `<div style="position:relative;height:10px;margin:-11px 0 2px 0;"><div style="position:absolute;left:${pct}%;top:0;transform:translateX(-50%);width:3px;height:10px;background:#ffffff;border:1px solid #0f172a;border-radius:1px;"></div></div>`
+      : "";
+    cbar.innerHTML = `<div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:700;"><span>${v.name} (${v.code})</span><span>${v.unit}</span></div><div style="height:8px;border-radius:4px;margin:3px 0;background:${GRAD_CSS};border:1px solid rgba(255,255,255,0.25);"></div>${markerHtml}<div style="display:flex;justify-content:space-between;color:#e2e8f0;line-height:1.1;font-size:9px;"><span>${min}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${max}</span></div>`;
   };
 
   const findMap = () => {
@@ -1088,7 +1101,8 @@
       try {
         const obj = window[k];
         if (obj && typeof obj.on === "function" && typeof obj.getBounds === "function" && typeof obj.latLngToContainerPoint === "function") {
-          window.map = obj; return obj;
+          window.map = obj;
+          return obj;
         }
       } catch (_) {}
     }
@@ -1098,172 +1112,115 @@
   const ensureCanvas = (m) => {
     const container = m.getContainer && m.getContainer();
     if (!container) return null;
-    if (!cvs) { cvs = document.createElement("canvas"); cvs.id = "ew-cbar-canvas"; }
+    if (!cvs) {
+      cvs = document.createElement("canvas");
+      cvs.id = "ew-cbar-canvas";
+    }
     if (cvs.parentElement !== container) {
       const ov = container.querySelector(".leaflet-overlay-pane");
       if (ov && ov.parentElement === container) container.insertBefore(cvs, ov.nextSibling);
       else container.appendChild(cvs);
     }
-    const r = container.getBoundingClientRect(), w = Math.max(1, Math.floor(r.width)), h = Math.max(1, Math.floor(r.height));
-    if (cvs.width !== w || cvs.height !== h) { cvs.width = w; cvs.height = h; }
+    const r = container.getBoundingClientRect();
+    const w = Math.max(1, Math.floor(r.width));
+    const h = Math.max(1, Math.floor(r.height));
+    if (cvs.width !== w || cvs.height !== h) {
+      cvs.width = w;
+      cvs.height = h;
+    }
     return cvs;
   };
 
-  const buildFallbackGrid = (m, v) => {
-    const { sMin, sMax } = getBounds(v, []);
-    const span = (sMax - sMin) > 0 ? (sMax - sMin) : 1;
-    const b = m.getBounds();
-    const s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
-    const pts = [], rows = 4, cols = 5;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const lat = s + ((n - s) * (r + 0.5)) / rows;
-        const lng = w + ((e - w) * (c + 0.5)) / cols;
-        const wave = 0.5 + 0.35 * Math.sin(lat * 1.2) * Math.cos(lng * 1.1) + 0.15 * ((c / (cols - 1)) - (r / (rows - 1)));
-        pts.push({ lat, lng, val: sMin + span * Math.max(0, Math.min(1, wave)) });
-      }
-    }
-    return pts;
-  };
-
-  const renderLayeredMap = () => {
+  // Haritayı yalnızca gelen gerçek sayısal ECMWF değerinin rengine boyar
+  const applyValueColorToMap = (val, v) => {
     const m = findMap();
-    if (!m || !m.getBounds) return;
+    if (!m) return;
     const el = ensureCanvas(m);
     if (!el) return;
     const ctx = el.getContext("2d");
     if (!ctx) return;
 
-    const activePts = samples.length ? samples : buildFallbackGrid(m, cur);
-    const { sMin, sMax } = getBounds(cur, activePts);
-    const span = (sMax - sMin) > 0.001 ? (sMax - sMin) : 1;
-    const w = el.width, h = el.height;
-    ctx.clearRect(0, 0, w, h);
+    ctx.clearRect(0, 0, el.width, el.height);
+    if (typeof val !== "number" || !Number.isFinite(val)) return;
 
-    const step = 15;
-    for (let y = 0; y < h; y += step) {
-      for (let x = 0; x < w; x += step) {
-        const ll = m.containerPointToLatLng([x + step * 0.5, y + step * 0.5]);
-        let num = 0, den = 0;
-        for (let i = 0; i < activePts.length; i++) {
-          const g = activePts[i];
-          const d2 = (ll.lat - g.lat) * (ll.lat - g.lat) + (ll.lng - g.lng) * (ll.lng - g.lng) + 0.14;
-          const wt = 1 / Math.pow(d2, 1.15);
-          num += g.val * wt; den += wt;
-        }
-        if (den > 0) {
-          const [rr, gg, bb] = sampleRgb(((num / den) - sMin) / span);
-          ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.36)`;
-          ctx.fillRect(x, y, step + 1, step + 1);
-        }
-      }
-    }
-
-    ctx.save();
-    ctx.filter = "blur(16px)";
-    for (let i = 0; i < activePts.length; i++) {
-      const g = activePts[i];
-      const pt = m.latLngToContainerPoint([g.lat, g.lng]);
-      const t = Math.max(0, Math.min(1, (g.val - sMin) / span));
-      const [rr, gg, bb] = sampleRgb(t);
-      const rad = Math.max(95, Math.min(235, Math.hypot(w, h) * (0.11 + t * 0.08)));
-      const grd = ctx.createRadialGradient(pt.x, pt.y, rad * 0.05, pt.x, pt.y, rad);
-      grd.addColorStop(0, `rgba(${rr}, ${gg}, ${bb}, ${(0.28 + t * 0.34).toFixed(2)})`);
-      grd.addColorStop(0.55, `rgba(${rr}, ${gg}, ${bb}, ${(0.14 + t * 0.16).toFixed(2)})`);
-      grd.addColorStop(1, `rgba(${rr}, ${gg}, ${bb}, 0)`);
-      ctx.fillStyle = grd;
-      ctx.beginPath(); ctx.arc(pt.x, pt.y, rad, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
+    const t = valueToRatio(val, v);
+    const [rr, gg, bb] = ratioToRgb(t);
+    ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.35)`;
+    ctx.fillRect(0, 0, el.width, el.height);
   };
 
-  // Doğrudan sayısal değeri çek (öncelik: forecast/ecmwf hourly ve current)
-  const readPointValue = async (lat, lng, v) => {
+  const pickNumericValue = (j, omKey) => {
+    if (!j || typeof j !== "object") return null;
+    if (j.current && typeof j.current[omKey] === "number" && Number.isFinite(j.current[omKey])) {
+      return j.current[omKey];
+    }
+    const h = j.hourly;
+    if (h && Array.isArray(h[omKey])) {
+      if (Array.isArray(h.time) && h.time.length) {
+        const nowStr = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Istanbul" }).slice(0, 13).replace(" ", "T");
+        const exactIdx = h.time.findIndex(item => typeof item === "string" && item.startsWith(nowStr));
+        if (exactIdx >= 0 && typeof h[omKey][exactIdx] === "number" && Number.isFinite(h[omKey][exactIdx])) {
+          return h[omKey][exactIdx];
+        }
+      }
+      const valid = h[omKey].filter(x => typeof x === "number" && Number.isFinite(x));
+      if (valid.length) return valid[0];
+    }
+    return null;
+  };
+
+  const fetchLiveValue = async (lat, lng, v) => {
     const urls = [
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=temperature_2m,${encodeURIComponent(v.om)}&current=temperature_2m&past_hours=2&forecast_hours=4&timezone=Europe%2FIstanbul`,
-      `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=temperature_2m,${encodeURIComponent(v.om)}&past_hours=2&forecast_hours=4&timezone=Europe%2FIstanbul`
+      `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=Europe%2FIstanbul&forecast_days=1`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}&timezone=Europe%2FIstanbul&forecast_days=1`
     ];
     for (const url of urls) {
       try {
         const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) continue;
         const j = await res.json();
-        const keys = [v.om, "temperature_2m"];
-        for (const k of keys) {
-          if (j?.current && typeof j.current[k] === "number" && Number.isFinite(j.current[k])) {
-            return j.current[k];
-          }
-          const arr = j?.hourly && j.hourly[k];
-          if (Array.isArray(arr)) {
-            const nums = arr.filter(x => typeof x === "number" && Number.isFinite(x));
-            if (nums.length) return nums[Math.min(nums.length - 1, 2)];
-          }
-        }
+        const val = pickNumericValue(j, v.om);
+        if (val !== null) return val;
       } catch (_) {}
     }
     return null;
   };
 
-  const fetchGridValues = async () => {
+  const refreshActivePoint = async (lat, lng) => {
     const m = findMap();
-    if (!m || !m.getBounds) return;
-    const b = m.getBounds();
-    const s = Math.max(35.0, b.getSouth()), n = Math.min(43.5, b.getNorth());
-    const w = Math.max(25.0, b.getWest()), e = Math.min(45.0, b.getEast());
-    const rows = 3, cols = 4, lats = [], lons = [];
-    for (let r = 0; r < rows; r++) {
-      const la = Number((s + ((n - s) * (r + 0.5)) / rows).toFixed(2));
-      for (let c = 0; c < cols; c++) {
-        lats.push(la);
-        lons.push(Number((w + ((e - w) * (c + 0.5)) / cols).toFixed(2)));
-      }
-    }
+    const cEl = document.getElementById("ews-coord");
+    const ilEl = document.getElementById("ews-il");
+    const ilceEl = document.getElementById("ews-ilce");
+    const mahEl = document.getElementById("ews-mah");
+    const vnEl = document.getElementById("ews-vname");
+    const vvEl = document.getElementById("ews-vval");
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(",")}&longitude=${lons.join(",")}&hourly=temperature_2m&past_hours=2&forecast_hours=4&timezone=Europe%2FIstanbul`;
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        const arr = Array.isArray(data) ? data : [data];
-        const next = [];
-        arr.forEach((loc, idx) => {
-          const hArr = loc?.hourly?.temperature_2m;
-          const nums = Array.isArray(hArr) ? hArr.filter(x => typeof x === "number" && Number.isFinite(x)) : [];
-          if (nums.length && lats[idx] !== undefined && lons[idx] !== undefined) {
-            next.push({ lat: lats[idx], lng: lons[idx], val: nums[Math.min(nums.length - 1, 2)] });
-          }
-        });
-        if (next.length) {
-          samples = next;
-          paintCbar(cur, samples);
-          renderLayeredMap();
-          return;
-        }
-      }
-    } catch (_) {}
-
-    samples = buildFallbackGrid(m, cur);
-    paintCbar(cur, samples);
-    renderLayeredMap();
-  };
-
-  const queryPoint = async (lat, lng) => {
-    const m = findMap();
-    const cEl = document.getElementById("ews-coord"), ilEl = document.getElementById("ews-il"),
-          ilceEl = document.getElementById("ews-ilce"), mahEl = document.getElementById("ews-mah"),
-          vnEl = document.getElementById("ews-vname"), vvEl = document.getElementById("ews-vval");
     if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
     if (vvEl) vvEl.textContent = "Okunuyor...";
 
-    const val = await readPointValue(lat, lng, cur);
-    const label = (val !== null) ? `${val.toFixed(1)} ${cur.unit}` : "14.5 °C";
-    if (vvEl) vvEl.textContent = label;
+    const val = await fetchLiveValue(lat, lng, cur);
+    activeValue = val;
 
-    if (m && window.L) {
-      if (!ptMarker) ptMarker = window.L.circleMarker([lat, lng], { radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2 }).addTo(m);
-      else ptMarker.setLatLng([lat, lng]);
-      ptMarker.bindTooltip(`${cur.name}: ${label}`, { permanent: false, direction: "top" }).openTooltip();
+    if (val !== null) {
+      const formatted = `${val.toFixed(2)} ${cur.unit}`;
+      if (vvEl) vvEl.textContent = formatted;
+      paintCbar(cur, val);
+      applyValueColorToMap(val, cur);
+      if (m && window.L) {
+        if (!ptMarker) {
+          ptMarker = window.L.circleMarker([lat, lng], {
+            radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2
+          }).addTo(m);
+        } else {
+          ptMarker.setLatLng([lat, lng]);
+        }
+        ptMarker.bindTooltip(`${cur.name}: ${formatted}`, { permanent: false, direction: "top" }).openTooltip();
+      }
+    } else {
+      if (vvEl) vvEl.textContent = "Veri yok (API)";
+      paintCbar(cur, null);
+      applyValueColorToMap(null, cur);
     }
 
     if (ilEl) ilEl.textContent = "Sorgulanıyor...";
@@ -1282,7 +1239,10 @@
   const renderVars = () => {
     if (!varsEl) return;
     varsEl.innerHTML = "";
-    const list = filterText ? VARS.filter(v => `${v.name} ${v.code} ${v.om} ${v.unit}`.toLowerCase().includes(filterText)) : VARS;
+    const list = filterText
+      ? VARS.filter(v => `${v.name} ${v.code} ${v.om} ${v.unit}`.toLowerCase().includes(filterText))
+      : VARS;
+
     list.forEach(v => {
       const b = document.createElement("button");
       b.type = "button";
@@ -1292,43 +1252,46 @@
       b.addEventListener("click", e => {
         e.stopPropagation();
         cur = v;
+        activeValue = null;
         renderVars();
-        paintCbar(cur, samples);
-        renderLayeredMap();
+        paintCbar(cur, null);
+        applyValueColorToMap(null, cur);
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-        if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
+        const pt = lastPt || (findMap()?.getCenter ? { lat: findMap().getCenter().lat, lng: findMap().getCenter().lng } : null);
+        if (pt) refreshActivePoint(pt.lat, pt.lng);
       });
       varsEl.appendChild(b);
     });
   };
 
   const bindMap = () => {
-    removeBottomPanels();
+    preserveMusic();
     const m = findMap();
     if (!m) return;
-    if (!m._ew2tDirectBound) {
-      m._ew2tDirectBound = true;
+    if (!m._ewRealValOnlyBound) {
+      m._ewRealValOnlyBound = true;
       m.on("click", e => {
         if (e?.latlng) {
           lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
-          queryPoint(lastPt.lat, lastPt.lng);
+          refreshActivePoint(lastPt.lat, lastPt.lng);
         }
       });
       m.on("moveend zoomend resize", () => {
-        renderLayeredMap();
-        fetchGridValues();
+        applyValueColorToMap(activeValue, cur);
       });
-      renderLayeredMap();
-      fetchGridValues();
+      const c = m.getCenter ? m.getCenter() : null;
+      if (c && !lastPt) {
+        refreshActivePoint(c.lat, c.lng);
+      }
     } else {
-      renderLayeredMap();
+      applyValueColorToMap(activeValue, cur);
     }
   };
 
   renderVars();
-  paintCbar(cur, []);
-  setInterval(bindMap, 450);
+  paintCbar(cur, null);
+  setInterval(bindMap, 500);
   window.addEventListener("load", bindMap);
 })();
 </script>
