@@ -885,6 +885,7 @@
   </div>
 
   
+  
   <!-- Tek Panel: Koordinat, İl/İlçe/Mahalle, Seçili Değişken Değeri, 90 ECMWF Değişkeni ve Alt Bilgi Butonu -->
   <div id="ew-unified-panel">
     <div class="ew-info-box">
@@ -913,9 +914,7 @@
       rad:  [[0,"#0f172a"],[0.3,"#4f46e5"],[0.6,"#eab308"],[1,"#f97316"]]
     };
 
-    // Tam 90 ECMWF Değişkeni (yüzey, nem, basınç, rüzgar, yağış, bulut, radyasyon, toprak ve 1000..50 hPa basınç seviyeleri)
     const RAW_90 = [
-      // 1-14: Sıcaklık & Hissedilen
       { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: -5, max: 35, stops: PAL.temp, desc: "2m hava sıcaklığı (°C)." },
       { code: "app_t", om: "apparent_temperature", name: "Hissedilen Sıcaklık", unit: "°C", min: -8, max: 40, stops: PAL.temp, desc: "Rüzgar ve nem etkili hissedilen sıcaklık (°C)." },
       { code: "2d", om: "dew_point_2m", name: "2m Çiy Noktası", unit: "°C", min: -10, max: 25, stops: PAL.hum, desc: "2m çiy noktası sıcaklığı (°C)." },
@@ -930,8 +929,6 @@
       { code: "sm_7_28", om: "soil_moisture_7_to_28cm", name: "Toprak Nem 7-28cm", unit: "m³/m³", min: 0, max: 0.5, stops: PAL.hum, desc: "7-28 cm hacimsel toprak nemi." },
       { code: "sm_28_100", om: "soil_moisture_28_to_100cm", name: "Toprak Nem 28-100cm", unit: "m³/m³", min: 0, max: 0.5, stops: PAL.hum, desc: "28-100 cm hacimsel toprak nemi." },
       { code: "sm_100_255", om: "soil_moisture_100_to_255cm", name: "Toprak Nem 100-255cm", unit: "m³/m³", min: 0, max: 0.5, stops: PAL.hum, desc: "100-255 cm hacimsel toprak nemi." },
-
-      // 15-26: Basınç, Nem, Yağış, Bulut ve Radyasyon
       { code: "msl", om: "pressure_msl", name: "Deniz Basıncı (MSL)", unit: "hPa", min: 990, max: 1035, stops: PAL.pres, desc: "Deniz seviyesi basıncı (hPa)." },
       { code: "sp", om: "surface_pressure", name: "Yüzey Basıncı (SP)", unit: "hPa", min: 860, max: 1030, stops: PAL.pres, desc: "Yüzey atmosfer basıncı (hPa)." },
       { code: "rh2m", om: "relative_humidity_2m", name: "2m Bağıl Nem", unit: "%", min: 10, max: 100, stops: PAL.hum, desc: "2m bağıl nem (%)." },
@@ -944,8 +941,6 @@
       { code: "mcc", om: "cloud_cover_mid", name: "Orta Bulut", unit: "%", min: 0, max: 100, stops: PAL.hum, desc: "Orta seviye bulutluluk (%)." },
       { code: "hcc", om: "cloud_cover_high", name: "Yüksek Bulut", unit: "%", min: 0, max: 100, stops: PAL.hum, desc: "Yüksek seviye bulutluluk (%)." },
       { code: "ssrd", om: "shortwave_radiation", name: "Kısa Dalga Rad", unit: "W/m²", min: 0, max: 1000, stops: PAL.rad, desc: "Gelen kısa dalga radyasyon (W/m²)." },
-
-      // 27-35: Rüzgar & Hamle
       { code: "ws10", om: "wind_speed_10m", name: "10m Rüzgar Hızı", unit: "km/h", min: 0, max: 80, stops: PAL.wind, desc: "10m rüzgar hızı (km/h)." },
       { code: "wd10", om: "wind_direction_10m", name: "10m Rüzgar Yönü", unit: "°", min: 0, max: 360, stops: PAL.wind, desc: "10m rüzgar yönü (°)." },
       { code: "gust10", om: "wind_gusts_10m", name: "10m Rüzgar Hamlesi", unit: "km/h", min: 0, max: 110, stops: PAL.wind, desc: "10m rüzgar hamlesi (km/h)." },
@@ -955,8 +950,6 @@
       { code: "wd100", om: "wind_direction_100m", name: "100m Rüzgar Yönü", unit: "°", min: 0, max: 360, stops: PAL.wind, desc: "100m rüzgar yönü (°)." },
       { code: "ws120", om: "wind_speed_120m", name: "120m Rüzgar Hızı", unit: "km/h", min: 0, max: 120, stops: PAL.wind, desc: "120m rüzgar hızı (km/h)." },
       { code: "wd120", om: "wind_direction_120m", name: "120m Rüzgar Yönü", unit: "°", min: 0, max: 360, stops: PAL.wind, desc: "120m rüzgar yönü (°)." },
-
-      // 36-90: Basınç Seviyeleri (55 değişken: 11 seviye x 5 parametre = t, z, ws, wd, r)
       ...(function() {
         const lvls = [1000, 925, 850, 700, 500, 300, 250, 200, 150, 100, 50];
         const out = [];
@@ -976,7 +969,10 @@
     let lastPt = null;
     let mapRef = null;
     let liveLayerGroup = null;
+    let clickMarker = null;
     let lastGridFetchTime = "";
+    let lastPointValText = "—";
+    let lastLocationSummary = { il: "—", ilce: "—", mah: "—" };
 
     const listEl = document.getElementById("ew-var-list");
     const extraInfoEl = document.getElementById("ew-extra-info");
@@ -1031,12 +1027,13 @@
     const updateExtraInfoBox = () => {
       if (!extraInfoEl) return;
       const idxNo = VARS.findIndex(x => x.code === curVar.code) + 1;
+      const coordStr = lastPt ? `${lastPt.lat.toFixed(4)}, ${lastPt.lng.toFixed(4)}` : "Seçilmedi";
       extraInfoEl.innerHTML = `
         <div><strong>Değişken (#${idxNo}/90):</strong> ${curVar.name} (${curVar.code}) [${curVar.unit}]</div>
+        <div><strong>Seçili Nokta Değeri:</strong> ${lastPointValText} (${coordStr})</div>
+        <div><strong>Konum:</strong> ${lastLocationSummary.il} / ${lastLocationSummary.ilce} / ${lastLocationSummary.mah}</div>
         <div><strong>Açıklama:</strong> ${curVar.desc}</div>
-        <div><strong>Ölçek Aralığı:</strong> ${curVar.min} .. ${curVar.max} ${curVar.unit}</div>
-        <div><strong>Model / Kaynak:</strong> ECMWF IFS (Open-Meteo) + OSM</div>
-        <div><strong>Son Veri Saati:</strong> ${lastGridFetchTime || "Güncelleniyor..."}</div>
+        <div><strong>Ölçek:</strong> ${curVar.min} .. ${curVar.max} ${curVar.unit} | <strong>Saat:</strong> ${lastGridFetchTime || "—"}</div>
       `;
     };
 
@@ -1109,22 +1106,38 @@
       const vlEl = document.getElementById("ew-vlabel");
       const vvEl = document.getElementById("ew-vval");
 
+      if (mapRef && typeof L !== "undefined") {
+        if (!clickMarker) {
+          clickMarker = L.circleMarker([lat, lng], {
+            radius: 6,
+            color: "#38bdf8",
+            fillColor: "#0284c7",
+            fillOpacity: 0.9,
+            weight: 2
+          }).addTo(mapRef);
+        } else {
+          clickMarker.setLatLng([lat, lng]);
+        }
+      }
+
       if (cEl) cEl.textContent = `${lat.toFixed(4)}°K, ${lng.toFixed(4)}°D`;
-      if (vlEl) vlEl.textContent = `${curVar.name}:`;
+      if (vlEl) vlEl.textContent = `${curVar.name} (${curVar.code}):`;
       if (vvEl) vvEl.textContent = "Yükleniyor...";
 
       try {
         const arr = await fetchEcmwfValue(lat.toFixed(4), lng.toFixed(4), curVar.om);
         const first = arr[0] || {};
         if (first.time) lastGridFetchTime = first.time;
-        if (vvEl) {
-          vvEl.textContent = (typeof first.val === "number" && !Number.isNaN(first.val))
-            ? `${Number(first.val).toFixed(2)} ${curVar.unit}`
-            : "Veri yok";
+        if (typeof first.val === "number" && !Number.isNaN(first.val)) {
+          lastPointValText = `${Number(first.val).toFixed(2)} ${curVar.unit}`;
+        } else {
+          lastPointValText = "Veri yok";
         }
+        if (vvEl) vvEl.textContent = lastPointValText;
         updateExtraInfoBox();
       } catch (_) {
-        if (vvEl) vvEl.textContent = "Veri alınamadı";
+        lastPointValText = "Veri alınamadı";
+        if (vvEl) vvEl.textContent = lastPointValText;
       }
 
       if (cityEl) cityEl.textContent = "Sorgulanıyor...";
@@ -1135,9 +1148,14 @@
         const gr = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=tr`);
         const gj = await gr.json();
         const a = gj?.address || {};
-        if (cityEl) cityEl.textContent = a.province || a.city || a.state || "Açık Alan / Deniz";
-        if (distEl) distEl.textContent = a.town || a.county || a.city_district || a.district || "—";
-        if (hoodEl) hoodEl.textContent = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || "—";
+        const il = a.province || a.city || a.state || "Açık Alan / Deniz";
+        const ilce = a.town || a.county || a.city_district || a.district || "—";
+        const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || "—";
+        lastLocationSummary = { il, ilce, mah };
+        if (cityEl) cityEl.textContent = il;
+        if (distEl) distEl.textContent = ilce;
+        if (hoodEl) hoodEl.textContent = mah;
+        updateExtraInfoBox();
       } catch (_) {
         if (cityEl) cityEl.textContent = "Konum alınamadı";
       }
@@ -1149,7 +1167,7 @@
       renderList();
       updateExtraInfoBox();
       const vlEl = document.getElementById("ew-vlabel");
-      if (vlEl) vlEl.textContent = `${v.name}:`;
+      if (vlEl) vlEl.textContent = `${v.name} (${v.code}):`;
       renderLiveEcmwfMapLayer();
       if (lastPt) queryPoint(lastPt.lat, lastPt.lng);
     };
@@ -1163,44 +1181,69 @@
         b.className = "ew-vbtn" + (v.code === curVar.code ? " active" : "");
         b.textContent = `${i + 1}. ${v.name} (${v.unit})`;
         b.title = `${i + 1}/90 — ${v.name} [${v.unit}]`;
-        b.addEventListener("click", () => pickVar(v));
+        b.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          pickVar(v);
+        });
         listEl.appendChild(b);
       });
     };
 
     if (bottomInfoBtn && extraInfoEl) {
-      bottomInfoBtn.addEventListener("click", () => {
+      bottomInfoBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
         extraInfoEl.classList.toggle("open");
         updateExtraInfoBox();
       });
     }
 
-    const hookMap = () => {
-      const m = window.map || Object.values(window).find(x => x && typeof x.on === "function" && typeof x.getCenter === "function");
+    const bindMapClick = (m) => {
+      if (!m || m._ewClickBound) return;
+      m._ewClickBound = true;
+      m.on("click", (e) => {
+        if (!e || !e.latlng) return;
+        lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
+        queryPoint(lastPt.lat, lastPt.lng);
+      });
+      m.on("moveend", () => {
+        renderLiveEcmwfMapLayer();
+      });
+      renderLiveEcmwfMapLayer();
+    };
+
+    const findAndBindMap = () => {
+      let m = window.map;
+      if (!m || typeof m.on !== "function") {
+        for (const k of Object.keys(window)) {
+          const obj = window[k];
+          if (obj && typeof obj.on === "function" && typeof obj.getCenter === "function") {
+            m = obj;
+            break;
+          }
+        }
+      }
       if (m) {
         mapRef = m;
-        if (!m._ewLiveHooked) {
-          m._ewLiveHooked = true;
-          m.on("click", e => {
-            lastPt = e.latlng;
-            queryPoint(e.latlng.lat, e.latlng.lng);
-          });
-          m.on("moveend", () => {
-            renderLiveEcmwfMapLayer();
-          });
-          renderLiveEcmwfMapLayer();
-        }
+        bindMapClick(m);
       }
       document.querySelectorAll(".leaflet-control-attribution").forEach(el => {
         if (el.innerHTML !== "🇹🇷") el.innerHTML = "🇹🇷";
       });
     };
 
+    // #ew-unified-panel içindeki tıklamaların haritaya sızmasını engelle
+    const panelRoot = document.getElementById("ew-unified-panel");
+    if (panelRoot) {
+      panelRoot.addEventListener("click", (ev) => ev.stopPropagation());
+      panelRoot.addEventListener("mousedown", (ev) => ev.stopPropagation());
+    }
+
     renderList();
     paintCbar(curVar);
     updateExtraInfoBox();
-    hookMap();
-    setInterval(hookMap, 900);
+    findAndBindMap();
+    window.addEventListener("load", findAndBindMap);
+    setInterval(findAndBindMap, 800);
   })();
   </script>
 
