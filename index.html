@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Eken Weather — ECMWF Canlı Alan Haritası</title>
+  <title>Eken Weather — ECMWF</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -27,98 +27,79 @@
       filter: blur(14px);
     }
 
-    .fixed-card {
+    .panel-box {
       position: fixed;
       z-index: 950;
       background: rgba(11, 17, 30, 0.92);
       border: 1px solid rgba(148, 163, 184, 0.35);
-      border-radius: 10px;
+      border-radius: 8px;
       backdrop-filter: blur(8px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     }
 
-    #cbar-card {
-      top: 12px;
-      right: 12px;
-      width: 224px;
-      padding: 10px 12px;
-      font-size: 12px;
+    #cbar-box {
+      top: 10px;
+      right: 10px;
+      width: 210px;
+      padding: 8px 10px;
+      font-size: 11px;
     }
-    #cbar-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-weight: 600; }
+    #cbar-top { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px; }
     #cbar-unit { color: #7dd3fc; }
     #cbar-grad {
       width: 100%;
-      height: 14px;
-      border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      height: 12px;
+      border-radius: 3px;
       background: linear-gradient(90deg, #2563eb 0%, #06b6d4 25%, #22c55e 50%, #eab308 75%, #ef4444 100%);
     }
     #cbar-ticks {
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
+      font-size: 10px;
       color: #cbd5e1;
-      margin-top: 5px;
+      margin-top: 4px;
     }
 
-    #point-card {
-      left: 12px;
-      bottom: 118px;
-      width: 430px;
-      max-width: calc(100vw - 24px);
-      padding: 10px 12px;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    #pt-addr { font-weight: 600; color: #f8fafc; }
-    #pt-coord { color: #94a3b8; font-size: 11px; margin-top: 2px; }
-    #pt-val { color: #7dd3fc; font-weight: 700; font-size: 13px; margin-top: 4px; }
-    #pt-time { color: #cbd5e1; font-size: 11px; margin-top: 2px; }
-
-    #unified-panel {
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
+    #simple-panel {
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
       padding: 8px 10px;
       display: flex;
       flex-direction: column;
       gap: 6px;
+      font-size: 11px;
     }
-    .meta-strip {
+    .line {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: space-between;
       gap: 8px;
-      font-size: 11px;
-      color: #cbd5e1;
-      padding-bottom: 4px;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
     }
-    .meta-brand { font-weight: 700; color: #7dd3fc; }
-    .control-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    .line.vars {
+      flex-wrap: nowrap;
       overflow-x: auto;
       scrollbar-width: thin;
       padding-bottom: 2px;
     }
-    .control-row select, .control-row input, .control-row button {
+    .tag-title { font-weight: 700; color: #7dd3fc; }
+    .muted { color: #cbd5e1; }
+    .val-hi { font-weight: 700; color: #38bdf8; }
+
+    select, input, button {
       background: #1e293b;
       color: #f8fafc;
       border: 1px solid rgba(148, 163, 184, 0.35);
-      border-radius: 6px;
-      padding: 5px 9px;
+      border-radius: 5px;
+      padding: 4px 8px;
       font-size: 11px;
       white-space: nowrap;
       flex-shrink: 0;
       cursor: pointer;
     }
-    .control-row button.active {
+    button.active {
       background: #0284c7;
       border-color: #38bdf8;
-      color: #ffffff;
+      color: #fff;
       font-weight: 600;
     }
   </style>
@@ -126,36 +107,30 @@
 <body>
   <div id="map"></div>
 
-  <div id="cbar-card" class="fixed-card">
-    <div id="cbar-head">
+  <div id="cbar-box" class="panel-box">
+    <div id="cbar-top">
       <span id="cbar-name">2 m Sıcaklığı</span>
       <span id="cbar-unit">°C</span>
     </div>
     <div id="cbar-grad"></div>
-    <div id="cbar-ticks">
-      <span>--</span><span>--</span><span>--</span>
-    </div>
+    <div id="cbar-ticks"><span>--</span><span>--</span><span>--</span></div>
   </div>
 
-  <div id="point-card" class="fixed-card">
-    <div id="pt-addr">İstanbul · Fatih · Eminönü · Hobyar Mah.</div>
-    <div id="pt-coord">Koordinat: 41.0082, 28.9784</div>
-    <div id="pt-val">2 m Sıcaklığı: -- °C</div>
-    <div id="pt-time">Seçili Saat: -- UTC · İstanbul: --:--</div>
-  </div>
-
-  <div id="unified-panel" class="fixed-card">
-    <div class="meta-strip">
-      <span class="meta-brand">Eken Weather · ECMWF</span>
-      <span id="top-range">ECMWF zaman aralığı yükleniyor...</span>
-      <span id="top-clocks">UTC: --:-- | İstanbul (TSİ): --:--:--</span>
+  <div id="simple-panel" class="panel-box">
+    <div class="line">
+      <span class="tag-title">ECMWF</span>
+      <span id="ecmwf-range" class="muted">Aralık: --</span>
+      <span class="muted">|</span>
+      <span id="live-clocks" class="muted">UTC: -- | İstanbul (TSİ): --</span>
     </div>
-    <div class="control-row">
+    <div class="line">
       <input id="date-input" type="date" />
       <select id="hour-select"></select>
       <button id="btn-refresh" type="button">Yenile</button>
+      <span id="point-summary" class="val-hi">İstanbul (41.0082, 28.9784) · 2 m Sıcaklığı: -- °C</span>
+      <span id="point-addr" class="muted">İstanbul · Fatih · Eminönü · Hobyar Mah.</span>
     </div>
-    <div id="var-row" class="control-row"></div>
+    <div id="var-row" class="line vars"></div>
   </div>
 
   <script>
@@ -192,27 +167,10 @@
     })();
 
     const map = L.map("map", { center: [40.85, 29.0], zoom: 7, preferCanvas: true });
-
-    const osmLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap",
       maxZoom: 18
-    });
-    const fallbackGridLayer = L.gridLayer({ opacity: 0.45 });
-    fallbackGridLayer.createTile = function(coords) {
-      const tile = document.createElement("canvas");
-      tile.width = 256;
-      tile.height = 256;
-      const tctx = tile.getContext("2d");
-      tctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
-      tctx.lineWidth = 1;
-      tctx.strokeRect(0, 0, 256, 256);
-      tctx.fillStyle = "rgba(148, 163, 184, 0.45)";
-      tctx.font = "10px monospace";
-      tctx.fillText(`z${coords.z} ${coords.x},${coords.y}`, 8, 18);
-      return tile;
-    };
-    fallbackGridLayer.addTo(map);
-    osmLayer.addTo(map);
+    }).addTo(map);
 
     const canvas = document.createElement("canvas");
     canvas.id = "smooth-canvas";
@@ -228,8 +186,8 @@
 
     function updateClocks() {
       const now = new Date();
-      const utcFull = now.toISOString().replace("T", " ").slice(0, 19) + " UTC";
-      const istFull = now.toLocaleString("tr-TR", {
+      const utcStr = now.toISOString().replace("T", " ").slice(0, 19) + " UTC";
+      const istStr = now.toLocaleString("tr-TR", {
         timeZone: "Europe/Istanbul",
         year: "numeric",
         month: "2-digit",
@@ -238,20 +196,16 @@
         minute: "2-digit",
         second: "2-digit"
       });
-      const el = document.getElementById("top-clocks");
-      if (el) el.textContent = `UTC: ${utcFull} | İstanbul (TSİ): ${istFull}`;
+      const el = document.getElementById("live-clocks");
+      if (el) el.textContent = `UTC: ${utcStr} | İstanbul (TSİ): ${istStr}`;
     }
 
     function applyPalette(v) {
       const grad = document.getElementById("cbar-grad");
-      const nameEl = document.getElementById("cbar-name");
-      const unitEl = document.getElementById("cbar-unit");
-      if (nameEl) nameEl.textContent = v.name;
-      if (unitEl) unitEl.textContent = v.unit;
-      if (grad && v.palette) {
-        const parts = v.palette.map((c, idx) => `rgb(${c[0]},${c[1]},${c[2]}) ${Math.round((idx / (v.palette.length - 1)) * 100)}%`);
-        grad.style.background = `linear-gradient(90deg, ${parts.join(", ")})`;
-      }
+      document.getElementById("cbar-name").textContent = v.name;
+      document.getElementById("cbar-unit").textContent = v.unit;
+      const parts = v.palette.map((c, idx) => `rgb(${c[0]},${c[1]},${c[2]}) ${Math.round((idx / (v.palette.length - 1)) * 100)}%`);
+      grad.style.background = `linear-gradient(90deg, ${parts.join(", ")})`;
     }
 
     function sampleRgb(val, minV, maxV, palette) {
@@ -292,7 +246,7 @@
     function syncTimeControls(times, forceHourPick) {
       const dIn = document.getElementById("date-input");
       const hSel = document.getElementById("hour-select");
-      const rangeEl = document.getElementById("top-range");
+      const rangeEl = document.getElementById("ecmwf-range");
       if (!times || !times.length) return { idx: 0, iso: "" };
 
       const dates = [...new Set(times.map(t => t.slice(0, 10)))];
@@ -329,7 +283,7 @@
       if (idx < 0) idx = 0;
 
       if (rangeEl) {
-        rangeEl.textContent = `ECMWF Aralığı: ${minD} → ${maxD} | Seçili: ${times[idx] || targetIso} UTC`;
+        rangeEl.textContent = `Tarih Aralığı: ${minD} → ${maxD} · Seçili: ${(times[idx] || targetIso).replace("T", " ")} UTC`;
       }
       return { idx, iso: times[idx] || targetIso };
     }
@@ -397,10 +351,7 @@
 
       const minV = Math.min(...pts.map(p => p.val));
       const maxV = Math.max(...pts.map(p => p.val));
-      const ticks = document.getElementById("cbar-ticks");
-      if (ticks) {
-        ticks.innerHTML = `<span>${minV.toFixed(1)} ${curVar.unit}</span><span>${((minV + maxV) / 2).toFixed(1)}</span><span>${maxV.toFixed(1)} ${curVar.unit}</span>`;
-      }
+      document.getElementById("cbar-ticks").innerHTML = `<span>${minV.toFixed(1)} ${curVar.unit}</span><span>${((minV + maxV) / 2).toFixed(1)}</span><span>${maxV.toFixed(1)} ${curVar.unit}</span>`;
 
       const img = ctx.createImageData(w, h);
       const d = img.data;
@@ -442,17 +393,13 @@
 
       const istHourStr = iso ? new Date(iso + ":00Z").toLocaleString("tr-TR", {
         timeZone: "Europe/Istanbul",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
         hour: "2-digit",
         minute: "2-digit"
       }) : "--";
 
-      document.getElementById("pt-addr").textContent = curAddr;
-      document.getElementById("pt-coord").textContent = `Koordinat: ${curCoord.lat.toFixed(4)}, ${curCoord.lon.toFixed(4)}`;
-      document.getElementById("pt-val").textContent = `${curVar.name}: ${valText}`;
-      document.getElementById("pt-time").textContent = `Seçili Saat: ${iso || "--"} UTC · İstanbul: ${istHourStr}`;
+      document.getElementById("point-summary").textContent =
+        `(${curCoord.lat.toFixed(4)}, ${curCoord.lon.toFixed(4)}) · ${curVar.name}: ${valText} · ${iso ? iso.replace("T", " ") + " UTC" : "--"} / ${istHourStr} TSİ`;
+      document.getElementById("point-addr").textContent = curAddr;
     }
 
     async function loadAndRender(needAddr, forceHourPick) {
