@@ -1,6 +1,86 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+<!-- EKEN ECMWF DEDUP CACHE START -->
+<script>
+(() => {
+  if (window.__ekenEcmwfDedupInstalled) return;
+  window.__ekenEcmwfDedupInstalled = true;
+
+  const CACHE_TTL_MS = 10 * 60 * 1000; // 10 dakika bellek onbellegi
+  const responseCache = new Map();
+  const inflightMap = new Map();
+  const baseFetch = window.fetch.bind(window);
+
+  window.fetch = async (input, init = {}) => {
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    const method = ((init && init.method) || (typeof input === "object" && input && input.method) || "GET").toUpperCase();
+
+    if (method !== "GET" || !url.includes("api.open-meteo.com/v1/ecmwf")) {
+      return baseFetch(input, init);
+    }
+
+    const now = Date.now();
+    const cached = responseCache.get(url);
+    if (cached && (now - cached.ts) < CACHE_TTL_MS) {
+      return new Response(cached.body, {
+        status: 200,
+        statusText: "OK (Cache)",
+        headers: { "Content-Type": "application/json", "X-Eken-Cache": "HIT" }
+      });
+    }
+
+    if (inflightMap.has(url)) {
+      const sharedText = await inflightMap.get(url);
+      return new Response(sharedText, {
+        status: 200,
+        statusText: "OK (Dedup)",
+        headers: { "Content-Type": "application/json", "X-Eken-Cache": "DEDUP" }
+      });
+    }
+
+    const promise = (async () => {
+      try {
+        const res = await baseFetch(input, init);
+        const text = await res.text();
+        if (res.ok) {
+          responseCache.set(url, { ts: Date.now(), body: text });
+        }
+        return { ok: res.ok, status: res.status, text };
+      } finally {
+        inflightMap.delete(url);
+      }
+    })();
+
+    const textPromise = promise.then((r) => {
+      if (!r.ok) {
+        const err = new Error("HTTP " + r.status);
+        err.status = r.status;
+        throw err;
+      }
+      return r.text;
+    });
+
+    inflightMap.set(url, textPromise);
+
+    try {
+      const text = await textPromise;
+      return new Response(text, {
+        status: 200,
+        statusText: "OK",
+        headers: { "Content-Type": "application/json", "X-Eken-Cache": "MISS" }
+      });
+    } catch (e) {
+      const status = e && e.status ? e.status : 429;
+      return new Response(JSON.stringify({ error: true, status }), {
+        status,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  };
+})();
+</script>
+<!-- EKEN ECMWF DEDUP CACHE END -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Eken Weather — ECMWF</title>
