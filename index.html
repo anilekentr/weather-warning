@@ -374,10 +374,15 @@
 
 
 
+/* === EKEN WEATHER MAP SAFE & CLEAN === */
+#map,
+.leaflet-container {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 1 !important;
+}
 
-
-
-/* === EKEN WEATHER CLEAN REAL & NO-429 === */
 #ew-single-panel {
   display: block !important;
   visibility: visible !important;
@@ -703,11 +708,11 @@
       if (!gridData) {
         const lats = SAMPLE_GRID.map(p => p.lat).join(",");
         const lons = SAMPLE_GRID.map(p => p.lon).join(",");
-/* 429 grid fetch disabled */ null && (const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;)
+        const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats}&longitude=${lons}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
         const res = await fetch(url);
         if (res.ok) gridData = await res.json();
       }
-/* 429 grid fetch disabled */ null && (const pUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(curCoord.lat)}&longitude=${encodeURIComponent(curCoord.lon)}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;)
+      const pUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(curCoord.lat)}&longitude=${encodeURIComponent(curCoord.lon)}&hourly=${encodeURIComponent(curVar.key)}&wind_speed_unit=ms&timezone=UTC&forecast_days=5`;
       const pRes = await fetch(pUrl);
       if (pRes.ok) pointData = await pRes.json();
     }
@@ -931,9 +936,6 @@
 
 
 
-
-
-
 <!-- EKEN WEATHER CLEAN START -->
 <div id="ew-single-panel">
   <div class="ews-box">
@@ -949,6 +951,23 @@
 
 <script>
 (() => {
+  // 180 noktalık toplu Open-Meteo grid isteklerinin 429 üretmesini engelle
+  if (typeof window.fetch === "function" && !window._ewFetchWrapped) {
+    window._ewFetchWrapped = true;
+    const origFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const urlStr = typeof input === "string" ? input : (input && input.url) || "";
+      const latMatch = urlStr.match(/[?&]latitude=([^&]+)/i);
+      if (urlStr.includes("api.open-meteo.com") && latMatch && decodeURIComponent(latMatch[1]).split(",").length > 8) {
+        return Promise.resolve(new Response(JSON.stringify({ blocked_bulk_grid: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }));
+      }
+      return origFetch(input, init);
+    };
+  }
+
   const VARS = [
     { code: "2t", om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: 2, max: 30 },
     { code: "rh2m", om: "relative_humidity_2m", name: "2m Bağıl Nem", unit: "%", min: 20, max: 100 },
@@ -1052,7 +1071,7 @@
     [220, 38, 38]
   ];
   const GRAD_CSS = `linear-gradient(90deg,${STOPS.map(([r, g, b]) => `rgb(${r},${g},${b})`).join(",")})`;
-  const STORAGE_KEY = "ew_real_obs_v2";
+  const STORAGE_KEY = "ew_real_obs_v3";
 
   let cur = VARS[0];
   let filterText = "";
@@ -1095,7 +1114,6 @@
     });
   }
 
-  // Müzik oynatıcıyı koruyup alt bilgi panellerini gizle
   const hideOldBottom = () => {
     const ids = ["#bottom-panel", "#alt-panel", "#ecmwf-panel", "#point-info", "#location-panel", "#info-box", "#click-info", "#detail-panel", "#weather-detail", "#bottom-bar", ".bottom-panel", ".alt-panel", ".info-panel", ".detail-panel"];
     document.querySelectorAll(ids.join(",")).forEach(el => {
@@ -1362,8 +1380,9 @@
     hideOldBottom();
     const m = findMap();
     if (!m) return;
-    if (!m._ewNo429Bound) {
-      m._ewNo429Bound = true;
+    if (typeof m.invalidateSize === "function") m.invalidateSize();
+    if (!m._ewMapSafeBound) {
+      m._ewMapSafeBound = true;
       m.on("click", e => {
         hideOldBottom();
         if (e?.latlng) {
