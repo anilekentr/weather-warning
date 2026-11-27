@@ -1722,20 +1722,14 @@
 })();
 </script>
 
-
-
-
-
-<style id="ew-cbar-keep-pos-css">
-  [class*="cbar"] ~ [class*="cbar"],
-  [id*="cbar"] ~ [id*="cbar"],
-  .ecmwf-cbar ~ .ecmwf-cbar {
+<style id="ew-ecmwf-cbar-only-css">
+  .ecmwf-cbar-duplicate,
+  [data-ew-dup-cbar="1"] {
     display: none !important;
   }
 </style>
-<script id="ew-cbar-keep-pos-js">
+<script id="ew-ecmwf-cbar-only-js">
 (function () {
-  const posProps = ['position', 'top', 'left', 'right', 'bottom', 'transform', 'margin', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right', 'z-index', 'float'];
   const styleProps = [
     'background', 'background-color', 'background-image',
     'color', 'border', 'border-color', 'border-radius',
@@ -1743,71 +1737,50 @@
     'line-height', 'padding', 'box-shadow'
   ];
 
-  function applySingleCbarFormat() {
-    const candidates = Array.from(document.querySelectorAll('*')).filter(el => {
+  function fixEcmwfCbar() {
+    const nodes = Array.from(document.querySelectorAll('*')).filter(el => {
       const tag = (el.tagName || '').toLowerCase();
       if (['script', 'style', 'html', 'body', 'head'].includes(tag)) return false;
       const meta = ((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.textContent || '')).toLowerCase();
       return meta.includes('cbar');
     });
 
-    if (candidates.length === 0) return;
+    const leaves = nodes.filter(el => !nodes.some(other => other !== el && el.contains(other)));
+    if (leaves.length === 0) return;
 
-    const leafCbars = candidates.filter(el => !candidates.some(other => other !== el && el.contains(other)));
-    const pool = leafCbars.length > 0 ? leafCbars : candidates;
+    const playerBar = leaves.find(el => /oynat/i.test(((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.textContent || '')))) || leaves[0];
+    const ecmwfBars = leaves.filter(el => el !== playerBar && /ecmwf/i.test(((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.textContent || ''))));
 
-    const playerBar = pool.find(el => /oynat/i.test(((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.textContent || '')))) || pool[0];
-    const ecmwfBar = pool.find(el => el !== playerBar && /ecmwf/i.test(((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.textContent || '')))) || pool.find(el => el !== playerBar);
+    if (ecmwfBars.length === 0) return;
 
-    if (!playerBar || !ecmwfBar) return;
-
-    const savedPos = {};
-    const eStyleBefore = window.getComputedStyle(ecmwfBar);
-    for (const prop of posProps) {
-      savedPos[prop] = eStyleBefore.getPropertyValue(prop);
+    const primaryEcmwf = ecmwfBars[0];
+    for (let i = 1; i < ecmwfBars.length; i++) {
+      ecmwfBars[i].setAttribute('data-ew-dup-cbar', '1');
+      ecmwfBars[i].style.setProperty('display', 'none', 'important');
     }
 
-    const pStyle = window.getComputedStyle(playerBar);
-    for (const prop of styleProps) {
-      const val = pStyle.getPropertyValue(prop);
-      if (val) {
-        ecmwfBar.style.setProperty(prop, val, 'important');
-      }
-    }
-
-    const playerNums = (playerBar.textContent || '').match(/-?\d+(?:[.,]\d+)?/g);
-    if (playerNums && playerNums.length > 0) {
-      const walker = document.createTreeWalker(ecmwfBar, NodeFilter.SHOW_TEXT);
-      let idx = 0;
-      let node;
-      while ((node = walker.nextNode())) {
-        if (/-?\d+(?:[.,]\d+)?/.test(node.nodeValue || '')) {
-          node.nodeValue = node.nodeValue.replace(/-?\d+(?:[.,]\d+)?/g, () => {
-            const val = playerNums[idx % playerNums.length];
-            idx += 1;
-            return val;
-          });
+    if (playerBar) {
+      const pStyle = window.getComputedStyle(playerBar);
+      for (const prop of styleProps) {
+        const val = pStyle.getPropertyValue(prop);
+        if (val) {
+          primaryEcmwf.style.setProperty(prop, val, 'important');
         }
       }
     }
 
-    for (const prop of posProps) {
-      if (savedPos[prop]) {
-        ecmwfBar.style.setProperty(prop, savedPos[prop], 'important');
-      }
-    }
-
-    for (const item of pool) {
-      if (item !== playerBar && item !== ecmwfBar) {
-        item.style.setProperty('display', 'none', 'important');
-      }
+    const hasLabel = /ecmwf\s*cbar/i.test(primaryEcmwf.textContent || '');
+    if (!hasLabel) {
+      const span = document.createElement('span');
+      span.textContent = ' ECMWF CBAR';
+      primaryEcmwf.appendChild(span);
     }
   }
 
   window.addEventListener('DOMContentLoaded', () => {
-    applySingleCbarFormat();
-    setTimeout(applySingleCbarFormat, 600);
-    setTimeout(applySingleCbarFormat, 1800);
+    fixEcmwfCbar();
+    setTimeout(fixEcmwfCbar, 700);
+    setTimeout(fixEcmwfCbar, 1800);
   });
 })();
 </script>
