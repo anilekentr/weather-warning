@@ -1994,6 +1994,7 @@
       return { val: Number((raw * 1e5).toFixed(2)), tag: "ECMWF" };
     };
 const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'number' ? hourOffset : 0)) => {
+    try { window.__lastFetchDebug = { stage: "entered", code: v?.code, om: v?.om, lat, lng, off: offsetHours, ts: Date.now() }; } catch (_) {}
     const offNum = Number.isFinite(Number(offsetHours)) ? Number(offsetHours) : 0;
     const fieldName = v?.om || v?.key || v?.code;
     const codeKey = String(v?.code || fieldName || "");
