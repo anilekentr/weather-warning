@@ -1986,7 +1986,16 @@
     try {
       const res = await fetch(hourlyUrl, { cache: "no-store" });
       if (res.status === 429) {
-        rateLimitUntil = Date.now() + 800;
+        rateLimitUntil = Date.now() + 350;
+        await sleep(450);
+        const res2 = await fetch(hourlyUrl, { cache: "no-store" });
+        if (res2 && res2.ok) {
+          const j2 = await res2.json();
+          const val2 = extractNowVal(j2, fieldName, offsetHours);
+          if (typeof val2 === "number" && Number.isFinite(val2)) {
+            return { val: val2, tag: "ECMWF" };
+          }
+        }
         return { val: null, tag: "Veri yok" };
       }
       if (res.ok) {
@@ -2630,7 +2639,7 @@
     const eMs = Math.max(nowMs, tgtMs);
     const hrs = Math.max(1, Math.round((eMs - sMs) / 3600000) || Math.abs(off) || 1);
     const fUtc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ") + " UTC";
-    return `${fUtc(sMs)} → ${fUtc(eMs)} · Süre: ${hrs} sa · ECMWF günlük kota aşıldı`;
+    return `${fUtc(sMs)} → ${fUtc(eMs)} · Süre: ${hrs} sa`;
   };
 
   try {
