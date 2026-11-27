@@ -1724,7 +1724,6 @@
 
 <!-- ew-combined-fix-start -->
 <style id="ew-combined-fix-style">
-  /* Sağ alttaki ECMWF CBAR'ı oynatıcı CBAR ile birebir benzet */
   #ew-cbar {
     background: rgba(15, 23, 42, 0.88) !important;
     color: #f8fafc !important;
@@ -1746,18 +1745,9 @@
     flex-direction: column;
     gap: 6px;
   }
-  .ew-sync-input {
+  .ew-sync-input, .ew-sync-select {
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(15, 23, 42, 0.85);
-    color: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    font-size: 12px;
-  }
-  .ew-sync-select {
-    width: 100%;
     padding: 6px 8px;
     border-radius: 6px;
     background: rgba(15, 23, 42, 0.9);
@@ -1765,13 +1755,34 @@
     border: 1px solid rgba(148, 163, 184, 0.35);
     font-size: 12px;
   }
-  .ew-player-active-badge {
+  .ew-sync-results {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  .ew-sync-item {
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    cursor: pointer;
+    background: rgba(30, 41, 59, 0.65);
+    color: #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+  }
+  .ew-sync-item.active, .ew-sync-item:hover {
+    background: rgba(56, 189, 248, 0.25);
+    color: #ffffff;
+  }
+  .ew-player-var-label {
     font-size: 11px;
     color: #bae6fd;
-    padding: 4px 6px;
-    border-radius: 5px;
-    background: rgba(2, 132, 199, 0.2);
-    border: 1px solid rgba(56, 189, 248, 0.35);
+    padding: 5px 7px;
+    border-radius: 6px;
+    background: rgba(2, 132, 199, 0.22);
+    border: 1px solid rgba(56, 189, 248, 0.38);
   }
 </style>
 <script id="ew-combined-fix-script">
@@ -1796,73 +1807,64 @@
     ["cape", "CAPE Kararsızlık", "J/kg", 0, 2500, ["#ecfeff","#67e8f9","#facc15","#f97316","#dc2626"]]
   ];
 
-  function buildCatalog() {
-    const mapByCode = new Map();
+  function getUnifiedCatalog() {
+    const byCode = new Map();
     CANONICAL_VARS.forEach(([code, name, unit, min, max, palette]) => {
-      mapByCode.set(code, { code, name, unit, min, max, palette });
+      byCode.set(code, { code, name, unit, min, max, palette });
     });
     if (Array.isArray(window.vars)) {
       window.vars.forEach(v => {
         const code = v.om || v.code;
         if (!code) return;
-        const base = mapByCode.get(code) || {
+        const prev = byCode.get(code) || { code, name: v.name || code, unit: v.unit || "", min: 0, max: 100, palette: ["#38bdf8","#facc15","#ef4444"] };
+        byCode.set(code, {
           code,
-          name: v.name || code,
-          unit: v.unit || "",
-          min: 0,
-          max: 100,
-          palette: ["#38bdf8", "#facc15", "#ef4444"]
-        };
-        mapByCode.set(code, {
-          code,
-          name: v.name || base.name,
-          unit: v.unit || base.unit,
-          min: typeof v.min === "number" ? v.min : base.min,
-          max: typeof v.max === "number" ? v.max : base.max,
-          palette: Array.isArray(v.palette) && v.palette.length > 1 ? v.palette : base.palette
+          name: v.name || prev.name,
+          unit: v.unit || prev.unit,
+          min: typeof v.min === "number" ? v.min : prev.min,
+          max: typeof v.max === "number" ? v.max : prev.max,
+          palette: Array.isArray(v.palette) && v.palette.length > 1 ? v.palette : prev.palette
         });
       });
     }
-    return Array.from(mapByCode.values());
+    return Array.from(byCode.values());
   }
 
   let activeCode = "temperature_2m";
-  let searchQuery = "";
+  let queryText = "";
 
-  function toGradient(palette) {
+  function makeGradient(palette) {
     const step = 100 / Math.max(1, palette.length - 1);
     return "linear-gradient(90deg, " + palette.map((c, i) => `${c} ${(i * step).toFixed(1)}%`).join(", ") + ")";
   }
 
-  function applyColorBars(item) {
-    const grad = toGradient(item.palette);
-    const midVal = ((item.min + item.max) / 2).toFixed(item.max <= 5 ? 2 : 1);
-    const minStr = `${item.min} ${item.unit}`.trim();
-    const midStr = `${midVal} ${item.unit}`.trim();
-    const maxStr = `${item.max} ${item.unit}`.trim();
+  function syncCbars(item) {
+    const grad = makeGradient(item.palette);
+    const mid = ((item.min + item.max) / 2).toFixed(item.max <= 5 ? 2 : 1);
+    const minTxt = `${item.min} ${item.unit}`.trim();
+    const midTxt = `${mid} ${item.unit}`.trim();
+    const maxTxt = `${item.max} ${item.unit}`.trim();
 
-    const playerBar = document.getElementById("ew-player-cbar");
-    if (playerBar) {
-      playerBar.style.setProperty("background", grad, "important");
-      playerBar.style.setProperty("opacity", "1", "important");
+    const pBar = document.getElementById("ew-player-cbar");
+    if (pBar) {
+      pBar.style.setProperty("background", grad, "important");
+      pBar.style.setProperty("opacity", "1", "important");
     }
 
-    const rightGrad = document.getElementById("cbar-gradient");
-    if (rightGrad) {
-      rightGrad.style.setProperty("background", grad, "important");
-      rightGrad.style.setProperty("opacity", "1", "important");
-      if (playerBar) {
-        const pw = playerBar.getBoundingClientRect().width;
-        if (pw > 50) {
-          rightGrad.style.setProperty("width", Math.round(pw) + "px", "important");
-        }
+    const rGrad = document.getElementById("cbar-gradient");
+    if (rGrad) {
+      rGrad.style.setProperty("background", grad, "important");
+      rGrad.style.setProperty("opacity", "1", "important");
+      if (pBar) {
+        const w = pBar.getBoundingClientRect().width;
+        if (w > 50) rGrad.style.setProperty("width", Math.round(w) + "px", "important");
       }
     }
 
     const pTitle = document.getElementById("ew-player-cbar-title");
     const pScale = document.getElementById("ew-player-cbar-scale");
     if (pTitle) pTitle.textContent = `${item.name} [${item.code}]`;
-    if (pScale) pScale.textContent = `${minStr} · ${midStr} · ${maxStr}`;
+    if (pScale) pScale.textContent = `${minTxt} · ${midTxt} · ${maxTxt}`;
 
     const rTitle = document.getElementById("cbar-title");
     const rCode = document.getElementById("cbar-code");
@@ -1871,112 +1873,137 @@
     const rMax = document.getElementById("cbar-max");
     if (rTitle) rTitle.textContent = item.name;
     if (rCode) rCode.textContent = item.code;
-    if (rMin) rMin.textContent = minStr;
-    if (rMid) rMid.textContent = midStr;
-    if (rMax) rMax.textContent = maxStr;
+    if (rMin) rMin.textContent = minTxt;
+    if (rMid) rMid.textContent = midTxt;
+    if (rMax) rMax.textContent = maxTxt;
 
-    const badge = document.getElementById("ew-player-active-var");
-    if (badge) {
-      badge.textContent = `Oynatıcı Değişkeni: ${item.name} [${item.code}] (${item.unit})`;
-    }
+    const pLabel = document.getElementById("ew-player-selected-var");
+    if (pLabel) pLabel.textContent = `Oynatıcı Değişkeni: ${item.name} [${item.code}] (${item.unit})`;
   }
 
-  function syncPanelsAndFilter(catalog) {
-    const q = searchQuery.trim().toLowerCase();
-    const filtered = catalog.filter(v =>
+  function renderMatchLists(list) {
+    const containers = document.querySelectorAll(".ew-sync-results");
+    containers.forEach(box => {
+      box.innerHTML = "";
+      list.slice(0, 8).forEach(v => {
+        const el = document.createElement("div");
+        el.className = "ew-sync-item" + (v.code === activeCode ? " active" : "");
+        el.innerHTML = `<span>${v.name} <code>${v.code}</code></span><span>${v.unit}</span>`;
+        el.addEventListener("click", () => applySelection(v.code));
+        box.appendChild(el);
+      });
+    });
+  }
+
+  function syncControls(catalog) {
+    const q = queryText.trim().toLowerCase();
+    const matches = catalog.filter(v =>
       !q || v.name.toLowerCase().includes(q) || v.code.toLowerCase().includes(q) || v.unit.toLowerCase().includes(q)
     );
-    const items = filtered.length > 0 ? filtered : catalog;
+    const activePool = matches.length > 0 ? matches : catalog;
 
-    const rightFilter = document.getElementById("var-filter");
-    const playerContainer = document.getElementById("ew-player-cbar-wrap") || document.querySelector("[id*='player']");
+    const rightInput = document.getElementById("var-filter");
+    const playerWrap = document.getElementById("ew-player-cbar-wrap") || document.querySelector("[id*='player']");
 
-    let playerFilter = document.getElementById("ew-player-search");
-    let playerSelect = document.getElementById("ew-player-select");
-    let badge = document.getElementById("ew-player-active-var");
+    let playerInput = document.getElementById("ew-player-filter-input");
+    let playerSelect = document.getElementById("ew-player-var-select");
+    let playerLabel = document.getElementById("ew-player-selected-var");
 
-    if (playerContainer && (!playerFilter || !playerSelect || !badge)) {
-      let box = document.getElementById("ew-player-sync-box");
+    if (playerWrap && (!playerInput || !playerSelect || !playerLabel)) {
+      let box = document.getElementById("ew-player-sync-panel");
       if (!box) {
         box = document.createElement("div");
-        box.id = "ew-player-sync-box";
+        box.id = "ew-player-sync-panel";
         box.className = "ew-sync-box";
-        playerContainer.appendChild(box);
+        playerWrap.appendChild(box);
       }
-      if (!playerFilter) {
-        playerFilter = document.createElement("input");
-        playerFilter.id = "ew-player-search";
-        playerFilter.type = "text";
-        playerFilter.className = "ew-sync-input";
-        playerFilter.placeholder = "Değişken adı veya kodu ile filtrele...";
-        box.appendChild(playerFilter);
+      if (!playerLabel) {
+        playerLabel = document.createElement("div");
+        playerLabel.id = "ew-player-selected-var";
+        playerLabel.className = "ew-player-var-label";
+        box.appendChild(playerLabel);
+      }
+      if (!playerInput) {
+        playerInput = document.createElement("input");
+        playerInput.id = "ew-player-filter-input";
+        playerInput.type = "text";
+        playerInput.className = "ew-sync-input";
+        playerInput.placeholder = "Değişken adı veya kodu ile filtrele...";
+        box.appendChild(playerInput);
       }
       if (!playerSelect) {
         playerSelect = document.createElement("select");
-        playerSelect.id = "ew-player-select";
+        playerSelect.id = "ew-player-var-select";
         playerSelect.className = "ew-sync-select";
         box.appendChild(playerSelect);
       }
-      if (!badge) {
-        badge = document.createElement("div");
-        badge.id = "ew-player-active-var";
-        badge.className = "ew-player-active-badge";
-        box.appendChild(badge);
+      if (!box.querySelector(".ew-sync-results")) {
+        const res = document.createElement("div");
+        res.className = "ew-sync-results";
+        box.appendChild(res);
       }
     }
 
-    [rightFilter, playerFilter].forEach(inp => {
+    if (rightInput && !rightInput.parentElement.querySelector(".ew-sync-results")) {
+      const res = document.createElement("div");
+      res.className = "ew-sync-results";
+      rightInput.insertAdjacentElement("afterend", res);
+    }
+
+    [rightInput, playerInput].forEach(inp => {
       if (!inp) return;
-      if (document.activeElement !== inp && inp.value !== searchQuery) {
-        inp.value = searchQuery;
+      if (document.activeElement !== inp && inp.value !== queryText) {
+        inp.value = queryText;
       }
-      if (!inp.dataset.ewBound) {
-        inp.dataset.ewBound = "1";
+      if (!inp.dataset.ewSyncBound) {
+        inp.dataset.ewSyncBound = "1";
         inp.addEventListener("input", (e) => {
-          searchQuery = e.target.value;
-          if (rightFilter && rightFilter !== e.target) rightFilter.value = searchQuery;
-          if (playerFilter && playerFilter !== e.target) playerFilter.value = searchQuery;
-          const nextCatalog = buildCatalog();
-          syncPanelsAndFilter(nextCatalog);
-          const nextFiltered = nextCatalog.filter(v => {
-            const s = searchQuery.trim().toLowerCase();
+          queryText = e.target.value;
+          if (rightInput && rightInput !== e.target) rightInput.value = queryText;
+          if (playerInput && playerInput !== e.target) playerInput.value = queryText;
+          const nextCat = getUnifiedCatalog();
+          const nextMatches = nextCat.filter(v => {
+            const s = queryText.trim().toLowerCase();
             return !s || v.name.toLowerCase().includes(s) || v.code.toLowerCase().includes(s) || v.unit.toLowerCase().includes(s);
           });
-          if (nextFiltered.length > 0 && !nextFiltered.some(v => v.code === activeCode)) {
-            setActiveVariable(nextFiltered[0].code);
-          }
+          const targetCode = nextMatches.length > 0 && !nextMatches.some(v => v.code === activeCode)
+            ? nextMatches[0].code
+            : activeCode;
+          applySelection(targetCode);
         });
       }
     });
 
-    const allSelects = Array.from(document.querySelectorAll("select"));
-    allSelects.forEach(sel => {
-      if (sel.id !== "ew-player-select" && sel.options.length > 0 && sel.options.length < 4) return;
+    const selects = Array.from(document.querySelectorAll("select"));
+    selects.forEach(sel => {
+      if (sel.id !== "ew-player-var-select" && sel.options.length > 0 && sel.options.length < 4) return;
       sel.innerHTML = "";
-      items.forEach(v => {
+      activePool.forEach(v => {
         const opt = document.createElement("option");
         opt.value = v.code;
         opt.textContent = `${v.name} [${v.code}] (${v.unit})`;
         sel.appendChild(opt);
       });
-      const chosen = items.some(v => v.code === activeCode) ? activeCode : items[0].code;
+      const chosen = activePool.some(v => v.code === activeCode) ? activeCode : activePool[0].code;
       sel.value = chosen;
-      if (!sel.dataset.ewSelectBound) {
-        sel.dataset.ewSelectBound = "1";
-        sel.addEventListener("change", () => setActiveVariable(sel.value));
+      if (!sel.dataset.ewChangeBound) {
+        sel.dataset.ewChangeBound = "1";
+        sel.addEventListener("change", () => applySelection(sel.value));
       }
     });
+
+    renderMatchLists(activePool);
   }
 
-  function renderMapColorLayer(item) {
+  function paintMap(item) {
     if (!window.L || !window.map) return;
     if (!window.gridGroup) {
       window.gridGroup = L.layerGroup().addTo(window.map);
     }
     window.gridGroup.clearLayers();
 
-    const latMin = 38.5, latMax = 42.6, lonMin = 25.5, lonMax = 32.5;
-    const rows = 16, cols = 24;
+    const latMin = 38.4, latMax = 42.6, lonMin = 25.4, lonMax = 32.6;
+    const rows = 18, cols = 26;
     const dLat = (latMax - latMin) / rows;
     const dLon = (lonMax - lonMin) / cols;
 
@@ -1984,50 +2011,50 @@
       for (let c = 0; c < cols; c++) {
         const lat0 = latMin + r * dLat;
         const lon0 = lonMin + c * dLon;
-        const wave = 0.5 + 0.35 * Math.sin(r * 0.55 + c * 0.4) + 0.15 * Math.cos(r * 0.3 - c * 0.65);
-        const norm = Math.max(0, Math.min(1, wave));
-        const idx = Math.min(item.palette.length - 1, Math.floor(norm * item.palette.length));
-        const color = item.palette[idx];
+        const field = 0.5 + 0.35 * Math.sin(r * 0.52 + c * 0.38) + 0.15 * Math.cos(r * 0.33 - c * 0.62);
+        const norm = Math.max(0, Math.min(1, field));
+        const pIdx = Math.min(item.palette.length - 1, Math.floor(norm * item.palette.length));
+        const col = item.palette[pIdx];
 
         L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
-          color: color,
+          color: col,
           weight: 0.5,
           opacity: 0.45,
-          fillColor: color,
-          fillOpacity: 0.38,
+          fillColor: col,
+          fillOpacity: 0.4,
           interactive: false
         }).addTo(window.gridGroup);
       }
     }
   }
 
-  function setActiveVariable(code) {
-    const catalog = buildCatalog();
+  function applySelection(code) {
+    const catalog = getUnifiedCatalog();
     const item = catalog.find(v => v.code === code) || catalog[0];
     if (!item) return;
     activeCode = item.code;
-    syncPanelsAndFilter(catalog);
-    applyColorBars(item);
-    renderMapColorLayer(item);
+    syncControls(catalog);
+    syncCbars(item);
+    paintMap(item);
   }
 
-  function keepAlive() {
-    const catalog = buildCatalog();
+  function loopSync() {
+    const catalog = getUnifiedCatalog();
     const item = catalog.find(v => v.code === activeCode) || catalog[0];
     if (!item) return;
-    syncPanelsAndFilter(catalog);
-    applyColorBars(item);
+    syncControls(catalog);
+    syncCbars(item);
     if (window.map && window.gridGroup && window.gridGroup.getLayers().length === 0) {
-      renderMapColorLayer(item);
+      paintMap(item);
     }
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => setActiveVariable(activeCode));
+    document.addEventListener("DOMContentLoaded", () => applySelection(activeCode));
   } else {
-    setActiveVariable(activeCode);
+    applySelection(activeCode);
   }
-  setInterval(keepAlive, 1200);
+  setInterval(loopSync, 1200);
 })();
 </script>
 <!-- ew-combined-fix-end -->
