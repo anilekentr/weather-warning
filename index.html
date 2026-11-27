@@ -1851,7 +1851,7 @@
   const mapVarToMetNo = (instantDetails, v) => {
     if (!instantDetails || typeof instantDetails !== "object") return null;
     const c = v.code;
-    if (c === "2t" || c === "app" || c.startsWith("t") || c.startsWith("st")) {
+    if (c === "2t" || c === "app" || c === "t2m" || c.startsWith("st")) {
       return typeof instantDetails.air_temperature === "number" ? instantDetails.air_temperature : null;
     }
     if (c === "rh2m" || c.startsWith("rh")) {
@@ -1923,18 +1923,6 @@
       }
       if (res.ok) {
         const j = await res.json();
-        try {
-          const arrSample = Array.isArray(j?.hourly?.[fieldName]) ? j.hourly[fieldName].slice(0, 4) : null;
-          console.log("[EW_FETCH]", { fieldName, hourlyUrl, arrSample });
-        } catch (_) {}
-        const val = extractNowVal(j, fieldName, offsetHours);
-        try {
-          if (fieldName === 'precipitation') {
-            console.log('[EW_EXTRACT_PRECIP] ' + JSON.stringify({
-              val,
-              precip6: j?.hourly?.precipitation?.slice(0, 6) ?? null,
-              time6: j?.hourly?.time?.slice(0, 6) ?? null
-            }));
           }
         } catch (_) {}
         if (typeof val === "number" && Number.isFinite(val)) {
