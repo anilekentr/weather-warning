@@ -1722,65 +1722,97 @@
 })();
 </script>
 
-<style id="ew-ecmwf-cbar-only-css">
-  .ecmwf-cbar-duplicate,
-  [data-ew-dup-cbar="1"] {
+<style id="ew-real-cbar-css">
+  #ew-cbar ~ #ew-cbar,
+  .ew-ecmwf-cbar-muted ~ .ew-ecmwf-cbar-muted {
     display: none !important;
   }
 </style>
-<script id="ew-ecmwf-cbar-only-js">
+<script id="ew-real-cbar-js">
 (function () {
-  const styleProps = [
-    'background', 'background-color', 'background-image',
-    'color', 'border', 'border-color', 'border-radius',
-    'font-family', 'font-size', 'font-weight', 'letter-spacing',
-    'line-height', 'padding', 'box-shadow'
-  ];
-
-  function fixEcmwfCbar() {
-    const nodes = Array.from(document.querySelectorAll('*')).filter(el => {
-      const tag = (el.tagName || '').toLowerCase();
-      if (['script', 'style', 'html', 'body', 'head'].includes(tag)) return false;
-      const meta = ((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.textContent || '')).toLowerCase();
-      return meta.includes('cbar');
-    });
-
-    const leaves = nodes.filter(el => !nodes.some(other => other !== el && el.contains(other)));
-    if (leaves.length === 0) return;
-
-    const playerBar = leaves.find(el => /oynat/i.test(((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.textContent || '')))) || leaves[0];
-    const ecmwfBars = leaves.filter(el => el !== playerBar && /ecmwf/i.test(((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.textContent || ''))));
-
-    if (ecmwfBars.length === 0) return;
-
-    const primaryEcmwf = ecmwfBars[0];
-    for (let i = 1; i < ecmwfBars.length; i++) {
-      ecmwfBars[i].setAttribute('data-ew-dup-cbar', '1');
-      ecmwfBars[i].style.setProperty('display', 'none', 'important');
-    }
-
-    if (playerBar) {
-      const pStyle = window.getComputedStyle(playerBar);
-      for (const prop of styleProps) {
-        const val = pStyle.getPropertyValue(prop);
-        if (val) {
-          primaryEcmwf.style.setProperty(prop, val, 'important');
-        }
+  function syncEcmwfToPlayerCbar() {
+    const ecmwfBars = Array.from(document.querySelectorAll('#ew-cbar'));
+    if (ecmwfBars.length > 1) {
+      for (let i = 1; i < ecmwfBars.length; i++) {
+        ecmwfBars[i].style.setProperty('display', 'none', 'important');
       }
     }
 
-    const hasLabel = /ecmwf\s*cbar/i.test(primaryEcmwf.textContent || '');
-    if (!hasLabel) {
-      const span = document.createElement('span');
-      span.textContent = ' ECMWF CBAR';
-      primaryEcmwf.appendChild(span);
+    const ecmwfCbar = ecmwfBars[0];
+    const playerWrap = document.getElementById('ew-player-cbar-wrap') || document.getElementById('ew-player-cbar');
+    if (!ecmwfCbar || !playerWrap) return;
+
+    // Oynatici CBAR stil ve tipografi ozelliklerini #ew-cbar uzerine uygula
+    const pStyle = window.getComputedStyle(playerWrap);
+    const props = [
+      'background', 'background-color', 'background-image',
+      'border', 'border-color', 'border-radius',
+      'color', 'font-family', 'font-size', 'font-weight',
+      'letter-spacing', 'box-shadow'
+    ];
+    for (const prop of props) {
+      const val = pStyle.getPropertyValue(prop);
+      if (val) {
+        ecmwfCbar.style.setProperty(prop, val, 'important');
+      }
+    }
+
+    // Oynatici bar icindeki gradyan ve etiket bicimini bul
+    const playerGradEl = playerWrap.querySelector('[id*="grad"], [class*="grad"], [id*="scale"], [class*="scale"], [style*="linear-gradient"]');
+    const ecmwfGradEl = ecmwfCbar.querySelector('#cbar-gradient');
+    if (playerGradEl && ecmwfGradEl) {
+      const gStyle = window.getComputedStyle(playerGradEl);
+      if (gStyle.backgroundImage && gStyle.backgroundImage !== 'none') {
+        ecmwfGradEl.style.setProperty('background-image', gStyle.backgroundImage, 'important');
+      }
+      if (gStyle.height) {
+        ecmwfGradEl.style.setProperty('height', gStyle.height, 'important');
+      }
+      if (gStyle.borderRadius) {
+        ecmwfGradEl.style.setProperty('border-radius', gStyle.borderRadius, 'important');
+      }
+    }
+
+    // Oynatici bar etiket rakamlarini ve yazi bicimini esitle
+    const playerLabelEls = Array.from(playerWrap.querySelectorAll('span, div, label')).filter(el => {
+      const t = (el.textContent || '').trim();
+      return t.length > 0 && el.children.length === 0;
+    });
+    const playerNums = (playerWrap.textContent || '').match(/-?\d+(?:[.,]\d+)?/g) || [];
+
+    const ecmwfLabelEls = Array.from(ecmwfCbar.querySelectorAll('#cbar-min, #cbar-mid, #cbar-max, .cbar-labels span, .cbar-title, .cbar-code'));
+    if (playerLabelEls.length > 0) {
+      const refStyle = window.getComputedStyle(playerLabelEls[0]);
+      ecmwfLabelEls.forEach((el, idx) => {
+        el.style.setProperty('color', refStyle.color, 'important');
+        el.style.setProperty('font-family', refStyle.fontFamily, 'important');
+        el.style.setProperty('font-size', refStyle.fontSize, 'important');
+        el.style.setProperty('font-weight', refStyle.fontWeight, 'important');
+        if (el.id === 'cbar-min' || el.id === 'cbar-mid' || el.id === 'cbar-max') {
+          if (playerNums.length >= 3 && el.id === 'cbar-min') el.textContent = playerNums[0];
+          if (playerNums.length >= 3 && el.id === 'cbar-mid') el.textContent = playerNums[Math.floor(playerNums.length / 2)];
+          if (playerNums.length >= 3 && el.id === 'cbar-max') el.textContent = playerNums[playerNums.length - 1];
+        }
+        if (el.id === 'cbar-title' && !/ecmwf\s*cbar/i.test(el.textContent || '')) {
+          el.textContent = (el.textContent || '').trim() + ' — ECMWF CBAR';
+        }
+      });
+    }
+
+    if (!/ecmwf\s*cbar/i.test(ecmwfCbar.textContent || '')) {
+      const badge = document.createElement('div');
+      badge.textContent = 'ECMWF CBAR';
+      badge.style.fontSize = '11px';
+      badge.style.fontWeight = '700';
+      badge.style.marginTop = '4px';
+      ecmwfCbar.appendChild(badge);
     }
   }
 
   window.addEventListener('DOMContentLoaded', () => {
-    fixEcmwfCbar();
-    setTimeout(fixEcmwfCbar, 700);
-    setTimeout(fixEcmwfCbar, 1800);
+    syncEcmwfToPlayerCbar();
+    setTimeout(syncEcmwfToPlayerCbar, 600);
+    setTimeout(syncEcmwfToPlayerCbar, 1600);
   });
 })();
 </script>
