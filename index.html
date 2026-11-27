@@ -1349,7 +1349,12 @@
     { code: "rh850", om: "relative_humidity_850hPa", name: "850hPa Bağıl Nem", unit: "%", min: 0, max: 100 },
     { code: "rh700", om: "relative_humidity_700hPa", name: "700hPa Bağıl Nem", unit: "%", min: 0, max: 100 },
     { code: "rh500", om: "relative_humidity_500hPa", name: "500hPa Bağıl Nem", unit: "%", min: 0, max: 100 },
-    { code: "dp850", om: "dew_point_850hPa", name: "850hPa Çiy Noktası", unit: "°C", min: -20, max: 20 }
+    { code: "dp850", om: "dew_point_850hPa", name: "850hPa Çiy Noktası", unit: "°C", min: -20, max: 20 },
+    { code: "vor850", om: "derived_vorticity_850hPa", name: "850hPa Bağıl Vortisite", unit: "10⁻⁵ s⁻¹", min: -15, max: 25 },
+    { code: "vor500", om: "derived_vorticity_500hPa", name: "500hPa Bağıl Vortisite", unit: "10⁻⁵ s⁻¹", min: -20, max: 30 },
+    { code: "div850", om: "derived_divergence_850hPa", name: "850hPa Yatay Diverjans", unit: "10⁻⁵ s⁻¹", min: -15, max: 15 },
+    { code: "div250", om: "derived_divergence_250hPa", name: "250hPa Yatay Diverjans", unit: "10⁻⁵ s⁻¹", min: -15, max: 20 },
+    { code: "thk500", om: "derived_thickness_500_1000", name: "500-1000hPa Kalınlık", unit: "m", min: 5100, max: 5820 }
   ];
 
   const STOPS = [
@@ -1897,7 +1902,35 @@
     }
   };
 
-  const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'number' ? hourOffset : 0)) => {
+  const fetchDerivedEcmwfVal = async (lat, lng, fieldName, offsetHours) => {
+      const reqDays = 16;
+      const g = async (la, lo, f) => {
+        const u = `https://api.open-meteo.com/v1/ecmwf?latitude=${la.toFixed(4)}&longitude=${lo.toFixed(4)}&hourly=${encodeURIComponent(f)}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
+        const r = await fetch(u, { cache: "no-store" });
+        if (!r.ok) return null;
+        const v = extractNowVal(await r.json(), f, offsetHours);
+        return (typeof v === "number" && Number.isFinite(v)) ? v : null;
+      };
+      if (fieldName === "derived_thickness_500_1000") {
+        const [z5, z1] = await Promise.all([g(lat, lng, "geopotential_height_500hPa"), g(lat, lng, "geopotential_height_1000hPa")]);
+        return (z5 === null || z1 === null) ? { val: null, tag: "Veri yok" } : { val: Number((z5 - z1).toFixed(1)), tag: "ECMWF" };
+      }
+      const m = fieldName.match(/^derived_(vorticity|divergence)_([0-9]+hPa)$/);
+      if (!m) return { val: null, tag: "Veri yok" };
+      const [, kind, lvl] = m, d = 0.25, rad = Math.PI / 180, R = 6371000;
+      const dy = 2 * d * rad * R, dx = dy * Math.max(0.2, Math.cos(lat * rad));
+      const uv = async (la, lo) => {
+        const [ws, wd] = await Promise.all([g(la, lo, `wind_speed_${lvl}`), g(la, lo, `wind_direction_${lvl}`)]);
+        if (ws === null || wd === null) return null;
+        const th = wd * rad;
+        return { u: -ws * Math.sin(th), v: -ws * Math.cos(th) };
+      };
+      const [e, w, n, so] = await Promise.all([uv(lat, lng + d), uv(lat, lng - d), uv(lat + d, lng), uv(lat - d, lng)]);
+      if (!e || !w || !n || !so) return { val: null, tag: "Veri yok" };
+      const raw = kind === "vorticity" ? ((e.v - w.v) / dx - (n.u - so.u) / dy) : ((e.u - w.u) / dx + (n.v - so.v) / dy);
+      return { val: Number((raw * 1e5).toFixed(2)), tag: "ECMWF" };
+    };
+    const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'number' ? hourOffset : 0)) => {
     if (Date.now() < rateLimitUntil) {
       return { val: null, tag: "Veri yok" };
     }
@@ -1907,12 +1940,8 @@
     lastNetAt = Date.now();
 
     const fieldName = v.om || v.key || v.code;
-    const precipBundle = ["precipitation", "rain", "showers", "snowfall", "snow_depth", "weather_code"];
-    const fieldsSet = new Set([fieldName].filter(Boolean));
-    if (precipBundle.includes(fieldName) || v.code === "wmo") {
-      precipBundle.forEach(f => fieldsSet.add(f));
-    }
-    const fieldsParam = Array.from(fieldsSet).map(encodeURIComponent).join(",");
+      if (String(fieldName).startsWith("derived_")) { try { return await fetchDerivedEcmwfVal(lat, lng, fieldName, offsetHours); } catch (_) { return { val: null, tag: "Veri yok" }; } }
+    const fieldsParam = encodeURIComponent(fieldName);
     const reqDays = Math.min(16, Math.max(16, Math.ceil((Math.max(0, Number(offsetHours) || 0) + 24) / 24)));
     const windUnitParam = v.unit === "km/h" ? "&wind_speed_unit=kmh" : "";
     const hourlyUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${fieldsParam}${windUnitParam}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
