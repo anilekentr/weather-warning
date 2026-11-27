@@ -613,15 +613,18 @@
 /* === EKEN TIME BAR === */
 #ew-time-bar {
   display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   flex-wrap: wrap !important;
   align-items: center !important;
-  gap: 7px !important;
+  justify-content: center !important;
+  gap: 6px !important;
   position: fixed !important;
   left: 50% !important;
   bottom: 12px !important;
   transform: translateX(-50%) !important;
-  z-index: 1680 !important;
-  max-width: calc(100vw - 256px) !important;
+  z-index: 9999 !important;
+  max-width: calc(100vw - 24px) !important;
   padding: 6px 10px !important;
   border-radius: 10px !important;
   background: rgba(9, 17, 34, 0.96) !important;
