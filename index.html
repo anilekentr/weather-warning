@@ -1987,7 +1987,7 @@
       const res = await fetch(hourlyUrl, { cache: "no-store" });
       if (res.status === 429) {
         rateLimitUntil = Date.now() + 350;
-        await sleep(450);
+        await sleep(220);
         const res2 = await fetch(hourlyUrl, { cache: "no-store" });
         if (res2 && res2.ok) {
           const j2 = await res2.json();
