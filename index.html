@@ -1805,6 +1805,23 @@
     { name: "Doğu Güney", lat: 37.91, lon: 40.24 }
   ];
 
+  // O anki küresel (tüm dünya) Min ve Max sınırını belirlemek için küresel örnekleme noktaları
+  const GLOBAL_POINTS = [
+    { name: "Kuzey Kutup", lat: 75.0, lon: 0.0 },
+    { name: "Kuzey Kanada", lat: 64.0, lon: -105.0 },
+    { name: "Sibirya", lat: 63.0, lon: 105.0 },
+    { name: "Orta Avrupa", lat: 50.0, lon: 14.0 },
+    { name: "Doğu Akdeniz", lat: 36.0, lon: 34.0 },
+    { name: "Sahra", lat: 24.0, lon: 13.0 },
+    { name: "Ekvator Atlantik", lat: 0.0, lon: -20.0 },
+    { name: "Ekvator Pasifik", lat: 0.0, lon: -140.0 },
+    { name: "Hint Okyanusu", lat: -15.0, lon: 80.0 },
+    { name: "Güney Brezilya", lat: -23.0, lon: -46.0 },
+    { name: "Avustralya", lat: -25.0, lon: 134.0 },
+    { name: "Güney Okyanus", lat: -55.0, lon: 20.0 },
+    { name: "Antarktika Kenarı", lat: -72.0, lon: 0.0 }
+  ];
+
   let activeVarCode = "temperature_2m";
   let lastRegionCache = { key: "", min: null, max: null, pointVal: null, valuesByIdx: [] };
 
