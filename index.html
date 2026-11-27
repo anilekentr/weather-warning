@@ -615,16 +615,16 @@
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: 10px;
-  z-index: 9999;
+  bottom: 8px;
+  z-index: 10000;
   display: flex !important;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: rgba(15, 23, 42, 0.92);
+  background: rgba(15, 23, 42, 0.94);
   color: #f8fafc;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 10px;
   backdrop-filter: blur(6px);
   visibility: visible !important;
@@ -1505,27 +1505,42 @@
   };
 
   const paintCbar = (v, val, rangeOverride = null) => {
-    let cbar = document.getElementById("cbar-box");
-    if (!cbar) {
-      cbar = document.createElement("div");
-      cbar.id = "cbar-box";
-      document.body.appendChild(cbar);
-    }
-    const rng = rangeOverride || activeCbarRange || { min: Number(v.min), max: Number(v.max) };
-    activeCbarRange = rng;
-    const min = rng.min, max = rng.max;
-    const q1 = Number((min + (max - min) * 0.25).toFixed(1));
-    const q2 = Number((min + (max - min) * 0.50).toFixed(1));
-    const q3 = Number((min + (max - min) * 0.75).toFixed(1));
-    const hasVal = typeof val === "number" && Number.isFinite(val);
-    const pct = hasVal ? (ratioWithRange(val, rng) * 100).toFixed(1) : null;
-    const markerHtml = hasVal
-      ? `<div style="position:relative;height:10px;margin:-11px 0 2px 0;"><div style="position:absolute;left:${pct}%;top:0;transform:translateX(-50%);width:3px;height:10px;background:#ffffff;border:1px solid #0f172a;border-radius:1px;"></div></div>`
-      : "";
-    cbar.innerHTML = `<div style="display:flex;justify-content:space-between;color:#f8fafc;line-height:1.15;font-weight:700;"><span>${v.name} (${v.code})</span><span>${v.unit}</span></div><div style="height:8px;border-radius:4px;margin:3px 0;background:${GRAD_CSS};border:1px solid rgba(255,255,255,0.25);"></div>${markerHtml}<div style="display:flex;justify-content:space-between;color:#e2e8f0;line-height:1.1;font-size:9px;"><span>${min}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${max}</span></div>`;
-  };
+      const targetVar = v || cur || { name: "2 m Sıcaklığı", code: "t2m", unit: "°C", min: -10, max: 40 };
+      let cbar = document.getElementById("cbar-box");
+      if (!cbar) {
+        cbar = document.createElement("div");
+        cbar.id = "cbar-box";
+        cbar.className = "panel-box";
+        document.body.appendChild(cbar);
+      }
+      const rng = rangeOverride || getEffectiveRange(targetVar, null);
+      activeCbarRange = rng;
+      const minNum = Number(rng.min);
+      const maxNum = Number(rng.max);
+      const safeMin = Number.isFinite(minNum) ? minNum : 0;
+      const safeMax = Number.isFinite(maxNum) && maxNum > safeMin ? maxNum : safeMin + 1;
+      const q1 = Number((safeMin + (safeMax - safeMin) * 0.25).toFixed(1));
+      const q2 = Number((safeMin + (safeMax - safeMin) * 0.50).toFixed(1));
+      const q3 = Number((safeMin + (safeMax - safeMin) * 0.75).toFixed(1));
+      const hasVal = typeof val === "number" && Number.isFinite(val);
+      const pct = hasVal ? (ratioWithRange(val, { min: safeMin, max: safeMax }) * 100).toFixed(1) : null;
+      const unitTxt = targetVar.unit || "";
+      const markerHtml = hasVal
+        ? `<div data-ew-marker="1" style="position:relative;height:10px;margin:-11px 0 2px 0;"><div style="position:absolute;left:${pct}%;top:0;transform:translateX(-50%);width:3px;height:10px;background:#ffffff;border:1px solid #0f172a;border-radius:1px;"></div></div>`
+        : "";
+      cbar.innerHTML =
+        `<div id="cbar-top" style="display:flex;justify-content:space-between;align-items:center;gap:8px;color:#f8fafc;line-height:1.2;font-weight:700;font-size:11px;">` +
+          `<span id="cbar-name">${targetVar.name} (${targetVar.code})</span>` +
+          `<span id="cbar-unit" style="color:#7dd3fc;">${unitTxt}</span>` +
+        `</div>` +
+        `<div id="cbar-grad" style="height:8px;border-radius:4px;margin:4px 0;background:${GRAD_CSS};border:1px solid rgba(255,255,255,0.25);"></div>` +
+        markerHtml +
+        `<div id="cbar-ticks" style="display:flex;justify-content:space-between;color:#e2e8f0;line-height:1.15;font-size:9px;">` +
+          `<span>${safeMin}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${safeMax}</span>` +
+        `</div>`;
+    };
 
-  const findMap = () => {
+    const findMap = () => {
     if (window.map && typeof window.map.on === "function" && typeof window.map.getBounds === "function") return window.map;
     for (const k of Object.keys(window)) {
       try {
@@ -1596,7 +1611,7 @@
     if (!validPts.length) return;
 
     const rng = getEffectiveRange(targetVar, validPts);
-    paintCbar(targetVar, activeValue, rng);
+    paintCbar(targetVar, (typeof activeValue === 'number' && Number.isFinite(activeValue)) ? activeValue : null, rng);
     const screenPts = validPts.map(pt => {
       const sp = m.latLngToContainerPoint([pt.lat, pt.lng]);
       return { x: sp.x, y: sp.y, val: pt.val };
