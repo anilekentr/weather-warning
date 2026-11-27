@@ -1923,6 +1923,10 @@
       }
       if (res.ok) {
         const j = await res.json();
+        try {
+          const arrSample = Array.isArray(j?.hourly?.[fieldName]) ? j.hourly[fieldName].slice(0, 4) : null;
+          console.log("[EW_FETCH]", { fieldName, hourlyUrl, arrSample });
+        } catch (_) {}
         const val = extractNowVal(j, fieldName, offsetHours);
         if (typeof val === "number" && Number.isFinite(val)) {
           return { val, tag: "ECMWF" };
