@@ -1905,7 +1905,7 @@
     return { val: null, tag: "Veri yok" };
   };
 
-  const refreshPoint = async (lat, lng) => {
+  const refreshPoint = async (lat, lng, overrideOffset = null) => {
     hideOldBottom();
     const m = findMap();
     const cEl = document.getElementById("ews-coord");
@@ -1919,7 +1919,8 @@
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
     if (vvEl) vvEl.textContent = "Okunuyor...";
 
-    const out = await fetchRealVal(lat, lng, cur, (typeof hourOffset === 'number' ? hourOffset : 0));
+    const effOff = (typeof overrideOffset === 'number' && Number.isFinite(overrideOffset)) ? overrideOffset : ((typeof window.__ewHourOffset === 'number') ? window.__ewHourOffset : (typeof hourOffset === 'number' ? hourOffset : 0));
+      const out = await fetchRealVal(lat, lng, cur, effOff);
     activeValue = out.val;
 
     if (typeof out.val === "number" && Number.isFinite(out.val)) {
