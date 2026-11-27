@@ -1500,8 +1500,33 @@
     return cvs;
   };
 
-  const applyValueColorToMap = (val, v) => {
-    const m = findMap();
+  let spatialGridCache = { key: "", points: [], timer: null, seq: 0 };
+
+  const buildViewportGridPoints = (m, anchorPt, anchorVal) => {
+    const pts = [];
+    if (anchorPt && typeof anchorVal === "number" && Number.isFinite(anchorVal)) {
+      pts.push({ lat: anchorPt.lat, lng: anchorPt.lng, val: anchorVal });
+    }
+    if (!m || !m.getBounds) return pts;
+    const b = m.getBounds();
+    if (!b || !b.isValid || !b.isValid()) return pts;
+
+    const south = b.getSouth(), north = b.getNorth();
+    const west = b.getWest(), east = b.getEast();
+    const rows = 5, cols = 5;
+
+    for (let r = 0; r < rows; r++) {
+      const lat = south + ((r + 0.5) / rows) * (north - south);
+      for (let c = 0; c < cols; c++) {
+        const lng = west + ((c + 0.5) / cols) * (east - west);
+        if (anchorPt && Math.hypot(lat - anchorPt.lat, lng - anchorPt.lng) < 0.04) continue;
+        pts.push({ lat, lng, val: null });
+      }
+    }
+    return pts;
+  };
+
+  const renderSpatialField = (m, v, pts) => {
     if (!m) return;
     const el = ensureCanvas(m);
     if (!el) return;
@@ -1509,12 +1534,112 @@
     if (!ctx) return;
 
     ctx.clearRect(0, 0, el.width, el.height);
-    if (typeof val !== "number" || !Number.isFinite(val)) return;
+    const validPts = (pts || []).filter(p => typeof p.val === "number" && Number.isFinite(p.val));
+    if (!validPts.length) return;
 
-    const t = valueToRatio(val, v);
-    const [rr, gg, bb] = ratioToRgb(t);
-    ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.36)`;
-    ctx.fillRect(0, 0, el.width, el.height);
+    const screenPts = validPts.map(pt => {
+      const sp = m.latLngToContainerPoint([pt.lat, pt.lng]);
+      return { x: sp.x, y: sp.y, val: pt.val };
+    });
+
+    const step = 12;
+    const power = 2.2;
+    for (let y = 0; y < el.height; y += step) {
+      for (let x = 0; x < el.width; x += step) {
+        const cx = x + step * 0.5;
+        const cy = y + step * 0.5;
+        let wSum = 0;
+        let vSum = 0;
+        let exactVal = null;
+
+        for (let i = 0; i < screenPts.length; i++) {
+          const dx = cx - screenPts[i].x;
+          const dy = cy - screenPts[i].y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < 1.0) {
+            exactVal = screenPts[i].val;
+            break;
+          }
+          const w = 1 / Math.pow(d2, power * 0.5);
+          wSum += w;
+          vSum += w * screenPts[i].val;
+        }
+
+        const interpVal = (exactVal !== null) ? exactVal : (wSum > 0 ? vSum / wSum : null);
+        if (typeof interpVal !== "number" || !Number.isFinite(interpVal)) continue;
+        const t = valueToRatio(interpVal, v);
+        const [rr, gg, bb] = ratioToRgb(t);
+        ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.36)`;
+        ctx.fillRect(x, y, step + 1, step + 1);
+      }
+    }
+  };
+
+  const fetchGridValsBatch = async (gridPts, v, seq) => {
+    if (!Array.isArray(gridPts) || !gridPts.length) return;
+    const targets = gridPts.filter(p => p.val === null);
+    if (!targets.length) return;
+
+    const lats = targets.map(p => p.lat.toFixed(4)).join(",");
+    const lngs = targets.map(p => p.lng.toFixed(4)).join(",");
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(lats)}&longitude=${encodeURIComponent(lngs)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=1`;
+
+    try {
+      const waitMs = Math.max(0, 1400 - (Date.now() - lastNetAt));
+      if (waitMs > 0) await sleep(waitMs);
+      lastNetAt = Date.now();
+
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok || seq !== spatialGridCache.seq) return;
+      const j = await res.json();
+
+      if (Array.isArray(j)) {
+        j.forEach((item, idx) => {
+          if (targets[idx]) {
+            const val = extractNowVal(item, v.om);
+            if (typeof val === "number" && Number.isFinite(val)) targets[idx].val = val;
+          }
+        });
+      } else if (targets.length === 1 && j && typeof j === "object") {
+        const val = extractNowVal(j, v.om);
+        if (typeof val === "number" && Number.isFinite(val)) targets[0].val = val;
+      }
+
+      if (seq === spatialGridCache.seq) {
+        const m = findMap();
+        renderSpatialField(m, cur, spatialGridCache.points);
+      }
+    } catch (_) {}
+  };
+
+  const applyValueColorToMap = (val, v, anchorPt = lastPt) => {
+    const m = findMap();
+    if (!m) return;
+
+    const hasAnchorVal = typeof val === "number" && Number.isFinite(val);
+    const b = m.getBounds && m.getBounds().isValid && m.getBounds().isValid() ? m.getBounds() : null;
+    const bKey = b
+      ? `${v.code}|${b.getSouth().toFixed(2)},${b.getWest().toFixed(2)},${b.getNorth().toFixed(2)},${b.getEast().toFixed(2)}|${anchorPt ? `${anchorPt.lat.toFixed(3)},${anchorPt.lng.toFixed(3)}` : "none"}`
+      : `${v.code}|${anchorPt ? `${anchorPt.lat.toFixed(3)},${anchorPt.lng.toFixed(3)}` : "none"}`;
+
+    if (spatialGridCache.key !== bKey || !spatialGridCache.points.length) {
+      spatialGridCache.seq += 1;
+      const currentSeq = spatialGridCache.seq;
+      const pts = buildViewportGridPoints(m, anchorPt, hasAnchorVal ? val : null);
+      spatialGridCache.key = bKey;
+      spatialGridCache.points = pts;
+      renderSpatialField(m, v, pts);
+
+      if (spatialGridCache.timer) clearTimeout(spatialGridCache.timer);
+      spatialGridCache.timer = setTimeout(() => {
+        fetchGridValsBatch(pts, v, currentSeq);
+      }, 180);
+    } else {
+      if (hasAnchorVal && anchorPt && spatialGridCache.points.length) {
+        spatialGridCache.points[0] = { lat: anchorPt.lat, lng: anchorPt.lng, val };
+      }
+      renderSpatialField(m, v, spatialGridCache.points);
+    }
   };
 
   const extractNowVal = (j, field) => {
