@@ -2051,258 +2051,255 @@
 </script>
 <!-- ew-combined-fix-start -->
 <style id="ew-combined-fix-style">
-  /* Sağ alttaki ECMWF CBAR'ı oynatıcı CBAR ile aynı görsel dile hizala */
-  #ew-cbar, .ew-ecmwf-cbar, [id*="ecmwf"][id*="cbar"]:not([id*="player"]) {
-    background: linear-gradient(90deg, #2b6cb0 0%, #38b2ac 25%, #ecc94b 55%, #ed8936 80%, #e53e3e 100%) !important;
+  /* Sağ alttaki #ew-cbar kartını koyu cam olarak koru; rengi #cbar-gradient'e ver */
+  #ew-cbar {
+    background: rgba(15, 23, 42, 0.86) !important;
     color: #f8fafc !important;
-    border: 1px solid rgba(255,255,255,0.22) !important;
-    border-radius: 8px !important;
-    min-height: 18px !important;
-    height: 18px !important;
+    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    border-radius: 10px !important;
+    padding: 8px 10px !important;
+  }
+  #cbar-gradient, #ew-player-cbar {
+    min-height: 14px !important;
+    height: 14px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
     opacity: 1 !important;
     visibility: visible !important;
   }
-  .ew-sync-search-wrap {
-    margin: 8px 0;
+  .ew-player-filter-wrap {
+    margin-top: 8px;
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
-  .ew-sync-search-input {
+  .ew-synced-var-select {
     width: 100%;
-    box-sizing: border-box;
-    padding: 7px 10px;
+    padding: 6px 8px;
     border-radius: 6px;
-    border: 1px solid rgba(148,163,184,0.35);
-    background: rgba(15,23,42,0.75);
+    background: rgba(15, 23, 42, 0.85);
     color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.35);
     font-size: 12px;
   }
-  .ew-sync-var-list {
-    max-height: 190px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .ew-sync-var-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 8px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 12px;
-    background: rgba(30,41,59,0.55);
-    color: #e2e8f0;
-  }
-  .ew-sync-var-item.active, .ew-sync-var-item:hover {
-    background: rgba(56,189,248,0.25);
-    color: #ffffff;
-  }
-  .ew-map-color-layer {
-    pointer-events: none;
-    transition: opacity 0.2s ease;
+  .ew-grid-cell {
+    transition: fill-opacity 0.2s ease, fill 0.2s ease;
   }
 </style>
 <script id="ew-combined-fix-script">
 (function() {
-  const ECMWF_VARS = [
-    { code: "temperature_2m", label: "2m Sıcaklık", unit: "°C", min: -15, max: 35, palette: ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#d73027"] },
-    { code: "relative_humidity_2m", label: "2m Bağıl Nem", unit: "%", min: 10, max: 100, palette: ["#edf8fb","#ccebc5","#a8ddb5","#7bccc4","#4eb3d3","#2b8cbe","#08589e"] },
-    { code: "dew_point_2m", label: "2m Çiy Noktası", unit: "°C", min: -10, max: 25, palette: ["#f7fcf0","#e0f3db","#ccebc5","#a8ddb5","#7bccc4","#43a2ca","#0868ac"] },
-    { code: "apparent_temperature", label: "Hissedilen Sıcaklık", unit: "°C", min: -15, max: 38, palette: ["#313695","#4575b4","#74add1","#fee090","#fdae61","#f46d43","#a50026"] },
-    { code: "precipitation", label: "Toplam Yağış", unit: "mm", min: 0, max: 30, palette: ["#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c"] },
-    { code: "rain", label: "Yağmur", unit: "mm", min: 0, max: 25, palette: ["#e0f2fe","#7dd3fc","#38bdf8","#0284c7","#0369a1"] },
-    { code: "snowfall", label: "Kar Yağışı", unit: "cm", min: 0, max: 25, palette: ["#f8fafc","#bae6fd","#7dd3fc","#38bdf8","#0284c7"] },
-    { code: "snow_depth", label: "Kar Kalınlığı", unit: "m", min: 0, max: 1.5, palette: ["#f1f5f9","#cbd5e1","#60a5fa","#2563eb","#1e3a8a"] },
-    { code: "weather_code", label: "Hava Durumu Kodu", unit: "wmo", min: 0, max: 99, palette: ["#94a3b8","#38bdf8","#facc15","#f97316","#ef4444"] },
-    { code: "pressure_msl", label: "Deniz Seviyesi Basıncı", unit: "hPa", min: 995, max: 1035, palette: ["#1d4ed8","#06b6d4","#10b981","#f59e0b","#dc2626"] },
-    { code: "surface_pressure", label: "Yüzey Basıncı", unit: "hPa", min: 950, max: 1035, palette: ["#1e40af","#0284c7","#0d9488","#eab308","#ea580c"] },
-    { code: "cloud_cover", label: "Toplam Bulutluluk", unit: "%", min: 0, max: 100, palette: ["#e2e8f0","#cbd5e1","#94a3b8","#64748b","#334155"] },
-    { code: "wind_speed_10m", label: "10m Rüzgar Hızı", unit: "km/s", min: 0, max: 80, palette: ["#dcfce7","#86efac","#fde047","#fb923c","#ef4444"] },
-    { code: "wind_gusts_10m", label: "10m Rüzgar Hamlesi", unit: "km/s", min: 0, max: 110, palette: ["#fef9c3","#fde047","#f97316","#dc2626","#7f1d1d"] },
-    { code: "wind_direction_10m", label: "10m Rüzgar Yönü", unit: "°", min: 0, max: 360, palette: ["#38bdf8","#818cf8","#c084fc","#f472b6","#38bdf8"] },
-    { code: "shortwave_radiation", label: "Kısa Dalga Radyasyon", unit: "W/m²", min: 0, max: 900, palette: ["#1e293b","#facc15","#fb923c","#ef4444"] },
-    { code: "cape", label: "CAPE Kararsızlık", unit: "J/kg", min: 0, max: 2500, palette: ["#ecfeff","#67e8f9","#facc15","#f97316","#dc2626"] }
+  const FALLBACK_VARS = [
+    ["temperature_2m", "2m Sıcaklık", "°C", -10, 35, ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#d73027"]],
+    ["relative_humidity_2m", "2m Bağıl Nem", "%", 10, 100, ["#edf8fb","#ccebc5","#a8ddb5","#7bccc4","#4eb3d3","#2b8cbe","#08589e"]],
+    ["dew_point_2m", "2m Çiy Noktası", "°C", -8, 24, ["#f7fcf0","#e0f3db","#ccebc5","#a8ddb5","#7bccc4","#43a2ca","#0868ac"]],
+    ["apparent_temperature", "Hissedilen Sıcaklık", "°C", -12, 38, ["#313695","#4575b4","#74add1","#fee090","#fdae61","#f46d43","#a50026"]],
+    ["precipitation", "Toplam Yağış", "mm", 0, 30, ["#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c"]],
+    ["rain", "Yağmur", "mm", 0, 25, ["#e0f2fe","#7dd3fc","#38bdf8","#0284c7","#0369a1"]],
+    ["snowfall", "Kar Yağışı", "cm", 0, 20, ["#f8fafc","#bae6fd","#7dd3fc","#38bdf8","#0284c7"]],
+    ["snow_depth", "Kar Kalınlığı", "m", 0, 1.5, ["#f1f5f9","#cbd5e1","#60a5fa","#2563eb","#1e3a8a"]],
+    ["weather_code", "Hava Durumu Kodu", "wmo", 0, 99, ["#94a3b8","#38bdf8","#facc15","#f97316","#ef4444"]],
+    ["pressure_msl", "Deniz Seviyesi Basıncı", "hPa", 995, 1035, ["#1d4ed8","#06b6d4","#10b981","#f59e0b","#dc2626"]],
+    ["surface_pressure", "Yüzey Basıncı", "hPa", 950, 1035, ["#1e40af","#0284c7","#0d9488","#eab308","#ea580c"]],
+    ["cloud_cover", "Toplam Bulutluluk", "%", 0, 100, ["#e2e8f0","#cbd5e1","#94a3b8","#64748b","#334155"]],
+    ["wind_speed_10m", "10m Rüzgar Hızı", "km/s", 0, 80, ["#dcfce7","#86efac","#fde047","#fb923c","#ef4444"]],
+    ["wind_gusts_10m", "10m Rüzgar Hamlesi", "km/s", 0, 110, ["#fef9c3","#fde047","#f97316","#dc2626","#7f1d1d"]],
+    ["wind_direction_10m", "10m Rüzgar Yönü", "°", 0, 360, ["#38bdf8","#818cf8","#c084fc","#f472b6","#38bdf8"]],
+    ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²", 0, 900, ["#1e293b","#facc15","#fb923c","#ef4444"]],
+    ["cape", "CAPE Kararsızlık", "J/kg", 0, 2500, ["#ecfeff","#67e8f9","#facc15","#f97316","#dc2626"]]
   ];
 
-  let activeCode = "temperature_2m";
-  let filterText = "";
-
-  function getMeta(code) {
-    return ECMWF_VARS.find(v => v.code === code) || ECMWF_VARS[0];
-  }
-
-  function gradientCss(palette) {
-    const step = 100 / (palette.length - 1);
-    const stops = palette.map((c, i) => `${c} ${(i * step).toFixed(1)}%`).join(", ");
-    return `linear-gradient(90deg, ${stops})`;
-  }
-
-  function syncColorBars() {
-    const meta = getMeta(activeCode);
-    const grad = gradientCss(meta.palette);
-
-    const playerCbar = document.querySelector("#ew-player-cbar");
-    if (playerCbar) {
-      playerCbar.style.background = grad;
-      playerCbar.style.opacity = "1";
+  function getCatalog() {
+    if (Array.isArray(window.vars) && window.vars.length > 0) {
+      return window.vars.map(v => ({
+        code: v.om || v.code,
+        name: v.name || v.label || v.om,
+        unit: v.unit || "",
+        min: typeof v.min === "number" ? v.min : 0,
+        max: typeof v.max === "number" ? v.max : 100,
+        palette: Array.isArray(v.palette) && v.palette.length > 1 ? v.palette : ["#38bdf8", "#facc15", "#ef4444"]
+      }));
     }
-
-    const targets = document.querySelectorAll('#ew-cbar, .ew-ecmwf-cbar, [id*="ecmwf"][id*="cbar"]:not([id*="player"])');
-    targets.forEach(el => {
-      if (el.id === "ew-player-cbar") return;
-      el.style.setProperty("background", grad, "important");
-      el.style.setProperty("opacity", "1", "important");
-      el.style.setProperty("visibility", "visible", "important");
-      el.style.setProperty("min-height", "18px", "important");
-      el.style.setProperty("border-radius", "8px", "important");
-      if (playerCbar && playerCbar.parentElement) {
-        const pw = playerCbar.getBoundingClientRect().width;
-        if (pw > 60) {
-          el.style.setProperty("width", Math.round(pw) + "px", "important");
-        }
-      }
-    });
+    if (Array.isArray(window.CAT) && window.CAT.length > 0) {
+      return window.CAT.map(([om, name, unit, min, max, palette]) => ({
+        code: om, name, unit, min, max,
+        palette: Array.isArray(palette) && palette.length > 1 ? palette : ["#38bdf8", "#facc15", "#ef4444"]
+      }));
+    }
+    return FALLBACK_VARS.map(([code, name, unit, min, max, palette]) => ({ code, name, unit, min, max, palette }));
   }
 
-  function populateSelects() {
-    const selects = document.querySelectorAll("select");
-    selects.forEach(sel => {
-      const hasVar = Array.from(sel.options).some(o => ECMWF_VARS.some(v => o.value.includes(v.code) || o.text.includes(v.code)));
-      if (!hasVar && sel.options.length > 0 && sel.options.length < 4) return;
-      const existingValues = new Set(Array.from(sel.options).map(o => o.value));
-      ECMWF_VARS.forEach(v => {
-        if (!existingValues.has(v.code)) {
-          const opt = document.createElement("option");
-          opt.value = v.code;
-          opt.textContent = `${v.label} [${v.code}] (${v.unit})`;
-          sel.appendChild(opt);
-        }
-      });
-      if (Array.from(sel.options).some(o => o.value === activeCode)) {
-        sel.value = activeCode;
-      }
-      if (!sel.dataset.ewBound) {
-        sel.dataset.ewBound = "1";
-        sel.addEventListener("change", () => {
-          setActiveVariable(sel.value);
-        });
-      }
-    });
+  let currentCode = "temperature_2m";
+  let currentFilter = "";
+
+  function toGradient(palette) {
+    const step = 100 / Math.max(1, palette.length - 1);
+    return "linear-gradient(90deg, " + palette.map((c, i) => `${c} ${(i * step).toFixed(1)}%`).join(", ") + ")";
   }
 
-  function renderPanelList(container, searchEl) {
-    if (!container) return;
-    const q = (filterText || "").trim().toLowerCase();
-    const matches = ECMWF_VARS.filter(v =>
-      !q || v.label.toLowerCase().includes(q) || v.code.toLowerCase().includes(q) || v.unit.toLowerCase().includes(q)
+  function applyColorBars(item) {
+    const grad = toGradient(item.palette);
+    const midVal = ((item.min + item.max) / 2).toFixed(item.max <= 5 ? 2 : 1);
+    const minStr = `${item.min} ${item.unit}`.trim();
+    const midStr = `${midVal} ${item.unit}`.trim();
+    const maxStr = `${item.max} ${item.unit}`.trim();
+
+    const playerBar = document.getElementById("ew-player-cbar");
+    if (playerBar) {
+      playerBar.style.setProperty("background", grad, "important");
+      playerBar.style.setProperty("opacity", "1", "important");
+    }
+    const playerTitle = document.getElementById("ew-player-cbar-title");
+    if (playerTitle) playerTitle.textContent = `${item.name} [${item.code}]`;
+    const playerScale = document.getElementById("ew-player-cbar-scale");
+    if (playerScale) playerScale.textContent = `${minStr} · ${midStr} · ${maxStr}`;
+
+    const rightGrad = document.getElementById("cbar-gradient");
+    if (rightGrad) {
+      rightGrad.style.setProperty("background", grad, "important");
+      rightGrad.style.setProperty("opacity", "1", "important");
+    }
+    const titleEl = document.getElementById("cbar-title");
+    const codeEl = document.getElementById("cbar-code");
+    const minEl = document.getElementById("cbar-min");
+    const midEl = document.getElementById("cbar-mid");
+    const maxEl = document.getElementById("cbar-max");
+    if (titleEl) titleEl.textContent = item.name;
+    if (codeEl) codeEl.textContent = item.code;
+    if (minEl) minEl.textContent = minStr;
+    if (midEl) midEl.textContent = midStr;
+    if (maxEl) maxEl.textContent = maxStr;
+  }
+
+  function syncFilterAndSelects(catalog) {
+    const q = currentFilter.trim().toLowerCase();
+    const filtered = catalog.filter(v =>
+      !q || v.name.toLowerCase().includes(q) || v.code.toLowerCase().includes(q) || v.unit.toLowerCase().includes(q)
     );
-    container.innerHTML = "";
-    matches.forEach(v => {
-      const row = document.createElement("div");
-      row.className = "ew-sync-var-item" + (v.code === activeCode ? " active" : "");
-      row.innerHTML = `<span><strong>${v.label}</strong> <small style="opacity:0.75">${v.code}</small></span><span style="opacity:0.85">${v.unit}</span>`;
-      row.addEventListener("click", () => setActiveVariable(v.code));
-      container.appendChild(row);
-    });
-    if (searchEl && document.activeElement !== searchEl && searchEl.value !== filterText) {
-      searchEl.value = filterText;
+    const listToRender = filtered.length > 0 ? filtered : catalog;
+
+    const mainFilter = document.getElementById("var-filter");
+    const playerWrap = document.getElementById("ew-player-cbar-wrap") || document.querySelector("[id*='player']");
+
+    let playerFilter = document.getElementById("ew-player-var-filter");
+    if (playerWrap && !playerFilter) {
+      const box = document.createElement("div");
+      box.className = "ew-player-filter-wrap";
+      playerFilter = document.createElement("input");
+      playerFilter.id = "ew-player-var-filter";
+      playerFilter.type = "text";
+      playerFilter.className = "ew-search";
+      playerFilter.placeholder = "Değişken adı veya kodu ile filtrele...";
+
+      const playerSelect = document.createElement("select");
+      playerSelect.id = "ew-player-var-select";
+      playerSelect.className = "ew-synced-var-select";
+
+      box.appendChild(playerFilter);
+      box.appendChild(playerSelect);
+      playerWrap.appendChild(box);
     }
-  }
 
-  function ensureSearchAndLists() {
-    const playerWrap = document.querySelector("#ew-player-cbar-wrap") || document.querySelector("[id*='player']");
-    const rightPanel = document.querySelector(".right-panel, [class*='right'], aside:last-of-type");
-
-    [playerWrap, rightPanel].forEach((panel, idx) => {
-      if (!panel) return;
-      const boxId = idx === 0 ? "ew-player-sync-box" : "ew-right-sync-box";
-      let box = document.getElementById(boxId);
-      if (!box) {
-        box = document.createElement("div");
-        box.id = boxId;
-        box.className = "ew-sync-search-wrap";
-
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "ew-sync-search-input";
-        input.placeholder = "Değişken adı veya kodu ile filtrele...";
-        input.addEventListener("input", (e) => {
-          filterText = e.target.value;
-          document.querySelectorAll(".ew-sync-search-input").forEach(inp => {
-            if (inp !== e.target) inp.value = filterText;
-          });
-          document.querySelectorAll(".ew-sync-var-list").forEach(lst => {
-            const parentBox = lst.closest(".ew-sync-search-wrap");
-            renderPanelList(lst, parentBox ? parentBox.querySelector("input") : null);
-          });
-        });
-
-        const list = document.createElement("div");
-        list.className = "ew-sync-var-list";
-
-        box.appendChild(input);
-        box.appendChild(list);
-        panel.appendChild(box);
+    [mainFilter, playerFilter].forEach(inp => {
+      if (!inp) return;
+      if (document.activeElement !== inp && inp.value !== currentFilter) {
+        inp.value = currentFilter;
       }
-      renderPanelList(box.querySelector(".ew-sync-var-list"), box.querySelector("input"));
+      if (!inp.dataset.ewSyncBound) {
+        inp.dataset.ewSyncBound = "1";
+        inp.addEventListener("input", (e) => {
+          currentFilter = e.target.value;
+          if (mainFilter && mainFilter !== e.target) mainFilter.value = currentFilter;
+          if (playerFilter && playerFilter !== e.target) playerFilter.value = currentFilter;
+          syncFilterAndSelects(getCatalog());
+        });
+      }
+    });
+
+    const selects = Array.from(document.querySelectorAll("select"));
+    selects.forEach(sel => {
+      const optionCount = sel.options.length;
+      if (sel.id !== "ew-player-var-select" && optionCount > 0 && optionCount < 4) return;
+      const prevVal = sel.value || currentCode;
+      sel.innerHTML = "";
+      listToRender.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v.code;
+        opt.textContent = `${v.name} [${v.code}] (${v.unit})`;
+        sel.appendChild(opt);
+      });
+      const targetCode = listToRender.some(v => v.code === currentCode) ? currentCode : listToRender[0].code;
+      sel.value = targetCode;
+      if (!sel.dataset.ewSelectBound) {
+        sel.dataset.ewSelectBound = "1";
+        sel.addEventListener("change", () => {
+          selectVariable(sel.value);
+        });
+      } else if (prevVal !== targetCode && sel.value !== targetCode) {
+        sel.value = targetCode;
+      }
     });
   }
 
-  function renderMapOverlay() {
-    const meta = getMeta(activeCode);
-    const mapEl = document.querySelector("#map, .leaflet-container, [id*='map']");
-    if (!mapEl) return;
-
-    let overlay = document.getElementById("ew-map-color-overlay");
-    if (!overlay) {
-      overlay = document.createElement("div");
-      overlay.id = "ew-map-color-overlay";
-      overlay.className = "ew-map-color-layer";
-      overlay.style.position = "absolute";
-      overlay.style.inset = "0";
-      overlay.style.zIndex = "350";
-      overlay.style.pointerEvents = "none";
-      overlay.style.mixBlendMode = "multiply";
-      mapEl.appendChild(overlay);
+  function renderGridLayer(item) {
+    if (!window.L || !window.map) return;
+    if (!window.gridGroup) {
+      window.gridGroup = L.layerGroup().addTo(window.map);
     }
+    window.gridGroup.clearLayers();
 
-    const c1 = meta.palette[1] || "#38bdf8";
-    const c2 = meta.palette[Math.floor(meta.palette.length / 2)] || "#facc15";
-    const c3 = meta.palette[meta.palette.length - 2] || "#ef4444";
+    const latMin = 38.8, latMax = 42.3, lonMin = 25.8, lonMax = 31.8;
+    const rows = 14, cols = 22;
+    const dLat = (latMax - latMin) / rows;
+    const dLon = (lonMax - lonMin) / cols;
 
-    overlay.style.opacity = "0.34";
-    overlay.style.background = `
-      radial-gradient(circle at 52% 42%, ${c3}88 0%, transparent 28%),
-      radial-gradient(circle at 38% 55%, ${c2}77 0%, transparent 32%),
-      radial-gradient(circle at 66% 48%, ${c1}77 0%, transparent 35%),
-      linear-gradient(125deg, ${c1}33 0%, ${c2}33 50%, ${c3}33 100%)
-    `;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const lat0 = latMin + r * dLat;
+        const lon0 = lonMin + c * dLon;
+        const wave = 0.5 + 0.35 * Math.sin(r * 0.65 + c * 0.45) + 0.15 * Math.cos(r * 0.35 - c * 0.7);
+        const norm = Math.max(0, Math.min(1, wave));
+        const pIdx = Math.min(item.palette.length - 1, Math.floor(norm * item.palette.length));
+        const color = item.palette[pIdx];
+
+        L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
+          color: color,
+          weight: 0.4,
+          opacity: 0.35,
+          fillColor: color,
+          fillOpacity: 0.32,
+          interactive: false
+        }).addTo(window.gridGroup);
+      }
+    }
   }
 
-  function setActiveVariable(code) {
-    activeCode = code;
-    populateSelects();
-    syncColorBars();
-    ensureSearchAndLists();
-    renderMapOverlay();
+  function selectVariable(code) {
+    const catalog = getCatalog();
+    const found = catalog.find(v => v.code === code) || catalog[0];
+    if (!found) return;
+    currentCode = found.code;
+    syncFilterAndSelects(catalog);
+    applyColorBars(found);
+    renderGridLayer(found);
   }
 
-  function runAll() {
-    populateSelects();
-    syncColorBars();
-    ensureSearchAndLists();
-    renderMapOverlay();
+  function tick() {
+    const catalog = getCatalog();
+    const found = catalog.find(v => v.code === currentCode) || catalog[0];
+    if (!found) return;
+    syncFilterAndSelects(catalog);
+    applyColorBars(found);
+    if (window.map && window.gridGroup && window.gridGroup.getLayers().length === 0) {
+      renderGridLayer(found);
+    }
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", runAll);
+    document.addEventListener("DOMContentLoaded", () => selectVariable(currentCode));
   } else {
-    runAll();
+    selectVariable(currentCode);
   }
-  setInterval(runAll, 1500);
+  setInterval(tick, 1200);
 })();
 </script>
 <!-- ew-combined-fix-end -->
