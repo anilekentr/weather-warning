@@ -187,7 +187,11 @@
     }
   </style>
 
-<style id="ew-full-v8-css">
+<style id="ew-full-v9-css">
+  .leaflet-control-attribution,
+  [class*="attribution"] {
+    display: none !important;
+  }
   .ew-brand-logo {
     position: fixed;
     top: 12px;
@@ -361,7 +365,7 @@
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
     color: #e2e8f0;
     font-size: 10px;
-    opacity: 0.72;
+    opacity: 0.78;
     transition: opacity 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
   #ew-player-cbar-wrap.ew-cbar-active {
@@ -372,6 +376,12 @@
   .ew-ecmwf-cbar-muted {
     opacity: 0.22 !important;
     filter: grayscale(0.65);
+  }
+  .ew-ecmwf-cbar-label {
+    font-weight: 700;
+    font-size: 10px;
+    color: #bae6fd;
+    margin-bottom: 3px;
   }
   #ew-player-cbar-title {
     display: flex;
@@ -393,6 +403,29 @@
     margin-top: 3px;
     font-size: 9.5px;
     color: #cbd5e1;
+  }
+  #ew-tr-flag-badge {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 1250;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(10, 20, 34, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  #ew-tr-flag-badge svg {
+    width: 24px;
+    height: 16px;
+    display: block;
+    border-radius: 2px;
   }
   #ew-color-overlay {
     position: fixed;
@@ -787,7 +820,17 @@
   <button type="button" class="ew-music-btn" id="ew-music-toggle" title="Atmospheric Forecast (1).mp3">♪ Müzik</button>
 </div>
 
-<script id="ew-full-v8-script">
+<div id="ew-tr-flag-badge" title="Türkiye">
+  <svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg">
+    <rect width="30" height="20" fill="#e30a17"/>
+    <circle cx="11" cy="10" r="4.6" fill="#ffffff"/>
+    <circle cx="12.2" cy="10" r="3.7" fill="#e30a17"/>
+    <polygon points="16.8,10 14.5,10.7 15.9,8.8 15.9,11.2 14.5,9.3" fill="#ffffff"/>
+  </svg>
+  <span>TR</span>
+</div>
+
+<script id="ew-full-v9-script">
 (function () {
   // --- 0. Fetch Yanitlarini Yakala ---
   if (typeof window.fetch === "function" && !window.__ewFetchWrapped) {
@@ -810,6 +853,31 @@
         return resp;
       });
     };
+  }
+
+  // --- 0b. Leaflet / OpenStreetMap ve Ukrayna Bayragi Temizligi ---
+  function cleanAttributionAndFlags() {
+    try {
+      document.querySelectorAll(".leaflet-control-attribution, [class*='attribution']").forEach(function (el) {
+        el.remove();
+      });
+      document.querySelectorAll("div, span, a, p, li").forEach(function (el) {
+        if (el.id === "ew-tr-flag-badge" || el.closest("#ew-tr-flag-badge") || el.closest("#ew-brand-logo") || el.closest("#ew-range-player-box")) return;
+        var txt = (el.textContent || "").trim();
+        if (txt === "Leaflet" || txt === "OpenStreetMap" || txt === "Leaflet | © OpenStreetMap" || /leaflet|openstreetmap|ukraine|ukrayna/i.test(txt)) {
+          if (el.children.length === 0) {
+            el.textContent = "";
+            el.style.display = "none";
+          }
+        }
+        var htmlStr = el.innerHTML || "";
+        if (htmlStr.indexOf("#0057b7") !== -1 || htmlStr.indexOf("#ffd700") !== -1 || htmlStr.indexOf("#005BBB") !== -1 || htmlStr.indexOf("#FFD500") !== -1) {
+          if (!el.closest("#ew-brand-logo") && !el.closest("#ew-range-player-box")) {
+            el.style.display = "none";
+          }
+        }
+      });
+    } catch (e) {}
   }
 
   // --- 1. Muzik Calar: Atmospheric Forecast (1).mp3 + WebAudio Yedek ---
@@ -917,7 +985,7 @@
     try {
       var all = document.querySelectorAll("div, span, li, td, p, label");
       all.forEach(function (el) {
-        if (el.children.length > 0 || el.closest("#ew-brand-logo") || el.closest("#ew-range-player-box") || el.closest("#ew-player-cbar-wrap")) return;
+        if (el.children.length > 0 || el.closest("#ew-brand-logo") || el.closest("#ew-range-player-box") || el.closest("#ew-player-cbar-wrap") || el.closest("#ew-tr-flag-badge")) return;
         var txt = (el.textContent || "").trim();
         if (!txt || txt.indexOf("(K)") !== -1 || txt.indexOf("(D)") !== -1 || txt.indexOf("(G)") !== -1 || txt.indexOf("(B)") !== -1) return;
         var m = txt.match(/(?:rüzgar|wind|yön|direction)[^0-9-]*(-?\d+(?:\.\d+)?)\s*°?/i);
@@ -932,7 +1000,7 @@
     } catch (e) {}
   }
 
-  // --- 3. Cakismasiz Yerlesim ve Aktif CBAR Durumu ---
+  // --- 3. Cakismasiz Yerlesim: Zoom Oynatici CBAR Altina, ECMWF CBAR ECMWF Panel Altina ---
   function isPlayerActiveMode() {
     return Boolean(window.__ewPlayerModeActive);
   }
@@ -947,16 +1015,35 @@
     }
 
     document.querySelectorAll("[class*='cbar'], [id*='cbar']").forEach(function (el) {
-      if (el.closest("#ew-player-cbar-wrap") || el.id === "ew-player-cbar-wrap" || el.id === "ew-player-cbar" || el.id === "ew-player-cbar-scale") return;
+      if (el.closest("#ew-player-cbar-wrap") || el.id === "ew-player-cbar-wrap" || el.id === "ew-player-cbar" || el.id === "ew-player-cbar-scale" || el.classList.contains("ew-ecmwf-cbar-label")) return;
       el.classList.toggle("ew-ecmwf-cbar-muted", active);
     });
   }
 
+  function findEcmwfPanelRect() {
+    var bestRect = null;
+    document.querySelectorAll("div, section, aside").forEach(function (el) {
+      if (el.id === "ew-range-player-box" || el.id === "ew-brand-logo" || el.id === "ew-player-cbar-wrap" || el.id === "ew-tr-flag-badge") return;
+      if (el.closest("#ew-range-player-box") || el.closest("#ew-brand-logo") || el.closest("#ew-player-cbar-wrap")) return;
+      var txt = (el.textContent || "");
+      if (/ecmwf/i.test(txt) && txt.length < 4000) {
+        var r = el.getBoundingClientRect();
+        if (r.width >= 180 && r.height >= 90 && r.left > window.innerWidth * 0.45) {
+          if (!bestRect || r.height > bestRect.height) bestRect = r;
+        }
+      }
+    });
+    return bestRect;
+  }
+
   function layoutNonOverlapping() {
     try {
+      cleanAttributionAndFlags();
+
       var logo = document.getElementById("ew-brand-logo");
       var player = document.getElementById("ew-range-player-box");
       var playerCbar = document.getElementById("ew-player-cbar-wrap");
+      var flagBadge = document.getElementById("ew-tr-flag-badge");
 
       var logoBottom = logo ? (logo.getBoundingClientRect().bottom + 8) : 64;
       if (player) {
@@ -976,29 +1063,55 @@
         playerCbar.style.zIndex = "1120";
       }
 
-      var playerCbarBottom = playerCbar ? (playerCbar.getBoundingClientRect().bottom + 10) : (playerBottom + 56);
+      var playerCbarBottom = playerCbar ? (playerCbar.getBoundingClientRect().bottom + 8) : (playerBottom + 56);
 
-      document.querySelectorAll("[class*='cbar'], [id*='cbar']").forEach(function (el) {
-        if (el.closest("#ew-player-cbar-wrap") || el.id === "ew-player-cbar-wrap" || el.id === "ew-player-cbar" || el.id === "ew-player-cbar-scale") return;
-        var r = el.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0 && r.left < 360) {
-          el.style.position = "fixed";
-          el.style.left = "12px";
-          el.style.top = Math.max(playerCbarBottom, Math.round(r.top)) + "px";
-          el.style.zIndex = "1100";
-          if (!el.style.background || el.style.background.indexOf("gradient") === -1) {
-            el.style.background = "linear-gradient(90deg, #1d4ed8, #06b6d4, #22c55e, #eab308, #f97316, #dc2626)";
-          }
-        }
-      });
-
+      // 1) Zoom kontrolunu oynatıcı CBAR altına yerleştir
       document.querySelectorAll(".leaflet-control-zoom, [class*='zoom-control'], [class*='zoom_btn']").forEach(function (z) {
         z.style.position = "fixed";
-        z.style.left = "auto";
-        z.style.right = "14px";
-        z.style.bottom = "18px";
-        z.style.top = "auto";
-        z.style.zIndex = "1080";
+        z.style.left = "12px";
+        z.style.right = "auto";
+        z.style.top = Math.round(playerCbarBottom) + "px";
+        z.style.bottom = "auto";
+        z.style.zIndex = "1115";
+      });
+
+      // 2) ECMWF CBAR elemanina "ECMWF CBAR" etiketi ekle ve ECMWF panelinin altina konumlandir
+      var ecmwfRect = findEcmwfPanelRect();
+      var flagTop = flagBadge ? flagBadge.getBoundingClientRect().top : (window.innerHeight - 44);
+
+      document.querySelectorAll("[class*='cbar'], [id*='cbar']").forEach(function (el) {
+        if (el.closest("#ew-player-cbar-wrap") || el.id === "ew-player-cbar-wrap" || el.id === "ew-player-cbar" || el.id === "ew-player-cbar-scale" || el.classList.contains("ew-ecmwf-cbar-label")) return;
+        var r = el.getBoundingClientRect();
+        if (r.width <= 0 && r.height <= 0) return;
+
+        if (!el.dataset.ewLabeled) {
+          el.dataset.ewLabeled = "1";
+          var lbl = document.createElement("div");
+          lbl.className = "ew-ecmwf-cbar-label";
+          lbl.textContent = "ECMWF CBAR";
+          el.insertBefore(lbl, el.firstChild);
+        }
+
+        if (!el.style.background || el.style.background.indexOf("gradient") === -1) {
+          el.style.background = "linear-gradient(90deg, #1d4ed8, #06b6d4, #22c55e, #eab308, #f97316, #dc2626)";
+        }
+
+        el.style.position = "fixed";
+        el.style.zIndex = "1110";
+        if (ecmwfRect) {
+          el.style.left = Math.max(12, Math.round(ecmwfRect.left)) + "px";
+          el.style.width = Math.min(310, Math.round(ecmwfRect.width)) + "px";
+          var desiredTop = Math.round(ecmwfRect.bottom + 8);
+          if (desiredTop + 56 > flagTop) desiredTop = Math.max(12, Math.round(flagTop - 62));
+          el.style.top = desiredTop + "px";
+          el.style.right = "auto";
+          el.style.bottom = "auto";
+        } else {
+          el.style.left = "auto";
+          el.style.right = "14px";
+          el.style.bottom = "46px";
+          el.style.top = "auto";
+        }
       });
     } catch (e) {}
   }
@@ -1323,7 +1436,6 @@
 
       if (overlay) {
         if (isPlayerActiveMode()) {
-          // Oynat tusuna basilinca ECMWF renkleri kalkar; yalnizca oynatici cbar ve secili deger bagimsiz hareket eder
           var curVal = (typeof activeStepValue === "number" && !Number.isNaN(activeStepValue))
             ? activeStepValue
             : avgVal;
@@ -1332,7 +1444,6 @@
           overlay.style.background = "linear-gradient(135deg, " + colPlayer + ", " + colPlayerNext + ")";
           overlay.style.opacity = "0.42";
         } else {
-          // Oynat tusuna basilmamissa her zaman ECMWF cbar aktif; farkli bolgelerde dusuk/orta/yuksek deger renkleri net gorunur
           var colLow = colorForValueOnCbar(minVal, cbarMin, cbarMax, stops);
           var colMid = colorForValueOnCbar(avgVal, cbarMin, cbarMax, stops);
           var colHigh = colorForValueOnCbar(maxVal, cbarMin, cbarMax, stops);
@@ -1377,7 +1488,7 @@
     var prevVal = sel.value;
     var foundVars = [];
     document.querySelectorAll("select option, label, button, span, div").forEach(function (el) {
-      if (el.closest("#ew-range-player-box") || el.closest("#ew-brand-logo") || el.closest("#ew-player-cbar-wrap")) return;
+      if (el.closest("#ew-range-player-box") || el.closest("#ew-brand-logo") || el.closest("#ew-player-cbar-wrap") || el.closest("#ew-tr-flag-badge")) return;
       var t = (el.textContent || "").trim();
       if (t.length > 1 && t.length < 45 && /sıcaklık|hissedilen|rüzgar|yön|yağış|basınç|nem|bulut|temperature|wind|direction|precipitation|pressure|humidity/i.test(t)) {
         if (foundVars.indexOf(t) === -1) foundVars.push(t);
@@ -1591,6 +1702,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    cleanAttributionAndFlags();
     ensureRangePlayer();
     ensureIntervalStepControls();
     enhanceWindDirectionLabels();
@@ -1599,6 +1711,7 @@
 
     window.addEventListener("resize", layoutNonOverlapping);
     setInterval(function () {
+      cleanAttributionAndFlags();
       ensureRangePlayer();
       ensureIntervalStepControls();
       enhanceWindDirectionLabels();
