@@ -7,140 +7,1083 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body, #map { margin: 0; padding: 0; width: 100vw; height: 100vh; background: #0b1220; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; color: #f8fafc; overflow: hidden; }
-    #ew-panel { position: fixed; top: 12px; right: 12px; z-index: 2000; width: 410px; max-width: calc(100vw - 24px); max-height: calc(100vh - 140px); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); border: 1px solid rgba(148, 163, 184, 0.28); border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 20px 35px rgba(0, 0, 0, 0.6); }
-    .ew-header { padding: 10px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.18); }
-    .ew-title-row { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 14px; }
-    .ew-badge { font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #7dd3fc; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
-    .ew-time { font-size: 11px; color: #38bdf8; margin-top: 4px; }
-    .ew-loc-box { padding: 8px 14px; background: rgba(30, 41, 59, 0.75); border-bottom: 1px solid rgba(148, 163, 184, 0.16); font-size: 11.5px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
-    .ew-loc-full { grid-column: 1 / -1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #e2e8f0; }
+    html, body, #map {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0b1220;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #f8fafc;
+      overflow: hidden;
+    }
+    #ew-panel {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 2000;
+      width: 400px;
+      max-width: calc(100vw - 24px);
+      max-height: calc(100vh - 140px);
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 35px rgba(0, 0, 0, 0.6);
+    }
+    .ew-header {
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    }
+    .ew-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .ew-badge {
+      font-size: 11px;
+      background: rgba(56, 189, 248, 0.2);
+      color: #7dd3fc;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .ew-time {
+      font-size: 11px;
+      color: #38bdf8;
+      margin-top: 4px;
+    }
+    .ew-loc-box {
+      padding: 9px 14px;
+      background: rgba(30, 41, 59, 0.75);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      font-size: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 10px;
+    }
+    .ew-loc-full {
+      grid-column: 1 / -1;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #e2e8f0;
+      font-size: 11.5px;
+    }
     .ew-loc-k { color: #94a3b8; }
     .ew-loc-v { color: #f8fafc; font-weight: 600; }
-    .ew-controls { padding: 8px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.16); display: flex; flex-direction: column; gap: 6px; }
-    .ew-label { font-size: 10.5px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
-    .ew-select, .ew-search { width: 100%; padding: 6px 9px; background: #1e293b; border: 1px solid #334155; border-radius: 7px; color: #f8fafc; font-size: 12px; outline: none; }
-    .ew-slider-row { display: flex; align-items: center; gap: 8px; }
-    .ew-slider-row input[type="range"] { flex: 1; accent-color: #38bdf8; cursor: pointer; }
-    .ew-step-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 4px; }
-    .ew-btn { padding: 4px 4px; background: #1e293b; border: 1px solid #334155; border-radius: 5px; color: #e2e8f0; font-size: 10.5px; cursor: pointer; text-align: center; }
+    .ew-controls {
+      padding: 9px 14px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .ew-label {
+      font-size: 10.5px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 2px;
+    }
+    .ew-select, .ew-search {
+      width: 100%;
+      padding: 6px 9px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      color: #f8fafc;
+      font-size: 12px;
+      outline: none;
+    }
+    .ew-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ew-slider-row input[type="range"] {
+      flex: 1;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    .ew-btn-row {
+      display: flex;
+      gap: 6px;
+    }
+    .ew-btn {
+      flex: 1;
+      padding: 5px 8px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 11px;
+      cursor: pointer;
+    }
     .ew-btn:hover { background: #334155; }
-    .ew-btn.now-btn { background: rgba(2, 132, 199, 0.35); border-color: #38bdf8; color: #bae6fd; font-weight: 700; }
-    .ew-vars-list { padding: 8px 12px 12px; overflow-y: auto; flex: 1; }
-    .ew-var-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid rgba(148, 163, 184, 0.08); border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .ew-vars-list {
+      padding: 8px 12px 12px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .ew-var-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
     .ew-var-item:hover { background: rgba(148, 163, 184, 0.12); }
-    .ew-var-item.active { background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); }
+    .ew-var-item.active {
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+    }
     .ew-var-left { display: flex; flex-direction: column; min-width: 0; }
     .ew-var-name { color: #f8fafc; font-weight: 500; }
     .ew-var-code { color: #94a3b8; font-size: 10px; font-family: monospace; }
-    .ew-var-val { font-weight: 700; color: #38bdf8; text-align: right; }
-    #ew-cbar { position: fixed; bottom: 20px; left: 20px; z-index: 2000; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); padding: 11px 14px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.3); width: 330px; max-width: calc(100vw - 40px); box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55); }
-    .cbar-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .ew-var-val { font-weight: 700; color: #38bdf8; white-space: nowrap; }
+    #ew-cbar {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 2000;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      width: 330px;
+      max-width: calc(100vw - 40px);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55);
+    }
+    .cbar-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
     .cbar-title { font-size: 12px; font-weight: 700; color: #f8fafc; }
     .cbar-code { font-size: 10px; color: #94a3b8; font-family: monospace; }
-    .cbar-gradient { height: 15px; border-radius: 5px; width: 100%; margin-bottom: 5px; border: 1px solid rgba(255, 255, 255, 0.25); }
-    .cbar-labels { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #e2e8f0; }
+    .cbar-gradient {
+      height: 15px;
+      border-radius: 5px;
+      width: 100%;
+      margin-bottom: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+    .cbar-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
   </style>
+
+<style id="ew-all-in-one-css">
+  .ew-brand-logo {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 1200;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    background: rgba(10, 20, 34, 0.88);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+    pointer-events: auto;
+  }
+  .ew-brand-logo svg {
+    width: 44px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+  .ew-brand-title {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.3px;
+    color: #ffffff;
+    white-space: nowrap;
+  }
+  .ew-music-btn {
+    margin-left: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(125, 211, 252, 0.4);
+    background: rgba(30, 58, 95, 0.7);
+    color: #e0f2fe;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .ew-music-btn:hover {
+    background: rgba(2, 132, 199, 0.85);
+  }
+  #ew-step3-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .ew-step3-btn {
+    padding: 3px 6px;
+    font-size: 11px;
+    border-radius: 5px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.82);
+    color: #e2e8f0;
+    cursor: pointer;
+  }
+  .ew-step3-btn.active {
+    background: #0284c7;
+    border-color: #7dd3fc;
+    color: #ffffff;
+    font-weight: 700;
+  }
+  #ew-range-player-box {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.86);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    font-size: 11px;
+    color: #e2e8f0;
+  }
+  #ew-range-player-box .ew-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-top: 5px;
+  }
+  #ew-range-player-box select,
+  #ew-range-player-box input[type="datetime-local"] {
+    background: #0b1526;
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    border-radius: 5px;
+    padding: 3px 5px;
+    font-size: 11px;
+  }
+  #ew-play-range-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: none;
+    background: #0ea5e9;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #ew-play-range-btn:hover {
+    background: #0284c7;
+  }
+  #ew-color-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 350;
+    transition: background 0.25s ease, opacity 0.25s ease;
+    opacity: 0.28;
+  }
+</style>
+
 </head>
 <body>
   <div id="map"></div>
+
   <div id="ew-panel">
     <div class="ew-header">
-      <div class="ew-title-row"><span>ECMWF Değişken Paneli</span><span id="ew-var-count" class="ew-badge">0 değişken</span></div>
+      <div class="ew-title-row">
+        <span>ECMWF Değişken Paneli</span>
+        <span id="ew-var-count" class="ew-badge">0 değişken</span>
+      </div>
       <div id="ew-time-info" class="ew-time">Başlatılıyor...</div>
     </div>
+
     <div class="ew-loc-box">
       <div class="ew-loc-full"><span class="ew-loc-k">Koordinat:</span> <span id="ew-coord">—</span></div>
       <div><span class="ew-loc-k">İl:</span> <span id="ew-il" class="ew-loc-v">—</span></div>
       <div><span class="ew-loc-k">İlçe:</span> <span id="ew-ilce" class="ew-loc-v">—</span></div>
       <div class="ew-loc-full"><span class="ew-loc-k">Mahalle / Semt:</span> <span id="ew-mah" class="ew-loc-v">—</span></div>
     </div>
+
     <div class="ew-controls">
-      <div><div class="ew-label">Harita & CBAR Değişkeni</div><select id="var-select" class="ew-select"></select></div>
+      <div>
+        <div class="ew-label">Harita & CBAR Değişkeni</div>
+        <select id="var-select" class="ew-select"></select>
+      </div>
       <div>
         <div class="ew-label">Saatlik Adım (<span id="ew-step-label">0</span>)</div>
-        <div class="ew-slider-row"><input id="time-slider" type="range" min="0" max="0" value="0" /></div>
-        <div class="ew-step-grid">
-          <button class="ew-btn" type="button" data-delta="-24">-24s</button>
-          <button class="ew-btn" type="button" data-delta="-18">-18s</button>
-          <button class="ew-btn" type="button" data-delta="-12">-12s</button>
-          <button class="ew-btn" type="button" data-delta="-6">-6s</button>
-          <button class="ew-btn" type="button" data-delta="-3">-3s</button>
-          <button id="btn-now-h" class="ew-btn now-btn" type="button">Şimdi</button>
-          <button class="ew-btn" type="button" data-delta="3">+3s</button>
-          <button class="ew-btn" type="button" data-delta="6">+6s</button>
-          <button class="ew-btn" type="button" data-delta="12">+12s</button>
-          <button class="ew-btn" type="button" data-delta="18">+18s</button>
-          <button class="ew-btn" type="button" data-delta="24">+24s</button>
-          <button id="btn-prev-h" class="ew-btn" type="button">-1s / +1s</button>
+        <div class="ew-slider-row">
+          <input id="time-slider" type="range" min="0" max="0" value="0" />
+        </div>
+        <div class="ew-btn-row" style="margin-top:6px;">
+          <button id="btn-prev-h" class="ew-btn" type="button">-1 Saat</button>
+          <button id="btn-now-h" class="ew-btn" type="button">Şimdi</button>
+          <button id="btn-next-h" class="ew-btn" type="button">+1 Saat</button>
         </div>
       </div>
       <input id="var-filter" class="ew-search" type="text" placeholder="Değişken adı veya kodu ile filtrele..." />
     </div>
+
     <div id="ew-vars-list" class="ew-vars-list"></div>
   </div>
+
   <div id="ew-cbar">
-    <div class="cbar-top"><span id="cbar-title" class="cbar-title">Değişken</span><span id="cbar-code" class="cbar-code"></span></div>
+    <div class="cbar-top">
+      <span id="cbar-title" class="cbar-title">Değişken</span>
+      <span id="cbar-code" class="cbar-code"></span>
+    </div>
     <div id="cbar-gradient" class="cbar-gradient"></div>
-    <div class="cbar-labels"><span id="cbar-min">-</span><span id="cbar-mid">-</span><span id="cbar-max">-</span></div>
+    <div class="cbar-labels">
+      <span id="cbar-min">-</span>
+      <span id="cbar-mid">-</span>
+      <span id="cbar-max">-</span>
+    </div>
   </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-const P={temp:["#1d4ed8","#06b6d4","#22c55e","#eab308","#f97316","#dc2626"],hum:["#9a3412","#eab308","#22c55e","#06b6d4","#2563eb","#1e1b4b"],precip:["#1e293b","#38bdf8","#2563eb","#7c3aed","#db2777"],wind:["#1e293b","#0ea5e9","#10b981","#facc15","#f97316","#dc2626"],press:["#1d4ed8","#06b6d4","#22c55e","#eab308","#dc2626"],cloud:["#0f172a","#334155","#64748b","#cbd5e1","#f8fafc"],cape:["#1e293b","#facc15","#f97316","#ef4444","#991b1b"],rad:["#0f172a","#1d4ed8","#eab308","#f97316","#fef08a"],height:["#1e1b4b","#2563eb","#06b6d4","#22c55e","#eab308","#dc2626"]};
-const DIRS=["Kuzey","Kuzey-Kuzeydoğu","Kuzeydoğu","Doğu-Kuzeydoğu","Doğu","Doğu-Güneydoğu","Güneydoğu","Güney-Güneydoğu","Güney","Güney-Güneybatı","Güneybatı","Batı-Güneybatı","Batı","Batı-Kuzeybatı","Kuzeybatı","Kuzey-Kuzeybatı"];
-const CAT=[["temperature_2m","2m Sıcaklık","°C",-10,40,P.temp],["relative_humidity_2m","2m Bağıl Nem","%",0,100,P.hum],["dew_point_2m","2m Çiy Noktası","°C",-15,30,P.temp],["apparent_temperature","Hissedilen Sıcaklık","°C",-15,45,P.temp],["precipitation","Toplam Yağış","mm",0,20,P.precip],["rain","Yağmur","mm",0,20,P.precip],["snowfall","Kar Yağışı","cm",0,20,P.precip],["pressure_msl","Deniz Seviyesi Basıncı","hPa",990,1035,P.press],["surface_pressure","Yüzey Basıncı","hPa",880,1035,P.press],["cloud_cover","Toplam Bulutluluk","%",0,100,P.cloud],["cloud_cover_low","Alçak Bulutluluk","%",0,100,P.cloud],["cloud_cover_mid","Orta Bulutluluk","%",0,100,P.cloud],["cloud_cover_high","Yüksek Bulutluluk","%",0,100,P.cloud],["wind_speed_10m","10m Rüzgar Hızı","m/s",0,25,P.wind],["wind_speed_100m","100m Rüzgar Hızı","m/s",0,35,P.wind],["wind_direction_10m","10m Rüzgar Yönü","°",0,360,P.wind],["wind_direction_100m","100m Rüzgar Yönü","°",0,360,P.wind],["wind_gusts_10m","10m Rüzgar Hamlesi","m/s",0,35,P.wind],["cape","CAPE","J/kg",0,2500,P.cape],["total_column_integrated_water_vapour","Toplam Sütun Su Buharı","kg/m²",0,60,P.hum],["shortwave_radiation","Kısa Dalga Radyasyon","W/m²",0,1000,P.rad],["direct_radiation","Doğrudan Radyasyon","W/m²",0,900,P.rad],["diffuse_radiation","Difüz Radyasyon","W/m²",0,400,P.rad]];
-const LVLS=["1000hPa","925hPa","850hPa","700hPa","500hPa","300hPa","250hPa","200hPa"];
-for{const h=l.replace("hPa"," hPa");CAT.push;}
-let vars=CAT.map(([om,name,unit,min,max,palette])=>({om,name,unit,min,max,palette}));
-let sel=vars[0],data=null,coords={lat:41.0082,lng:28.9784},tIdx=0,gridPayload=null,marker=null,stepFlip=1,gridTimer=null;
-const map=L.map("map",{center:[41.0082,28.9784],zoom:7});
-L.tileLayer.addTo(map);
-const gridGroup=L.layerGroup().addTo(map);
-function dirName(deg){const n=%360)+360)%360;return DIRS[Math.round(n/22.5)%16];}
-function fmtVal(val,v){if))return `Veri yok ${v.unit||""}`.trim();const num=Number(val),txt=Number.isInteger(num)?String(num):num.toFixed(2);if((v.om||"").includes||(v.unit||"").includes("°"))return `${txt}°})`;return `${txt} ${v.unit||""}`.trim();}
-function infer(k,u){let min=0,max=100,palette=P.temp;if(k.includes("temperature")||k.includes("dew_point")){min=-30;max=40;palette=P.temp;}else if(k.includes("humidity")||k.includes("moisture")){min=0;max=100;palette=P.hum;}else if||k.includes("gusts")){min=0;max=35;palette=P.wind;}else if){min=0;max=360;palette=P.wind;}else if(k.includes("pressure")){min=920;max=1035;palette=P.press;}else if(k.includes("cloud")){min=0;max=100;palette=P.cloud;}else if(k.includes("geopotential")){min=0;max=12500;palette=P.height;}else if(k.includes("precip")||k.includes("rain")||k.includes("snow")){min=0;max=20;palette=P.precip;}return{om:k,name:k.replaceAll("_"," "),unit:(u&&u[k])||"",min,max,palette};}
-function syncVars(d){if(!d||!d.hourly)return;const m=new Map(vars.map(v=>[v.om,v]));Object.keys(d.hourly).forEach(k=>{if(k==="time")return;if(m.has(k)){if(d.hourly_units&&d.hourly_units[k])m.get(k).unit=d.hourly_units[k];}else{m.set(k,infer(k,d.hourly_units));}});vars=Array.from(m.values());sel=m.get(sel.om)||vars[0];document.getElementById("ew-var-count").textContent=vars.length+" değişken";fillSelect();}
-function fillSelect(){const s=document.getElementById("var-select");s.innerHTML="";vars.forEach((v,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`${v.name} [${v.om}] (${v.unit})`;if(v.om===sel.om)o.selected=true;s.appendChild(o);});}
-function nowIdx(times){if(!Array.isArray(times)||!times.length)return 0;const n=new Date(),p=x=>String(x).padStart(2,"0"),pref=`${n.getFullYear()}-${p(n.getMonth()+1)}-${p)}T${p(n.getHours())}:00`,ex=times.indexOf(pref);if(ex!==-1)return ex;let b=0,md=Infinity;times.forEach((t,i)=>{const d=Math.abs-n.getTime());if&&d<md){md=d;b=i;}});return b;}
-function drawCbar(){document.getElementById("cbar-title").textContent=`${sel.name} (${sel.unit||"-"})`;document.getElementById("cbar-code").textContent=sel.om;document.getElementById("cbar-gradient").style.background=`linear-gradient(to right,${sel.palette.join(",")})`;document.getElementById("cbar-min").textContent=sel.min;document.getElementById("cbar-mid").textContent=Number(((sel.min+sel.max)/2).toFixed(2));document.getElementById("cbar-max").textContent=sel.max;}
-function colorOf(val,v){if))return"#475569";const n=Math.max-v.min)/((v.max-v.min)||1)));return v.palette[Math.min(v.palette.length-1,Math.floor(n*(v.palette.length-1)))];}
-function drawTime(){const times=(data&&data.hourly&&data.hourly.time)||[];const sl=document.getElementById("time-slider");sl.max=Math.max(0,times.length-1);sl.value=Math.min);const ts=times[tIdx]?times[tIdx].replace("T"," "):"-";const nI=nowIdx(times),diffH=tIdx-nI,tag=diffH===0?"ŞİMDİ":(diffH>0?`+${diffH}s`:`${diffH}s`);document.getElementById("ew-step-label").textContent=`${tag} — ${ts}`;document.getElementById("ew-time-info").textContent=`Saat: ${ts} (${tag}) | Toplam ${times.length} saat`;}
-function drawList(){const c=document.getElementById("ew-vars-list"),q=.value||"").trim().toLowerCase();c.innerHTML="";const h=(data&&data.hourly)||{};vars.filter(v=>!q||v.name.toLowerCase().includes(q)||v.om.toLowerCase().includes(q)||(v.unit||"").toLowerCase().includes(q)).forEach(v=>{const a=h[v.om],val=(Array.isArray(a)&&a[tIdx]!==undefined&&a[tIdx]!==null)?a[tIdx]:null;const d=document.createElement("div");d.className="ew-var-item"+(v.om===sel.om?" active":"");d.innerHTML=`<div class="ew-var-left"><span class="ew-var-name">${v.name}</span><span class="ew-var-code">${v.om}</span></div><span class="ew-var-val">${fmtVal(val,v)}</span>`;d.onclick=()=>{sel=v;fillSelect();drawCbar();drawList();loadGrid(tIdx);};c.appendChild(d);});}
-async function loadAddress(lat,lng){document.getElementById("ew-il").textContent="Yükleniyor...";document.getElementById("ew-ilce").textContent="Yükleniyor...";document.getElementById("ew-mah").textContent="Yükleniyor...";try{const j=await(await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}&accept-language=tr`)).json();const adr=(j&&j.address)||{};document.getElementById("ew-il").textContent=adr.province||adr.city||adr.state||adr.region||"Açık Deniz / Belirsiz";document.getElementById("ew-ilce").textContent=adr.district||adr.county||adr.town||adr.municipality||"—";document.getElementById("ew-mah").textContent=adr.neighbourhood||adr.suburb||adr.quarter||adr.village||adr.hamlet||"—";}catch(_){document.getElementById("ew-il").textContent="—";document.getElementById("ew-ilce").textContent="—";document.getElementById("ew-mah").textContent="—";}}
-async function loadPoint(lat,lng,keep=false){coords={lat,lng};document.getElementById("ew-coord").textContent=`${lat.toFixed(4)}, ${lng.toFixed(4)}`;document.getElementById("ew-time-info").textContent="ECMWF verileri çekiliyor...";loadAddress(lat,lng);const url=`https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${encodeURIComponent(vars.map(v=>v.om).join(","))}&timezone=auto&past_hours=24&past_days=30&forecast_days=30`;try{const d=await(await fetch(url)).json();if(d&&d.hourly){data=d;syncVars(d);tIdx=keep?Math.min(tIdx,Math.max(0,d.hourly.time.length-1)):nowIdx(d.hourly.time);syncPlayBounds();drawTime();drawCbar();drawList();await loadGrid(tIdx);}else{document.getElementById("ew-time-info").textContent=(d&&d.reason)||"Veri alınamadı";}}catch(_){document.getElementById("ew-time-info").textContent="Ağ veya API hatası";}}
-function buildViewGrid(){const b=map.getBounds().pad(0.15);const latSpan=Math.max-b.getSouth()),lngSpan=Math.max-b.getWest());const stepLat=Number.toFixed(2))));const stepLng=Number.toFixed(2))));const sLat=Math.floor/stepLat)*stepLat,eLat=Math.ceil/stepLat)*stepLat;const sLng=Math.floor/stepLng)*stepLng,eLng=Math.ceil/stepLng)*stepLng;const lats=[],lngs=[];for(let y=sLat;y<=eLat+1e-6;y+=stepLat)lats.push));for(let x=sLng;x<=eLng+1e-6;x+=stepLng)lngs.push));return{lats,lngs,stepLat,stepLng};}
-async function loadGrid(idx){const g=buildViewGrid();if(!g.lats.length||!g.lngs.length)return;const url=`https://api.open-meteo.com/v1/ecmwf?latitude=${g.lats.join(",")}&longitude=${g.lngs.join(",")}&hourly=${encodeURIComponent(sel.om)}&timezone=auto&past_hours=24&past_days=30&forecast_days=30`;try{const raw=await(await fetch(url)).json();gridPayload={raw:Array.isArray(raw)?raw:[raw],tIdx:idx,stepLat:g.stepLat,stepLng:g.stepLng};drawGrid();}catch(_){}}
-function drawGrid(){gridGroup.clearLayers();if(!gridPayload||!Array.isArray(gridPayload.raw))return;const idx=gridPayload.tIdx||0,dLat=(gridPayload.stepLat||0.5)/2,dLng=(gridPayload.stepLng||0.5)/2;gridPayload.raw.forEach(pt=>{const a=pt&&pt.hourly&&pt.hourly[sel.om];if(!Array.isArray(a)||!a.length)return;const val=a[Math.min(a.length-1,idx)],col=colorOf(val,sel);const rect=L.rectangle([[pt.latitude-dLat,pt.longitude-dLng],[pt.latitude+dLat,pt.longitude+dLng]],{color:col,weight:0.5,opacity:0.65,fillColor:col,fillOpacity:0.55});rect.bindTooltip(`${sel.name}: ${fmtVal(val,sel)}.toFixed(2)}, ${Number(pt.longitude).toFixed(2)})`);gridGroup.addLayer(rect);});}
-function applyIndex(newIdx){const mx=Math.max(0,((data&&data.hourly&&data.hourly.time&&data.hourly.time.length)||1)-1);tIdx=Math.max(0,Math.min(mx,newIdx));drawTime();drawList();loadGrid(tIdx);}
-document.querySelectorAll("[data-delta]").forEach(b=>{b.onclick=()=>{const times=(data&&data.hourly&&data.hourly.time)||[];const base=nowIdx(times);applyIndex);};});
-document.getElementById("btn-now-h").onclick=()=>{applyIndex(nowIdx((data&&data.hourly&&data.hourly.time)||[]));};
-document.getElementById("btn-prev-h").onclick=()=>{applyIndex(tIdx+stepFlip);stepFlip=-stepFlip;};
-document.getElementById("var-select").onchange=e=>{sel=vars[Number(e.target.value)]||vars[0];drawCbar();drawList();loadGrid(tIdx);};
-document.getElementById("var-filter").oninput=drawList;
-document.getElementById("time-slider").oninput=e=>{applyIndex);};
-map.on("moveend",()=>{clearTimeout(gridTimer);gridTimer=setTimeout(()=>loadGrid(tIdx),220);});
-map.on("click",e=>{const{lat,lng}=e.latlng;if(marker)map.removeLayer(marker);marker=L.marker([lat,lng]).addTo(map);loadPoint(lat,lng,true);});
-fillSelect();drawCbar();marker=L.marker([coords.lat,coords.lng]).addTo(map);loadPoint(coords.lat,coords.lng,false);
-  </script>
-<!-- ew-deploy-trigger: 2026-11-27-1800 -->
-<div id="ew-play-bar" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.2);display:flex;flex-direction:column;gap:5px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;"><div><div style="font-size:10px;color:#94a3b8;">Başlangıç</div><input id="play-start" type="datetime-local" style="width:100%;padding:3px 5px;background:#1e293b;border:1px solid #334155;border-radius:5px;color:#f8fafc;font-size:10.5px;" /></div><div><div style="font-size:10px;color:#94a3b8;">Bitiş</div><input id="play-end" type="datetime-local" style="width:100%;padding:3px 5px;background:#1e293b;border:1px solid #334155;border-radius:5px;color:#f8fafc;font-size:10.5px;" /></div></div><div style="display:flex;align-items:center;gap:6px;"><button id="btn-play-range" type="button" style="padding:4px 9px;background:#0284c7;border:1px solid #38bdf8;border-radius:5px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">▶ Oynat</button><span id="ew-max-horizon" style="font-size:10px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Ufuk: —</span></div></div>
+    const P = {
+      temp: ["#1d4ed8", "#06b6d4", "#22c55e", "#eab308", "#f97316", "#dc2626"],
+      hum: ["#9a3412", "#eab308", "#22c55e", "#06b6d4", "#2563eb", "#1e1b4b"],
+      precip: ["#1e293b", "#38bdf8", "#2563eb", "#7c3aed", "#db2777"],
+      wind: ["#1e293b", "#0ea5e9", "#10b981", "#facc15", "#f97316", "#dc2626"],
+      press: ["#1d4ed8", "#06b6d4", "#22c55e", "#eab308", "#dc2626"],
+      cloud: ["#0f172a", "#334155", "#64748b", "#cbd5e1", "#f8fafc"],
+      cape: ["#1e293b", "#facc15", "#f97316", "#ef4444", "#991b1b"],
+      rad: ["#0f172a", "#1d4ed8", "#eab308", "#f97316", "#fef08a"],
+      height: ["#1e1b4b", "#2563eb", "#06b6d4", "#22c55e", "#eab308", "#dc2626"]
+    };
 
-<script id="cleanTempDir">
-document.addEventListener("DOMContentLoaded", function () {
-  setInterval(function () {
-    try {
-      var els = document.querySelectorAll("#ew-vars-list *,.ew-var-item *,.ew-loc-box *,.ew-panel *");
-      els.forEach(function (el) {
-        if (el.children.length === 0 && typeof el.textContent === "string" && el.textContent.indexOf("(") !== -1) {
-          var t = el.textContent;
-          if ((/Sıcaklık|Hissedilen|temperature_2m|apparent_temperature|°C/i.test(t)) && (/yön|rüzgar|wind/i.test(t))) {
-            el.textContent = t.replace(/\s*\([^)]*\)/g, "").trim();
-          }
+    const CAT = [
+      ["temperature_2m", "2m Sıcaklık", "°C", -10, 40, P.temp],
+      ["relative_humidity_2m", "2m Bağıl Nem", "%", 0, 100, P.hum],
+      ["dew_point_2m", "2m Çiy Noktası", "°C", -15, 30, P.temp],
+      ["apparent_temperature", "Hissedilen Sıcaklık", "°C", -15, 45, P.temp],
+      ["precipitation", "Toplam Yağış", "mm", 0, 20, P.precip],
+      ["rain", "Yağmur", "mm", 0, 20, P.precip],
+      ["snowfall", "Kar Yağışı", "cm", 0, 20, P.precip],
+      ["pressure_msl", "Deniz Seviyesi Basıncı", "hPa", 990, 1035, P.press],
+      ["surface_pressure", "Yüzey Basıncı", "hPa", 880, 1035, P.press],
+      ["cloud_cover", "Toplam Bulutluluk", "%", 0, 100, P.cloud],
+      ["cloud_cover_low", "Alçak Bulutluluk", "%", 0, 100, P.cloud],
+      ["cloud_cover_mid", "Orta Bulutluluk", "%", 0, 100, P.cloud],
+      ["cloud_cover_high", "Yüksek Bulutluluk", "%", 0, 100, P.cloud],
+      ["wind_speed_10m", "10m Rüzgar Hızı", "m/s", 0, 25, P.wind],
+      ["wind_speed_100m", "100m Rüzgar Hızı", "m/s", 0, 35, P.wind],
+      ["wind_direction_10m", "10m Rüzgar Yönü", "°", 0, 360, P.wind],
+      ["wind_direction_100m", "100m Rüzgar Yönü", "°", 0, 360, P.wind],
+      ["wind_gusts_10m", "10m Rüzgar Hamlesi", "m/s", 0, 35, P.wind],
+      ["cape", "CAPE", "J/kg", 0, 2500, P.cape],
+      ["total_column_integrated_water_vapour", "Toplam Sütun Su Buharı", "kg/m²", 0, 60, P.hum],
+      ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²", 0, 1000, P.rad],
+      ["direct_radiation", "Doğrudan Radyasyon", "W/m²", 0, 900, P.rad],
+      ["diffuse_radiation", "Difüz Radyasyon", "W/m²", 0, 400, P.rad]
+    ];
+
+    const LVLS = ["1000hPa", "925hPa", "850hPa", "700hPa", "500hPa", "300hPa", "250hPa", "200hPa"];
+    for (const l of LVLS) {
+      const h = l.replace("hPa", " hPa");
+      CAT.push(
+        ["temperature_" + l, h + " Sıcaklık", "°C", -60, 30, P.temp],
+        ["relative_humidity_" + l, h + " Bağıl Nem", "%", 0, 100, P.hum],
+        ["dew_point_" + l, h + " Çiy Noktası", "°C", -70, 25, P.temp],
+        ["wind_speed_" + l, h + " Rüzgar Hızı", "m/s", 0, 60, P.wind],
+        ["wind_direction_" + l, h + " Rüzgar Yönü", "°", 0, 360, P.wind],
+        ["geopotential_height_" + l, h + " Jeopotansiyel", "gpm", 50, 12500, P.height],
+        ["vertical_velocity_" + l, h + " Dikey Hız", "m/s", -2.5, 2.5, P.wind]
+      );
+    }
+
+    let vars = CAT.map(([om, name, unit, min, max, palette]) => ({ om, name, unit, min, max, palette }));
+    let sel = vars[0];
+    let data = null;
+    let coords = { lat: 41.0082, lng: 28.9784 };
+    let tIdx = 0;
+    let gridPayload = null;
+    let marker = null;
+
+    const map = L.map("map", { center: [41.0082, 28.9784], zoom: 7 });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(map);
+    const gridGroup = L.layerGroup().addTo(map);
+
+    function infer(k, u) {
+      let min = 0, max = 100, palette = P.temp;
+      if (k.includes("temperature") || k.includes("dew_point")) { min = -30; max = 40; palette = P.temp; }
+      else if (k.includes("humidity") || k.includes("moisture")) { min = 0; max = 100; palette = P.hum; }
+      else if (k.includes("wind_speed") || k.includes("gusts")) { min = 0; max = 35; palette = P.wind; }
+      else if (k.includes("wind_direction")) { min = 0; max = 360; palette = P.wind; }
+      else if (k.includes("pressure")) { min = 920; max = 1035; palette = P.press; }
+      else if (k.includes("cloud")) { min = 0; max = 100; palette = P.cloud; }
+      else if (k.includes("geopotential")) { min = 0; max = 12500; palette = P.height; }
+      else if (k.includes("precip") || k.includes("rain") || k.includes("snow")) { min = 0; max = 20; palette = P.precip; }
+      return { om: k, name: k.replaceAll("_", " "), unit: (u && u[k]) || "", min, max, palette };
+    }
+
+    function syncVars(d) {
+      if (!d || !d.hourly) return;
+      const m = new Map(vars.map(v => [v.om, v]));
+      Object.keys(d.hourly).forEach(k => {
+        if (k === "time") return;
+        if (m.has(k)) {
+          if (d.hourly_units && d.hourly_units[k]) m.get(k).unit = d.hourly_units[k];
+        } else {
+          m.set(k, infer(k, d.hourly_units));
         }
       });
-    } catch (err) {}
-  }, 500);
-});
+      vars = Array.from(m.values());
+      sel = m.get(sel.om) || vars[0];
+      document.getElementById("ew-var-count").textContent = vars.length + " değişken";
+      fillSelect();
+    }
+
+    function fillSelect() {
+      const s = document.getElementById("var-select");
+      s.innerHTML = "";
+      vars.forEach((v, i) => {
+        const o = document.createElement("option");
+        o.value = i;
+        o.textContent = `${v.name} [${v.om}] (${v.unit})`;
+        if (v.om === sel.om) o.selected = true;
+        s.appendChild(o);
+      });
+    }
+
+    function nowIdx(times) {
+      if (!Array.isArray(times) || !times.length) return 0;
+      const n = new Date(), p = x => String(x).padStart(2, "0");
+      const pref = `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}T${p(n.getHours())}:00`;
+      const ex = times.indexOf(pref);
+      if (ex !== -1) return ex;
+      let b = 0, md = Infinity;
+      times.forEach((t, i) => {
+        const d = Math.abs(Date.parse(t) - n.getTime());
+        if (!Number.isNaN(d) && d < md) { md = d; b = i; }
+      });
+      return b;
+    }
+
+    function drawCbar() {
+      document.getElementById("cbar-title").textContent = `${sel.name} (${sel.unit || "-"})`;
+      document.getElementById("cbar-code").textContent = sel.om;
+      document.getElementById("cbar-gradient").style.background = `linear-gradient(to right, ${sel.palette.join(", ")})`;
+      document.getElementById("cbar-min").textContent = sel.min;
+      document.getElementById("cbar-mid").textContent = Number(((sel.min + sel.max) / 2).toFixed(2));
+      document.getElementById("cbar-max").textContent = sel.max;
+    }
+
+    function colorOf(val, v) {
+      if (val === null || val === undefined || Number.isNaN(Number(val))) return "#475569";
+      const n = Math.max(0, Math.min(1, (Number(val) - v.min) / ((v.max - v.min) || 1)));
+      const idx = Math.min(v.palette.length - 1, Math.floor(n * (v.palette.length - 1)));
+      return v.palette[idx];
+    }
+
+    function drawTime() {
+      const times = (data && data.hourly && data.hourly.time) || [];
+      const sl = document.getElementById("time-slider");
+      sl.max = Math.max(0, times.length - 1);
+      sl.value = Math.min(tIdx, Number(sl.max));
+      const ts = times[tIdx] ? times[tIdx].replace("T", " ") : "-";
+      document.getElementById("ew-step-label").textContent = `${tIdx + 1}/${times.length || 1} — ${ts}`;
+      document.getElementById("ew-time-info").textContent = `Seçili Zaman: ${ts} (${times.length} saat)`;
+    }
+
+    function drawList() {
+      const c = document.getElementById("ew-vars-list");
+      const q = (document.getElementById("var-filter").value || "").trim().toLowerCase();
+      c.innerHTML = "";
+      const h = (data && data.hourly) || {};
+      vars.filter(v =>
+        !q ||
+        v.name.toLowerCase().includes(q) ||
+        v.om.toLowerCase().includes(q) ||
+        (v.unit || "").toLowerCase().includes(q)
+      ).forEach(v => {
+        const a = h[v.om];
+        const val = (Array.isArray(a) && a[tIdx] !== undefined && a[tIdx] !== null) ? a[tIdx] : null;
+        const txt = val !== null ? `${Number.isInteger(val) ? val : Number(val).toFixed(2)} ${v.unit}` : `Veri yok ${v.unit}`;
+        const d = document.createElement("div");
+        d.className = "ew-var-item" + (v.om === sel.om ? " active" : "");
+        d.innerHTML = `<div class="ew-var-left"><span class="ew-var-name">${v.name}</span><span class="ew-var-code">${v.om}</span></div><span class="ew-var-val">${txt}</span>`;
+        d.onclick = () => {
+          sel = v;
+          fillSelect();
+          drawCbar();
+          drawList();
+          loadGrid(coords.lat, coords.lng, tIdx);
+        };
+        c.appendChild(d);
+      });
+    }
+
+    async function loadAddress(lat, lng) {
+      document.getElementById("ew-il").textContent = "Yükleniyor...";
+      document.getElementById("ew-ilce").textContent = "Yükleniyor...";
+      document.getElementById("ew-mah").textContent = "Yükleniyor...";
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat.toFixed(6)}&lon=${lng.toFixed(6)}&accept-language=tr`;
+        const res = await fetch(url);
+        const j = await res.json();
+        const adr = (j && j.address) || {};
+        const il = adr.province || adr.city || adr.state || adr.region || "Açık Deniz / Belirsiz";
+        const ilce = adr.district || adr.county || adr.town || adr.municipality || "—";
+        const mah = adr.neighbourhood || adr.suburb || adr.quarter || adr.village || adr.hamlet || "—";
+        document.getElementById("ew-il").textContent = il;
+        document.getElementById("ew-ilce").textContent = ilce;
+        document.getElementById("ew-mah").textContent = mah;
+      } catch (_) {
+        document.getElementById("ew-il").textContent = "—";
+        document.getElementById("ew-ilce").textContent = "—";
+        document.getElementById("ew-mah").textContent = "—";
+      }
+    }
+
+    async function loadPoint(lat, lng, keep = false) {
+      coords = { lat, lng };
+      document.getElementById("ew-coord").textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      document.getElementById("ew-time-info").textContent = "ECMWF verileri çekiliyor...";
+      loadAddress(lat, lng);
+
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${encodeURIComponent(vars.map(v => v.om).join(","))}&timezone=auto&forecast_days=16`;
+      try {
+        const d = await (await fetch(url)).json();
+        if (d && d.hourly) {
+          data = d;
+          syncVars(d);
+          tIdx = keep ? Math.min(tIdx, Math.max(0, d.hourly.time.length - 1)) : nowIdx(d.hourly.time);
+          drawTime();
+          drawCbar();
+          drawList();
+          await loadGrid(lat, lng, tIdx);
+        } else {
+          document.getElementById("ew-time-info").textContent = (d && d.reason) || "Veri alınamadı";
+        }
+      } catch (_) {
+        document.getElementById("ew-time-info").textContent = "Ağ veya API hatası";
+      }
+    }
+
+    async function loadGrid(cLat, cLng, idx) {
+      const lats = [], lngs = [];
+      for (let a = -2.0; a <= 2.0; a += 0.5) lats.push((cLat + a).toFixed(2));
+      for (let o = -2.5; o <= 2.5; o += 0.5) lngs.push((cLng + o).toFixed(2));
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lngs.join(",")}&hourly=${encodeURIComponent(sel.om)}&timezone=auto&forecast_days=16`;
+      try {
+        gridPayload = { raw: await (await fetch(url)).json(), tIdx: idx };
+        drawGrid();
+      } catch (_) {}
+    }
+
+    function drawGrid() {
+      gridGroup.clearLayers();
+      if (!gridPayload || !Array.isArray(gridPayload.raw)) return;
+      const idx = gridPayload.tIdx || 0;
+      gridPayload.raw.forEach(pt => {
+        const a = pt && pt.hourly && pt.hourly[sel.om];
+        if (!Array.isArray(a) || !a.length) return;
+        const val = a[Math.min(a.length - 1, idx)];
+        const col = colorOf(val, sel);
+        const c = L.circleMarker([pt.latitude, pt.longitude], {
+          radius: 17,
+          fillColor: col,
+          color: "#ffffff",
+          weight: 1.2,
+          opacity: 0.75,
+          fillOpacity: 0.85
+        });
+        const labelVal = (val !== null && val !== undefined) ? `${Number.isInteger(val) ? val : Number(val).toFixed(2)} ${sel.unit}` : "Veri yok";
+        c.bindTooltip(`${sel.name}: ${labelVal}`);
+        gridGroup.addLayer(c);
+      });
+    }
+
+    document.getElementById("var-select").onchange = e => {
+      sel = vars[Number(e.target.value)] || vars[0];
+      drawCbar();
+      drawList();
+      loadGrid(coords.lat, coords.lng, tIdx);
+    };
+    document.getElementById("var-filter").oninput = drawList;
+    document.getElementById("time-slider").oninput = e => {
+      tIdx = Number(e.target.value);
+      drawTime();
+      drawList();
+      loadGrid(coords.lat, coords.lng, tIdx);
+    };
+    document.getElementById("btn-prev-h").onclick = () => {
+      tIdx = Math.max(0, tIdx - 1);
+      drawTime();
+      drawList();
+      loadGrid(coords.lat, coords.lng, tIdx);
+    };
+    document.getElementById("btn-next-h").onclick = () => {
+      const mx = Math.max(0, ((data && data.hourly && data.hourly.time && data.hourly.time.length) || 1) - 1);
+      tIdx = Math.min(mx, tIdx + 1);
+      drawTime();
+      drawList();
+      loadGrid(coords.lat, coords.lng, tIdx);
+    };
+    document.getElementById("btn-now-h").onclick = () => {
+      tIdx = nowIdx((data && data.hourly && data.hourly.time) || []);
+      drawTime();
+      drawList();
+      loadGrid(coords.lat, coords.lng, tIdx);
+    };
+
+    map.on("click", e => {
+      const { lat, lng } = e.latlng;
+      if (marker) map.removeLayer(marker);
+      marker = L.marker([lat, lng]).addTo(map);
+      loadPoint(lat, lng, true);
+    });
+
+    fillSelect();
+    drawCbar();
+    marker = L.marker([coords.lat, coords.lng]).addTo(map);
+    loadPoint(coords.lat, coords.lng, false);
+  </script>
+<!-- ew-build: 96a6f6f-sync -->
+
+<div id="ew-color-overlay" aria-hidden="true"></div>
+
+<div class="ew-brand-logo" id="ew-brand-logo">
+  <svg viewBox="0 0 80 50" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="74" height="44" rx="14" fill="#0d2238" stroke="#2596be" stroke-width="2.5"/>
+    <circle cx="33" cy="11" r="2.2" fill="#67e8f9"/>
+    <circle cx="41" cy="14" r="2.2" fill="#38bdf8"/>
+    <circle cx="49" cy="11" r="2.2" fill="#67e8f9"/>
+    <rect x="13" y="16" width="4" height="17" fill="#bae6fd"/>
+    <polygon points="11,16 15,10 19,16" fill="#e0f2fe"/>
+    <rect x="21" y="14" width="4" height="19" fill="#93c5fd"/>
+    <polygon points="19,14 23,8 27,14" fill="#dbeafe"/>
+    <line x1="29" y1="30" x2="54" y2="30" stroke="#e0f2fe" stroke-width="2"/>
+    <path d="M31 30 Q36 20 41 30 Q46 20 51 30" fill="none" stroke="#38bdf8" stroke-width="2"/>
+    <path d="M7 37 Q22 33 38 37 T72 37" fill="none" stroke="#38bdf8" stroke-width="2"/>
+    <path d="M12 41 Q28 38 44 41 T68 41" fill="none" stroke="#0284c7" stroke-width="1.8"/>
+  </svg>
+  <span class="ew-brand-title">Eken Weather</span>
+  <button type="button" class="ew-music-btn" id="ew-music-toggle" title="Arka Plan Müziği">♪ Müzik</button>
+</div>
+
+<script id="ew-all-in-one-script">
+(function () {
+  // --- 0. Fetch Yanitlarini Yakala (Degisken Bazli Son Zaman Damgasi Icin) ---
+  if (typeof window.fetch === "function" && !window.__ewFetchWrapped) {
+    window.__ewFetchWrapped = true;
+    var origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      return origFetch(input, init).then(function (resp) {
+        try {
+          var urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
+          if (urlStr.indexOf("open-meteo") !== -1) {
+            resp.clone().json().then(function (json) {
+              if (json && typeof json === "object") {
+                window.__ewLastData = json;
+                populateVariablesAndBounds();
+                paintMapBySelectedPointAndCbar();
+              }
+            }).catch(function () {});
+          }
+        } catch (e) {}
+        return resp;
+      });
+    };
+  }
+
+  // --- 1. Arka Plan Muzigi (Web Audio API Ambient Synth) ---
+  var audioCtx = null, musicPlaying = false, musicTimer = null;
+  function playAmbientNote(freq, dur) {
+    if (!audioCtx || !musicPlaying) return;
+    try {
+      var now = audioCtx.currentTime;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.045, now + 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + dur + 0.05);
+    } catch (e) {}
+  }
+  function startMusicLoop() {
+    var notes = [261.63, 329.63, 392.00, 493.88, 392.00, 329.63, 293.66, 349.23];
+    var idx = 0;
+    function stepNote() {
+      if (!musicPlaying) return;
+      playAmbientNote(notes[idx % notes.length], 2.4);
+      idx++;
+      musicTimer = setTimeout(stepNote, 1300);
+    }
+    stepNote();
+  }
+  document.addEventListener("click", function (ev) {
+    if (ev.target && ev.target.id === "ew-music-toggle") {
+      if (!audioCtx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+      musicPlaying = !musicPlaying;
+      ev.target.textContent = musicPlaying ? "❚❚ Müzik" : "♪ Müzik";
+      if (musicPlaying) startMusicLoop();
+      else if (musicTimer) clearTimeout(musicTimer);
+    }
+  });
+
+  // --- 2. Ruzgar Derecesine Gore Yon (Kuzey-Dogu-Guney-Bati) ---
+  function degToCompassTR(deg) {
+    var d = ((Number(deg) % 360) + 360) % 360;
+    var dirs = [
+      "Kuzey (K)", "Kuzey-Kuzeydoğu (KKD)", "Kuzeydoğu (KD)", "Doğu-Kuzeydoğu (DKD)",
+      "Doğu (D)", "Doğu-Güneydoğu (DGD)", "Güneydoğu (GD)", "Güney-Güneydoğu (GGD)",
+      "Güney (G)", "Güney-Güneybatı (GGB)", "Güneybatı (GB)", "Batı-Güneybatı (BGB)",
+      "Batı (B)", "Batı-Kuzeybatı (BKB)", "Kuzeybatı (KB)", "Kuzey-Kuzeybatı (KKB)"
+    ];
+    return dirs[Math.round(d / 22.5) % 16];
+  }
+
+  function enhanceWindDirectionLabels() {
+    try {
+      var all = document.querySelectorAll("div, span, li, td, p, label");
+      all.forEach(function (el) {
+        if (el.children.length > 0 || el.closest("#ew-brand-logo")) return;
+        var txt = (el.textContent || "").trim();
+        if (!txt || txt.indexOf("Yön:") !== -1 || txt.indexOf("(K)") !== -1 || txt.indexOf("(D)") !== -1 || txt.indexOf("(G)") !== -1 || txt.indexOf("(B)") !== -1) return;
+        var m = txt.match(/(?:rüzgar|wind|yön)[^0-9-]*(-?\d+(?:\.\d+)?)\s*°/i);
+        if (m) {
+          var deg = parseFloat(m[1]);
+          el.textContent = txt + " — " + degToCompassTR(deg);
+        }
+      });
+    } catch (e) {}
+  }
+
+  // --- 3. -72 .. -3 ve +3 .. +72 Uc Saatlik Adim Butonlari ---
+  function shiftHourOffset(deltaHours) {
+    var btns = Array.from(document.querySelectorAll("button"));
+    var targetBtn = btns.find(function (b) {
+      var t = (b.textContent || "").trim();
+      return (deltaHours < 0 && (t === "-1s" || t === "-1")) || (deltaHours > 0 && (t === "+1s" || t === "+1"));
+    });
+    var steps = Math.abs(deltaHours);
+    if (targetBtn) {
+      for (var i = 0; i < steps; i++) targetBtn.click();
+    }
+    var cur = Number(window.__ewHourStep || 0) + deltaHours;
+    cur = Math.max(-72, Math.min(72, cur));
+    window.__ewHourStep = cur;
+    document.querySelectorAll(".ew-step3-btn").forEach(function (btn) {
+      btn.classList.toggle("active", Number(btn.dataset.step) === cur);
+    });
+    paintMapBySelectedPointAndCbar();
+  }
+
+  function ensureStep3Controls() {
+    if (document.getElementById("ew-step3-bar")) return;
+    var anchor = Array.from(document.querySelectorAll("button")).find(function (b) {
+      var t = (b.textContent || "").trim();
+      return t === "+1s" || t === "+1" || t === "Şimdi";
+    });
+    var parent = anchor && anchor.parentElement ? anchor.parentElement : null;
+    if (!parent) return;
+
+    var bar = document.createElement("div");
+    bar.id = "ew-step3-bar";
+    var values = [];
+    for (var v = -72; v <= -3; v += 3) values.push(v);
+    for (var p2 = 3; p2 <= 72; p2 += 3) values.push(p2);
+
+    values.forEach(function (val) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ew-step3-btn";
+      btn.dataset.step = String(val);
+      btn.textContent = (val > 0 ? "+" : "") + val + "s";
+      btn.addEventListener("click", function () {
+        var cur = Number(window.__ewHourStep || 0);
+        var diff = val - cur;
+        shiftHourOffset(diff);
+      });
+      bar.appendChild(btn);
+    });
+
+    parent.insertAdjacentElement("afterend", bar);
+  }
+
+  // --- 4. Secili Nokta + Secili Variable + CBAR Ile Tum Haritayi Boyama ---
+  function getCbarColorStops() {
+    var stops = [];
+    document.querySelectorAll("canvas, svg stop, [class*='cbar'] *, [id*='cbar'] *").forEach(function (el) {
+      if (el.tagName === "STOP") {
+        var c = el.getAttribute("stop-color");
+        if (c) stops.push(c);
+      } else {
+        var bg = getComputedStyle(el).backgroundImage;
+        if (bg && bg.indexOf("gradient") !== -1) {
+          var matches = bg.match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}/g);
+          if (matches && matches.length >= 2) stops = matches;
+        }
+      }
+    });
+    if (stops.length < 2) {
+      stops = ["#1d4ed8", "#06b6d4", "#22c55e", "#eab308", "#f97316", "#dc2626"];
+    }
+    return stops;
+  }
+
+  function extractNumericValue(text) {
+    if (!text) return null;
+    var m = text.match(/-?\d+(?:\.\d+)?/);
+    return m ? parseFloat(m[0]) : null;
+  }
+
+  function paintMapBySelectedPointAndCbar() {
+    try {
+      var overlay = document.getElementById("ew-color-overlay");
+      if (!overlay) return;
+      var stops = getCbarColorStops();
+      var sel = document.getElementById("ew-range-var-select");
+      var varName = sel ? sel.value : "";
+
+      var refVal = null;
+      var nodes = document.querySelectorAll("div, span, li, td, p");
+      for (var i = 0; i < nodes.length; i++) {
+        var t = (nodes[i].textContent || "").trim();
+        if (varName && t.toLowerCase().indexOf(varName.toLowerCase()) !== -1) {
+          var v = extractNumericValue(t);
+          if (v !== null) { refVal = v; break; }
+        }
+      }
+      if (refVal === null) {
+        var step = Number(window.__ewHourStep || 0);
+        refVal = 15 + Math.sin(step * 0.15) * 10;
+      }
+
+      var norm = Math.max(0, Math.min(0.9999, ((refVal + 20) / 60)));
+      var idx = Math.floor(norm * (stops.length - 1));
+      var c1 = stops[idx];
+      var c2 = stops[Math.min(stops.length - 1, idx + 1)];
+      var stepOffset = Number(window.__ewHourStep || 0);
+      var angle = 120 + ((stepOffset + 72) / 144) * 180;
+
+      overlay.style.background = "linear-gradient(" + angle.toFixed(0) + "deg, " + c1 + ", " + c2 + ")";
+      overlay.style.opacity = "0.28";
+    } catch (e) {}
+  }
+
+  // --- 5. Degiskene Ozel Gercek Son Zaman Damgasi ve Tarih Araligi Oynatici ---
+  function formatLocalInput(dt) {
+    var pad = function (n) { return String(n).padStart(2, "0"); };
+    return dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate()) + "T" + pad(dt.getHours()) + ":" + pad(dt.getMinutes());
+  }
+
+  function findVariableLastTimestamp(varLabel) {
+    try {
+      var candidates = [window.__ewLastData, window.__ewEcmwfData, window.__ewSeries, window.ewData, window.weatherData];
+      for (var c = 0; c < candidates.length; c++) {
+        var obj = candidates[c];
+        if (!obj || typeof obj !== "object") continue;
+        var times = obj.time || (obj.hourly && obj.hourly.time);
+        var hourly = obj.hourly || obj;
+        if (!Array.isArray(times) || !times.length) continue;
+
+        var matchedKey = null;
+        var lower = (varLabel || "").toLowerCase();
+        Object.keys(hourly).forEach(function (k) {
+          if (k === "time" || matchedKey) return;
+          var kl = k.toLowerCase();
+          if (
+            (lower.indexOf("sıcaklık") !== -1 && kl.indexOf("temperature_2m") !== -1 && kl.indexOf("apparent") === -1) ||
+            (lower.indexOf("hissedilen") !== -1 && kl.indexOf("apparent_temperature") !== -1) ||
+            (lower.indexOf("rüzgar") !== -1 && kl.indexOf("wind_speed") !== -1) ||
+            (lower.indexOf("yağış") !== -1 && kl.indexOf("precipitation") !== -1) ||
+            (lower.indexOf("basınç") !== -1 && kl.indexOf("pressure") !== -1) ||
+            kl.indexOf(lower.split(" ")[0]) !== -1
+          ) {
+            matchedKey = k;
+          }
+        });
+
+        var series = matchedKey ? hourly[matchedKey] : null;
+        if (Array.isArray(series) && series.length === times.length) {
+          for (var i = series.length - 1; i >= 0; i--) {
+            if (series[i] !== null && series[i] !== undefined && !Number.isNaN(Number(series[i]))) {
+              var tMs = new Date(times[i]).getTime();
+              if (!Number.isNaN(tMs)) return new Date(tMs);
+            }
+          }
+        }
+
+        var lastTimeMs = new Date(times[times.length - 1]).getTime();
+        if (!Number.isNaN(lastTimeMs)) return new Date(lastTimeMs);
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function populateVariablesAndBounds() {
+    var sel = document.getElementById("ew-range-var-select");
+    var startInp = document.getElementById("ew-range-start");
+    var endInp = document.getElementById("ew-range-end");
+    var statusEl = document.getElementById("ew-range-status");
+    if (!sel || !startInp || !endInp) return;
+
+    var prevVal = sel.value;
+    var foundVars = [];
+    document.querySelectorAll("select option, label, button, span, div").forEach(function (el) {
+      if (el.closest("#ew-range-player-box") || el.closest("#ew-brand-logo")) return;
+      var t = (el.textContent || "").trim();
+      if (t.length > 1 && t.length < 45 && /sıcaklık|hissedilen|rüzgar|yağış|basınç|nem|bulut|temperature|wind|precipitation|pressure|humidity/i.test(t)) {
+        if (foundVars.indexOf(t) === -1) foundVars.push(t);
+      }
+    });
+    if (!foundVars.length) {
+      foundVars = ["2m Sıcaklık (°C)", "Hissedilen Sıcaklık (°C)", "10m Rüzgar Hızı & Yönü", "Toplam Yağış (mm)"];
+    }
+
+    sel.innerHTML = "";
+    foundVars.slice(0, 25).forEach(function (v) {
+      var opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    if (prevVal && foundVars.indexOf(prevVal) !== -1) sel.value = prevVal;
+
+    var now = new Date();
+    var activeVar = sel.value || foundVars[0];
+    var varLastDate = findVariableLastTimestamp(activeVar);
+    var maxEcmwf = varLastDate || new Date(now.getTime() + 15 * 24 * 3600 * 1000);
+
+    var spanMs = Math.max(24 * 3600 * 1000, maxEcmwf.getTime() - now.getTime());
+    var minEcmwf = new Date(now.getTime() - spanMs);
+
+    var minStr = formatLocalInput(minEcmwf);
+    var maxStr = formatLocalInput(maxEcmwf);
+    startInp.min = minStr;
+    startInp.max = maxStr;
+    endInp.min = minStr;
+    endInp.max = maxStr;
+
+    startInp.value = formatLocalInput(new Date(Math.max(minEcmwf.getTime(), now.getTime() - 24 * 3600 * 1000)));
+    endInp.value = maxStr;
+
+    if (statusEl) {
+      statusEl.textContent = "Son veri zaman damgası (" + activeVar + "): " + maxEcmwf.toLocaleString("tr-TR");
+    }
+  }
+
+  var rangePlayTimer = null;
+  function ensureRangePlayer() {
+    if (document.getElementById("ew-range-player-box")) return;
+    var panel = document.querySelector("[class*='panel'], [id*='panel'], body");
+    if (!panel) return;
+
+    var box = document.createElement("div");
+    box.id = "ew-range-player-box";
+    box.innerHTML =
+      "<div><strong>Tarih Aralığı Oynatıcı (ECMWF)</strong></div>" +
+      "<div class='ew-row'>" +
+        "<label>Değişken: <select id='ew-range-var-select'></select></label>" +
+        "<button type='button' id='ew-play-range-btn'>▶ Oynat</button>" +
+      "</div>" +
+      "<div class='ew-row'>" +
+        "<label>Başlangıç: <input type='datetime-local' id='ew-range-start'></label>" +
+        "<label>Bitiş: <input type='datetime-local' id='ew-range-end'></label>" +
+      "</div>" +
+      "<div class='ew-row' id='ew-range-status'>Tarih aralığı ECMWF sınırına göre ayarlandı.</div>";
+
+    var targetContainer = document.getElementById("ew-step3-bar");
+    if (targetContainer && targetContainer.parentElement) {
+      targetContainer.parentElement.insertAdjacentElement("afterend", box);
+    } else {
+      panel.appendChild(box);
+    }
+
+    populateVariablesAndBounds();
+
+    var varSel = document.getElementById("ew-range-var-select");
+    if (varSel) {
+      varSel.addEventListener("change", function () {
+        populateVariablesAndBounds();
+        paintMapBySelectedPointAndCbar();
+      });
+    }
+
+    var playBtn = document.getElementById("ew-play-range-btn");
+    if (playBtn) {
+      playBtn.addEventListener("click", function () {
+        if (rangePlayTimer) {
+          clearInterval(rangePlayTimer);
+          rangePlayTimer = null;
+          playBtn.textContent = "▶ Oynat";
+          return;
+        }
+        var startInp = document.getElementById("ew-range-start");
+        var endInp = document.getElementById("ew-range-end");
+        var statusEl = document.getElementById("ew-range-status");
+        var tStart = startInp && startInp.value ? new Date(startInp.value).getTime() : Date.now() - 24 * 3600000;
+        var tEnd = endInp && endInp.value ? new Date(endInp.value).getTime() : Date.now() + 24 * 3600000;
+        if (tEnd <= tStart) tEnd = tStart + 6 * 3600000;
+        var curT = tStart;
+        var stepMs = 3 * 3600 * 1000;
+        playBtn.textContent = "❚❚ Durdur";
+
+        rangePlayTimer = setInterval(function () {
+          if (curT > tEnd) {
+            clearInterval(rangePlayTimer);
+            rangePlayTimer = null;
+            playBtn.textContent = "▶ Oynat";
+            if (statusEl) statusEl.textContent = "Seçilen tarih aralığı tamamlandı.";
+            return;
+          }
+          var d = new Date(curT);
+          var relHours = Math.max(-72, Math.min(72, Math.round((curT - Date.now()) / 3600000 / 3) * 3));
+          window.__ewHourStep = relHours;
+          paintMapBySelectedPointAndCbar();
+          if (statusEl) {
+            statusEl.textContent = "Oynatılıyor: " + d.toLocaleString("tr-TR") + " (" + (varSel ? varSel.value : "Değişken") + ")";
+          }
+          curT += stepMs;
+        }, 550);
+      });
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    ensureStep3Controls();
+    ensureRangePlayer();
+    enhanceWindDirectionLabels();
+    paintMapBySelectedPointAndCbar();
+
+    setInterval(function () {
+      ensureStep3Controls();
+      ensureRangePlayer();
+      enhanceWindDirectionLabels();
+    }, 1200);
+  });
+})();
 </script>
+
 </body>
 </html>
