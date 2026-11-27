@@ -3,39 +3,224 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Eken Weather</title>
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    crossorigin=""
-  />
+  <title>Eken Weather - ECMWF Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
-    html, body, #map {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: #0b1220;
+    * { box-sizing: border-box; }
+    html, body, #map { margin: 0; padding: 0; width: 100vw; height: 100vh; background: #0b1220; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; }
+    #ew-panel {
+      position: absolute; top: 12px; right: 12px; z-index: 1000;
+      width: 360px; max-height: calc(100vh - 24px);
+      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px;
+      display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
     }
+    .ew-header { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 700; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .ew-time { font-size: 11px; color: #38bdf8; font-weight: 400; margin-top: 4px; }
+    .ew-body { padding: 12px; overflow-y: auto; flex: 1; font-size: 13px; }
+    .ew-select-group { margin-bottom: 12px; }
+    .ew-select-group label { display: block; font-size: 11px; color: #94a3b8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .ew-select { width: 100%; padding: 8px 10px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; font-size: 13px; outline: none; }
+    .ew-coord-box { background: rgba(30, 41, 59, 0.5); padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); }
+    .ew-coord-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
+    .ew-coord-row:last-child { margin-bottom: 0; }
+    .ew-var-item { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); border-radius: 4px; }
+    .ew-var-item:hover { background: rgba(255,255,255,0.04); }
+    .ew-var-item.active { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); }
+    .ew-var-name { color: #cbd5e1; }
+    .ew-var-val { font-weight: 600; color: #38bdf8; }
+    #ew-cbar {
+      position: absolute; bottom: 24px; left: 24px; z-index: 1000;
+      background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
+      padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+      width: 280px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    }
+    .cbar-title { font-size: 11px; color: #94a3b8; margin-bottom: 6px; font-weight: 600; }
+    .cbar-gradient { height: 12px; border-radius: 4px; width: 100%; margin-bottom: 4px; }
+    .cbar-labels { display: flex; justify-content: space-between; font-size: 10px; color: #cbd5e1; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    crossorigin=""
-  ></script>
+
+  <div id="ew-panel">
+    <div class="ew-header">
+      <div>
+        <span>ECMWF Değişkenleri</span>
+        <div id="ew-time-info" class="ew-time">Yükleniyor...</div>
+      </div>
+    </div>
+    <div class="ew-body">
+      <div class="ew-select-group">
+        <label for="var-select">Haritada Görselleştirilecek Değişken</label>
+        <select id="var-select" class="ew-select"></select>
+      </div>
+      <div class="ew-coord-box">
+        <div class="ew-coord-row">
+          <span style="color:#94a3b8;">Koordinat:</span>
+          <span id="ew-coord-val">Haritaya tıklayın</span>
+        </div>
+      </div>
+      <div id="ew-vars-list"></div>
+    </div>
+  </div>
+
+  <div id="ew-cbar">
+    <div id="cbar-title" class="cbar-title">Renk Skalası (CBAR)</div>
+    <div id="cbar-gradient" class="cbar-gradient"></div>
+    <div class="cbar-labels">
+      <span id="cbar-min">-</span>
+      <span id="cbar-mid">-</span>
+      <span id="cbar-max">-</span>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    const map = L.map("map", {
-      center: [39.0, 35.0],
-      zoom: 6
+    const CONFIG = {
+      vars: [
+        { om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", min: -10, max: 40, colors: ["#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"] },
+        { om: "relative_humidity_2m", name: "2m Bağıl Nem", unit: "%", min: 0, max: 100, colors: ["#a52a2a", "#ffff00", "#00ff00", "#00ffff", "#0000ff"] },
+        { om: "dew_point_2m", name: "2m Çiy Noktası", unit: "°C", min: -15, max: 30, colors: ["#4b0082", "#0000ff", "#00ff00", "#ffff00", "#ff0000"] },
+        { om: "precipitation", name: "Toplam Yağış", unit: "mm", min: 0, max: 20, colors: ["#ffffff", "#87ceeb", "#0000ff", "#00008b", "#4b0082"] },
+        { om: "wind_speed_10m", name: "10m Rüzgar Hızı", unit: "m/s", min: 0, max: 25, colors: ["#ffffff", "#00ffff", "#00ff00", "#ff8c00", "#ff0000"] },
+        { om: "surface_pressure", name: "Yüzey Basıncı", unit: "hPa", min: 950, max: 1040, colors: ["#00008b", "#0000ff", "#00ff00", "#ffff00", "#ff0000"] },
+        { om: "cloud_cover", name: "Toplam Bulutluluk", unit: "%", min: 0, max: 100, colors: ["#87ceeb", "#b0c4de", "#708090", "#2f4f4f"] },
+        { om: "cape", name: "CAPE", unit: "J/kg", min: 0, max: 2500, colors: ["#ffffff", "#ffff00", "#ff8c00", "#ff0000", "#8b0000"] },
+        { om: "temperature_850hPa", name: "850 hPa Sıcaklık", unit: "°C", min: -20, max: 30, colors: ["#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"] },
+        { om: "geopotential_height_500hPa", name: "500 hPa Jeopotansiyel", unit: "gpm", min: 5000, max: 5900, colors: ["#4b0082", "#0000ff", "#00ff00", "#ffff00", "#ff0000"] }
+      ]
+    };
+
+    let selectedVar = CONFIG.vars[0];
+    let currentData = null;
+    let gridLayerGroup = L.layerGroup();
+    let marker = null;
+
+    const map = L.map("map", { center: [39.0, 35.0], zoom: 6 });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "&copy; OpenStreetMap" }).addTo(map);
+    gridLayerGroup.addTo(map);
+
+    function initUI() {
+      const select = document.getElementById("var-select");
+      select.innerHTML = "";
+      CONFIG.vars.forEach((v, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        opt.textContent = `${v.name} (${v.unit})`;
+        select.appendChild(opt);
+      });
+
+      select.addEventListener("change", (e) => {
+        selectedVar = CONFIG.vars[e.target.value];
+        updateCbar();
+        if (currentData) renderGridOverlay();
+      });
+
+      updateCbar();
+    }
+
+    function updateCbar() {
+      document.getElementById("cbar-title").textContent = `${selectedVar.name} (${selectedVar.unit})`;
+      document.getElementById("cbar-gradient").style.background = `linear-gradient(to right, ${selectedVar.colors.join(", ")})`;
+      document.getElementById("cbar-min").textContent = selectedVar.min;
+      document.getElementById("cbar-mid").textContent = ((selectedVar.min + selectedVar.max) / 2).toFixed(1);
+      document.getElementById("cbar-max").textContent = selectedVar.max;
+    }
+
+    function getColorForValue(val, config) {
+      if (val === null || val === undefined) return "transparent";
+      const norm = Math.max(0, Math.min(1, (val - config.min) / (config.max - config.min)));
+      const count = config.colors.length;
+      const idx = Math.min(count - 1, Math.floor(norm * (count - 1)));
+      return config.colors[idx];
+    }
+
+    async function fetchLocationData(lat, lng) {
+      const omParams = CONFIG.vars.map(v => v.om).join(",");
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lng}&hourly=${omParams}&timezone=Europe%2FIstanbul&forecast_days=1`;
+      
+      document.getElementById("ew-coord-val").textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      document.getElementById("ew-time-info").textContent = "Veriler yükleniyor...";
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        currentData = data;
+
+        if (data.hourly && data.hourly.time && data.hourly.time.length > 0) {
+          const nowIndex = 0; // Ilk saatlik tahmin verisi
+          document.getElementById("ew-time-info").textContent = `Anlık: ${data.hourly.time[nowIndex].replace("T", " ")}`;
+          renderVarsList(data, nowIndex);
+          fetchGridData(lat, lng);
+        }
+      } catch (err) {
+        document.getElementById("ew-time-info").textContent = "Veri alınamadı!";
+      }
+    }
+
+    function renderVarsList(data, timeIdx) {
+      const container = document.getElementById("ew-vars-list");
+      container.innerHTML = "";
+
+      CONFIG.vars.forEach(v => {
+        const valArray = data.hourly[v.om];
+        const val = (valArray && valArray[timeIdx] !== undefined) ? valArray[timeIdx] : "—";
+
+        const div = document.createElement("div");
+        div.className = `ew-var-item ${v.om === selectedVar.om ? 'active' : ''}`;
+        div.innerHTML = `
+          <span class="ew-var-name">${v.name}</span>
+          <span class="ew-var-val">${val} ${v.unit}</span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function fetchGridData(centerLat, centerLng) {
+      const lats = [], lngs = [];
+      for (let dLat = -1.5; dLat <= 1.5; dLat += 0.5) lats.push((centerLat + dLat).toFixed(2));
+      for (let dLng = -2.0; dLng <= 2.0; dLng += 0.5) lngs.push((centerLng + dLng).toFixed(2));
+
+      const gridUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lngs.join(",")}&hourly=${selectedVar.om}&timezone=Europe%2FIstanbul&forecast_days=1`;
+      try {
+        const res = await fetch(gridUrl);
+        const gridData = await res.json();
+        renderGridOverlay(gridData);
+      } catch (_) {}
+    }
+
+    function renderGridOverlay(gridData) {
+      gridLayerGroup.clearLayers();
+      if (!gridData || !Array.isArray(gridData)) return;
+
+      gridData.forEach(pt => {
+        if (!pt.hourly || !pt.hourly[selectedVar.om]) return;
+        const val = pt.hourly[selectedVar.om][0];
+        const color = getColorForValue(val, selectedVar);
+
+        const circle = L.circleMarker([pt.latitude, pt.longitude], {
+          radius: 12,
+          fillColor: color,
+          color: "rgba(255,255,255,0.2)",
+          weight: 1,
+          fillOpacity: 0.65
+        });
+        circle.bindTooltip(`${selectedVar.name}: ${val} ${selectedVar.unit}`);
+        gridLayerGroup.addLayer(circle);
+      });
+    }
+
+    map.on("click", (e) => {
+      const { lat, lng } = e.latlng;
+      if (marker) map.removeLayer(marker);
+      marker = L.marker([lat, lng]).addTo(map);
+      fetchLocationData(lat, lng);
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
-      attribution: "&copy; OpenStreetMap"
-    }).addTo(map);
+    initUI();
+    // Ilk veri yuklemesi (Istanbul)
+    fetchLocationData(41.0082, 28.9784);
   </script>
 </body>
-</html>
 </html>
