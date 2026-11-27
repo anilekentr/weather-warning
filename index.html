@@ -2021,13 +2021,6 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
       }
     } catch (_) {}
 
-    if (Date.now() < rateLimitUntil) {
-      const fbCache = findFallbackFromCache();
-      if (typeof fbCache === "number" && Number.isFinite(fbCache)) {
-        return { val: fbCache, tag: "ECMWF (Cache)" };
-      }
-    }
-
     const waitMs = Math.max(0, 120 - (Date.now() - lastNetAt));
     if (waitMs > 0) await sleep(waitMs);
     lastNetAt = Date.now();
@@ -2085,6 +2078,17 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
             if (typeof saveStorage === "function") saveStorage(obsCache);
           }
           return { val, tag: "ECMWF" };
+        }
+        const arr = j?.hourly?.[fieldName];
+        if (Array.isArray(arr)) {
+          const firstNum = arr.find(x => typeof x === "number" && Number.isFinite(x));
+          if (typeof firstNum === "number" && Number.isFinite(firstNum)) {
+            if (typeof obsCache === "object" && obsCache) {
+              obsCache[ck] = { val: firstNum, at: Date.now() };
+              if (typeof saveStorage === "function") saveStorage(obsCache);
+            }
+            return { val: firstNum, tag: "ECMWF" };
+          }
         }
       }
     } catch (_) {}
