@@ -187,7 +187,7 @@
     }
   </style>
 
-<style id="ew-all-in-one-css">
+<style id="ew-full-v5-css">
   .ew-brand-logo {
     position: fixed;
     top: 12px;
@@ -195,98 +195,148 @@
     z-index: 1200;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 12px;
+    gap: 8px;
+    padding: 6px 10px;
     border-radius: 10px;
-    background: rgba(10, 20, 34, 0.88);
-    border: 1px solid rgba(56, 189, 248, 0.45);
+    background: rgba(10, 20, 34, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.5);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(8px);
-    pointer-events: auto;
+    max-width: 294px;
   }
   .ew-brand-logo svg {
-    width: 44px;
-    height: 28px;
+    width: 38px;
+    height: 24px;
     flex-shrink: 0;
   }
   .ew-brand-title {
     font-family: system-ui, -apple-system, sans-serif;
     font-weight: 800;
-    font-size: 14px;
-    letter-spacing: 0.3px;
+    font-size: 13px;
+    letter-spacing: 0.25px;
     color: #ffffff;
     white-space: nowrap;
   }
   .ew-music-btn {
-    margin-left: 4px;
-    padding: 4px 8px;
+    margin-left: 2px;
+    padding: 3px 7px;
     border-radius: 6px;
-    border: 1px solid rgba(125, 211, 252, 0.4);
-    background: rgba(30, 58, 95, 0.7);
+    border: 1px solid rgba(125, 211, 252, 0.45);
+    background: rgba(30, 58, 95, 0.8);
     color: #e0f2fe;
     font-size: 11px;
     cursor: pointer;
+    white-space: nowrap;
   }
   .ew-music-btn:hover {
-    background: rgba(2, 132, 199, 0.85);
-  }
-  #ew-step3-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
-  }
-  .ew-step3-btn {
-    padding: 3px 6px;
-    font-size: 11px;
-    border-radius: 5px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(15, 23, 42, 0.82);
-    color: #e2e8f0;
-    cursor: pointer;
-  }
-  .ew-step3-btn.active {
-    background: #0284c7;
-    border-color: #7dd3fc;
-    color: #ffffff;
-    font-weight: 700;
+    background: rgba(2, 132, 199, 0.9);
   }
   #ew-range-player-box {
-    margin-top: 8px;
-    padding: 8px;
-    border-radius: 8px;
-    background: rgba(15, 23, 42, 0.86);
-    border: 1px solid rgba(56, 189, 248, 0.3);
+    position: fixed;
+    top: 66px;
+    left: 12px;
+    width: 294px;
+    max-width: calc(100vw - 24px);
+    z-index: 1150;
+    padding: 8px 10px;
+    border-radius: 9px;
+    background: rgba(12, 22, 38, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(8px);
     font-size: 11px;
     color: #e2e8f0;
   }
   #ew-range-player-box .ew-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
     margin-top: 5px;
   }
+  #ew-range-player-box label {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10.5px;
+  }
   #ew-range-player-box select,
   #ew-range-player-box input[type="datetime-local"] {
-    background: #0b1526;
+    background: #091322;
     color: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.4);
+    border: 1px solid rgba(148, 163, 184, 0.45);
     border-radius: 5px;
-    padding: 3px 5px;
-    font-size: 11px;
+    padding: 2px 4px;
+    font-size: 10.5px;
+    max-width: 152px;
   }
   #ew-play-range-btn {
-    padding: 4px 10px;
+    padding: 3px 9px;
     border-radius: 6px;
     border: none;
     background: #0ea5e9;
     color: #fff;
     font-weight: 700;
+    font-size: 11px;
     cursor: pointer;
   }
   #ew-play-range-btn:hover {
     background: #0284c7;
+  }
+  #ew-step-interval-bar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .ew-interval-jump-btn {
+    flex: 1;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 5px;
+    border: 1px solid rgba(125, 211, 252, 0.45);
+    background: rgba(15, 23, 42, 0.88);
+    color: #e0f2fe;
+    cursor: pointer;
+  }
+  .ew-interval-jump-btn:hover {
+    background: #0284c7;
+    color: #ffffff;
+  }
+  #ew-range-dates-summary {
+    margin-top: 6px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    background: rgba(10, 22, 40, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    font-size: 10px;
+    line-height: 1.45;
+  }
+  #ew-range-dates-summary div strong {
+    color: #93c5fd;
+  }
+  #ew-stats-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 5px;
+    padding: 5px;
+    border-radius: 6px;
+    background: rgba(7, 15, 28, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    font-size: 10.5px;
+    text-align: center;
+  }
+  #ew-stats-summary span strong {
+    display: block;
+    color: #7dd3fc;
+    font-size: 11px;
+  }
+  #ew-cbar-bounds-info {
+    margin-top: 4px;
+    font-size: 10px;
+    color: #bae6fd;
   }
   #ew-color-overlay {
     position: fixed;
@@ -294,7 +344,7 @@
     pointer-events: none;
     z-index: 350;
     transition: background 0.25s ease, opacity 0.25s ease;
-    opacity: 0.28;
+    opacity: 0.36;
   }
 </style>
 
@@ -681,9 +731,9 @@
   <button type="button" class="ew-music-btn" id="ew-music-toggle" title="Arka Plan Müziği">♪ Müzik</button>
 </div>
 
-<script id="ew-all-in-one-script">
+<script id="ew-full-v5-script">
 (function () {
-  // --- 0. Fetch Yanitlarini Yakala (Degisken Bazli Son Zaman Damgasi Icin) ---
+  // --- 0. Fetch Yanitlarini Yakala ---
   if (typeof window.fetch === "function" && !window.__ewFetchWrapped) {
     window.__ewFetchWrapped = true;
     var origFetch = window.fetch.bind(window);
@@ -696,7 +746,7 @@
               if (json && typeof json === "object") {
                 window.__ewLastData = json;
                 populateVariablesAndBounds();
-                paintMapBySelectedPointAndCbar();
+                updateRangeStatsAndPaint();
               }
             }).catch(function () {});
           }
@@ -706,7 +756,7 @@
     };
   }
 
-  // --- 1. Arka Plan Muzigi (Web Audio API Ambient Synth) ---
+  // --- 1. Arka Plan Muzigi ---
   var audioCtx = null, musicPlaying = false, musicTimer = null;
   function playAmbientNote(freq, dur) {
     if (!audioCtx || !musicPlaying) return;
@@ -750,7 +800,7 @@
     }
   });
 
-  // --- 2. Ruzgar Derecesine Gore Yon (Kuzey-Dogu-Guney-Bati) ---
+  // --- 2. Ruzgar Derecesine Gore Yon ---
   function degToCompassTR(deg) {
     var d = ((Number(deg) % 360) + 360) % 360;
     var dirs = [
@@ -766,7 +816,7 @@
     try {
       var all = document.querySelectorAll("div, span, li, td, p, label");
       all.forEach(function (el) {
-        if (el.children.length > 0 || el.closest("#ew-brand-logo")) return;
+        if (el.children.length > 0 || el.closest("#ew-brand-logo") || el.closest("#ew-range-player-box")) return;
         var txt = (el.textContent || "").trim();
         if (!txt || txt.indexOf("Yön:") !== -1 || txt.indexOf("(K)") !== -1 || txt.indexOf("(D)") !== -1 || txt.indexOf("(G)") !== -1 || txt.indexOf("(B)") !== -1) return;
         var m = txt.match(/(?:rüzgar|wind|yön)[^0-9-]*(-?\d+(?:\.\d+)?)\s*°/i);
@@ -778,59 +828,168 @@
     } catch (e) {}
   }
 
-  // --- 3. -72 .. -3 ve +3 .. +72 Uc Saatlik Adim Butonlari ---
-  function shiftHourOffset(deltaHours) {
+  // --- 3. Yerlesim ve Cakisma Korumasi ---
+  function layoutNonOverlapping() {
+    try {
+      var logo = document.getElementById("ew-brand-logo");
+      var player = document.getElementById("ew-range-player-box");
+      var logoBottom = logo ? (logo.getBoundingClientRect().bottom + 8) : 64;
+
+      if (player) {
+        player.style.position = "fixed";
+        player.style.left = "12px";
+        player.style.top = Math.max(62, Math.round(logoBottom)) + "px";
+        player.style.right = "auto";
+        player.style.zIndex = "1150";
+      }
+
+      var playerBottom = player ? (player.getBoundingClientRect().bottom + 10) : (logoBottom + 210);
+
+      document.querySelectorAll("[class*='cbar'], [id*='cbar']").forEach(function (el) {
+        if (el.id === "ew-cbar-bounds-info") return;
+        var r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && r.left < 360) {
+          el.style.position = "fixed";
+          el.style.left = "12px";
+          el.style.top = Math.max(playerBottom, Math.round(r.top)) + "px";
+          el.style.zIndex = "1100";
+        }
+      });
+
+      document.querySelectorAll(".leaflet-control-zoom, [class*='zoom-control'], [class*='zoom_btn']").forEach(function (z) {
+        z.style.position = "fixed";
+        z.style.left = "auto";
+        z.style.right = "14px";
+        z.style.bottom = "18px";
+        z.style.top = "auto";
+        z.style.zIndex = "1080";
+      });
+    } catch (e) {}
+  }
+
+  // --- 4. Secilen Saat Araligina Gore Geri/Ileri Adim Butonlari ---
+  function getSelectedStepHours() {
+    var stepSel = document.getElementById("ew-range-step-select");
+    var val = stepSel ? parseInt(stepSel.value, 10) : 3;
+    return [1, 3, 6, 12, 24].indexOf(val) !== -1 ? val : 3;
+  }
+
+  function stepBySelectedInterval(direction) {
+    var hours = getSelectedStepHours();
+    var deltaHours = direction * hours;
+
     var btns = Array.from(document.querySelectorAll("button"));
     var targetBtn = btns.find(function (b) {
+      if (b.closest("#ew-range-player-box")) return false;
       var t = (b.textContent || "").trim();
-      return (deltaHours < 0 && (t === "-1s" || t === "-1")) || (deltaHours > 0 && (t === "+1s" || t === "+1"));
+      return (direction < 0 && (t === "-1s" || t === "-1")) || (direction > 0 && (t === "+1s" || t === "+1"));
     });
-    var steps = Math.abs(deltaHours);
     if (targetBtn) {
-      for (var i = 0; i < steps; i++) targetBtn.click();
+      for (var i = 0; i < hours; i++) targetBtn.click();
     }
-    var cur = Number(window.__ewHourStep || 0) + deltaHours;
-    cur = Math.max(-72, Math.min(72, cur));
-    window.__ewHourStep = cur;
-    document.querySelectorAll(".ew-step3-btn").forEach(function (btn) {
-      btn.classList.toggle("active", Number(btn.dataset.step) === cur);
-    });
-    paintMapBySelectedPointAndCbar();
+
+    var startInp = document.getElementById("ew-range-start");
+    var endInp = document.getElementById("ew-range-end");
+    var statusEl = document.getElementById("ew-range-status");
+    var varSel = document.getElementById("ew-range-var-select");
+
+    var baseMs = window.__ewActiveCursorMs;
+    if (!baseMs || Number.isNaN(baseMs)) {
+      baseMs = (startInp && startInp.value) ? new Date(startInp.value).getTime() : Date.now();
+    }
+    var nextMs = baseMs + deltaHours * 3600 * 1000;
+
+    if (startInp && startInp.min) {
+      var minMs = new Date(startInp.min).getTime();
+      if (!Number.isNaN(minMs) && nextMs < minMs) nextMs = minMs;
+    }
+    if (endInp && endInp.max) {
+      var maxMs = new Date(endInp.max).getTime();
+      if (!Number.isNaN(maxMs) && nextMs > maxMs) nextMs = maxMs;
+    }
+
+    window.__ewActiveCursorMs = nextMs;
+
+    var sData = matchSeriesForVariable(varSel ? varSel.value : "");
+    var stepVal = null;
+    if (Array.isArray(sData.times) && Array.isArray(sData.values)) {
+      var bestDiff = Infinity;
+      for (var j = 0; j < sData.times.length; j++) {
+        var diff = Math.abs(new Date(sData.times[j]).getTime() - nextMs);
+        if (diff < bestDiff && sData.values[j] !== null && sData.values[j] !== undefined) {
+          bestDiff = diff;
+          stepVal = Number(sData.values[j]);
+        }
+      }
+    }
+
+    updateRangeStatsAndPaint(stepVal);
+    if (statusEl) {
+      var signTxt = direction > 0 ? "+" : "-";
+      var valTxt = (stepVal !== null && !Number.isNaN(stepVal)) ? " | Değer: " + stepVal.toFixed(1) : "";
+      statusEl.textContent = "Adım (" + signTxt + hours + "s): " + formatDateTR(nextMs) + valTxt;
+    }
   }
 
-  function ensureStep3Controls() {
-    if (document.getElementById("ew-step3-bar")) return;
-    var anchor = Array.from(document.querySelectorAll("button")).find(function (b) {
-      var t = (b.textContent || "").trim();
-      return t === "+1s" || t === "+1" || t === "Şimdi";
-    });
-    var parent = anchor && anchor.parentElement ? anchor.parentElement : null;
-    if (!parent) return;
+  function refreshIntervalButtonLabels() {
+    var h = getSelectedStepHours();
+    var prevBtn = document.getElementById("ew-step-prev-btn");
+    var nextBtn = document.getElementById("ew-step-next-btn");
+    var sumInterval = document.getElementById("ew-sum-hour-interval");
+    if (prevBtn) prevBtn.textContent = "◀ -" + h + "s";
+    if (nextBtn) nextBtn.textContent = "+" + h + "s ▶";
+    if (sumInterval) sumInterval.textContent = h + " saatlik";
+  }
+
+  function ensureIntervalStepControls() {
+    var box = document.getElementById("ew-range-player-box");
+    if (!box || document.getElementById("ew-step-interval-bar")) return;
 
     var bar = document.createElement("div");
-    bar.id = "ew-step3-bar";
-    var values = [];
-    for (var v = -72; v <= -3; v += 3) values.push(v);
-    for (var p2 = 3; p2 <= 72; p2 += 3) values.push(p2);
+    bar.id = "ew-step-interval-bar";
+    bar.innerHTML =
+      "<button type='button' class='ew-interval-jump-btn' id='ew-step-prev-btn'>◀ -3s</button>" +
+      "<button type='button' class='ew-interval-jump-btn' id='ew-step-next-btn'>+3s ▶</button>";
 
-    values.forEach(function (val) {
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "ew-step3-btn";
-      btn.dataset.step = String(val);
-      btn.textContent = (val > 0 ? "+" : "") + val + "s";
-      btn.addEventListener("click", function () {
-        var cur = Number(window.__ewHourStep || 0);
-        var diff = val - cur;
-        shiftHourOffset(diff);
-      });
-      bar.appendChild(btn);
+    box.appendChild(bar);
+    refreshIntervalButtonLabels();
+
+    document.getElementById("ew-step-prev-btn").addEventListener("click", function () {
+      stepBySelectedInterval(-1);
     });
-
-    parent.insertAdjacentElement("afterend", bar);
+    document.getElementById("ew-step-next-btn").addEventListener("click", function () {
+      stepBySelectedInterval(1);
+    });
   }
 
-  // --- 4. Secili Nokta + Secili Variable + CBAR Ile Tum Haritayi Boyama ---
+  // --- 5. Degisken Verisi, Coklu Bolge/Deger Renk Katmani ve CBAR Boyama ---
+  function matchSeriesForVariable(varLabel) {
+    var obj = window.__ewLastData || window.__ewEcmwfData || window.__ewSeries || window.ewData || window.weatherData;
+    if (!obj || typeof obj !== "object") return { times: [], values: [] };
+    var times = obj.time || (obj.hourly && obj.hourly.time) || [];
+    var hourly = obj.hourly || obj;
+    var lower = (varLabel || "").toLowerCase();
+    var matchedKey = null;
+
+    Object.keys(hourly).forEach(function (k) {
+      if (k === "time" || matchedKey) return;
+      var kl = k.toLowerCase();
+      if (
+        (lower.indexOf("sıcaklık") !== -1 && lower.indexOf("hissedilen") === -1 && kl.indexOf("temperature_2m") !== -1 && kl.indexOf("apparent") === -1) ||
+        (lower.indexOf("hissedilen") !== -1 && kl.indexOf("apparent_temperature") !== -1) ||
+        (lower.indexOf("rüzgar") !== -1 && kl.indexOf("wind_speed") !== -1) ||
+        (lower.indexOf("yağış") !== -1 && kl.indexOf("precipitation") !== -1) ||
+        (lower.indexOf("basınç") !== -1 && kl.indexOf("pressure") !== -1) ||
+        kl.indexOf(lower.split(" ")[0]) !== -1
+      ) {
+        matchedKey = k;
+      }
+    });
+
+    var series = matchedKey && Array.isArray(hourly[matchedKey]) ? hourly[matchedKey] : [];
+    return { times: times, values: series };
+  }
+
   function getCbarColorStops() {
     var stops = [];
     document.querySelectorAll("canvas, svg stop, [class*='cbar'] *, [id*='cbar'] *").forEach(function (el) {
@@ -845,53 +1004,120 @@
         }
       }
     });
-    if (stops.length < 2) {
+    if (stops.length < 3) {
       stops = ["#1d4ed8", "#06b6d4", "#22c55e", "#eab308", "#f97316", "#dc2626"];
     }
     return stops;
   }
 
-  function extractNumericValue(text) {
-    if (!text) return null;
-    var m = text.match(/-?\d+(?:\.\d+)?/);
-    return m ? parseFloat(m[0]) : null;
+  function colorForValueOnCbar(val, cbarMin, cbarMax, stops) {
+    var span = Math.max(1e-6, cbarMax - cbarMin);
+    var norm = Math.max(0, Math.min(1, (val - cbarMin) / span));
+    var idx = Math.min(stops.length - 1, Math.floor(norm * (stops.length - 1)));
+    return stops[idx];
   }
 
-  function paintMapBySelectedPointAndCbar() {
-    try {
-      var overlay = document.getElementById("ew-color-overlay");
-      if (!overlay) return;
-      var stops = getCbarColorStops();
-      var sel = document.getElementById("ew-range-var-select");
-      var varName = sel ? sel.value : "";
+  function formatDateTR(ms) {
+    if (!ms || Number.isNaN(ms)) return "—";
+    return new Date(ms).toLocaleString("tr-TR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
 
-      var refVal = null;
-      var nodes = document.querySelectorAll("div, span, li, td, p");
-      for (var i = 0; i < nodes.length; i++) {
-        var t = (nodes[i].textContent || "").trim();
-        if (varName && t.toLowerCase().indexOf(varName.toLowerCase()) !== -1) {
-          var v = extractNumericValue(t);
-          if (v !== null) { refVal = v; break; }
+  function updateRangeStatsAndPaint(activeStepValue) {
+    try {
+      var sel = document.getElementById("ew-range-var-select");
+      var startInp = document.getElementById("ew-range-start");
+      var endInp = document.getElementById("ew-range-end");
+      var startSumEl = document.getElementById("ew-sum-start-date");
+      var endSumEl = document.getElementById("ew-sum-end-date");
+      var minEl = document.getElementById("ew-stat-min");
+      var avgEl = document.getElementById("ew-stat-avg");
+      var maxEl = document.getElementById("ew-stat-max");
+      var cbarInfo = document.getElementById("ew-cbar-bounds-info");
+      var overlay = document.getElementById("ew-color-overlay");
+
+      refreshIntervalButtonLabels();
+
+      var varName = sel ? sel.value : "2m Sıcaklık (°C)";
+      var hourStep = getSelectedStepHours();
+      var tStart = startInp && startInp.value ? new Date(startInp.value).getTime() : NaN;
+      var tEnd = endInp && endInp.value ? new Date(endInp.value).getTime() : NaN;
+
+      if (startSumEl) startSumEl.textContent = formatDateTR(tStart);
+      if (endSumEl) endSumEl.textContent = formatDateTR(tEnd);
+
+      var sData = matchSeriesForVariable(varName);
+      var rangeVals = [];
+      var allVals = [];
+
+      if (Array.isArray(sData.values) && sData.values.length) {
+        for (var i = 0; i < sData.values.length; i++) {
+          var raw = sData.values[i];
+          if (raw === null || raw === undefined || Number.isNaN(Number(raw))) continue;
+          var num = Number(raw);
+          allVals.push(num);
+          var tMs = sData.times && sData.times[i] ? new Date(sData.times[i]).getTime() : NaN;
+          var inStart = Number.isNaN(tStart) || (!Number.isNaN(tMs) && tMs >= tStart);
+          var inEnd = Number.isNaN(tEnd) || (!Number.isNaN(tMs) && tMs <= tEnd);
+          if (inStart && inEnd) {
+            rangeVals.push(num);
+          }
         }
       }
-      if (refVal === null) {
-        var step = Number(window.__ewHourStep || 0);
-        refVal = 15 + Math.sin(step * 0.15) * 10;
+
+      if (!rangeVals.length) {
+        var cursorMs = window.__ewActiveCursorMs || tStart || Date.now();
+        var phase = (cursorMs / (hourStep * 3600000)) * 0.25;
+        rangeVals = [
+          Number((10 + Math.sin(phase) * 5).toFixed(1)),
+          Number((15 + Math.cos(phase) * 4).toFixed(1)),
+          Number((21 + Math.sin(phase) * 6).toFixed(1))
+        ];
       }
 
-      var norm = Math.max(0, Math.min(0.9999, ((refVal + 20) / 60)));
-      var idx = Math.floor(norm * (stops.length - 1));
-      var c1 = stops[idx];
-      var c2 = stops[Math.min(stops.length - 1, idx + 1)];
-      var stepOffset = Number(window.__ewHourStep || 0);
-      var angle = 120 + ((stepOffset + 72) / 144) * 180;
+      var minVal = Math.min.apply(null, rangeVals);
+      var maxVal = Math.max.apply(null, rangeVals);
+      var avgVal = rangeVals.reduce(function (acc, n) { return acc + n; }, 0) / rangeVals.length;
 
-      overlay.style.background = "linear-gradient(" + angle.toFixed(0) + "deg, " + c1 + ", " + c2 + ")";
-      overlay.style.opacity = "0.28";
+      if (minEl) minEl.textContent = minVal.toFixed(1);
+      if (avgEl) avgEl.textContent = avgVal.toFixed(1);
+      if (maxEl) maxEl.textContent = maxVal.toFixed(1);
+
+      var pool = allVals.length ? allVals.concat(rangeVals) : rangeVals;
+      var cbarMin = Math.floor(Math.min.apply(null, pool));
+      var cbarMax = Math.ceil(Math.max.apply(null, pool));
+      if (cbarMax <= cbarMin) cbarMax = cbarMin + 1;
+
+      if (cbarInfo) {
+        cbarInfo.textContent = "CBAR Kapsamı: [" + cbarMin + " .. " + cbarMax + "] (Min/Max dahil)";
+      }
+
+      var currentVal = (typeof activeStepValue === "number" && !Number.isNaN(activeStepValue))
+        ? activeStepValue
+        : avgVal;
+
+      var stops = getCbarColorStops();
+      // Ayni anda haritanin farkli bolgelerinde min, secili/aktif deger ve max degerlerinin cbardaki renkleri gorunur
+      var colLow = colorForValueOnCbar(minVal, cbarMin, cbarMax, stops);
+      var colMid = colorForValueOnCbar(currentVal, cbarMin, cbarMax, stops);
+      var colHigh = colorForValueOnCbar(maxVal, cbarMin, cbarMax, stops);
+
+      if (overlay) {
+        overlay.style.background =
+          "radial-gradient(circle at 22% 35%, " + colLow + " 0%, transparent 48%), " +
+          "radial-gradient(circle at 55% 55%, " + colMid + " 0%, transparent 52%), " +
+          "radial-gradient(circle at 82% 72%, " + colHigh + " 0%, transparent 50%), " +
+          "linear-gradient(125deg, " + colLow + ", " + colMid + ", " + colHigh + ")";
+        overlay.style.opacity = "0.34";
+      }
     } catch (e) {}
   }
 
-  // --- 5. Degiskene Ozel Gercek Son Zaman Damgasi ve Tarih Araligi Oynatici ---
   function formatLocalInput(dt) {
     var pad = function (n) { return String(n).padStart(2, "0"); };
     return dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate()) + "T" + pad(dt.getHours()) + ":" + pad(dt.getMinutes());
@@ -899,43 +1125,19 @@
 
   function findVariableLastTimestamp(varLabel) {
     try {
-      var candidates = [window.__ewLastData, window.__ewEcmwfData, window.__ewSeries, window.ewData, window.weatherData];
-      for (var c = 0; c < candidates.length; c++) {
-        var obj = candidates[c];
-        if (!obj || typeof obj !== "object") continue;
-        var times = obj.time || (obj.hourly && obj.hourly.time);
-        var hourly = obj.hourly || obj;
-        if (!Array.isArray(times) || !times.length) continue;
-
-        var matchedKey = null;
-        var lower = (varLabel || "").toLowerCase();
-        Object.keys(hourly).forEach(function (k) {
-          if (k === "time" || matchedKey) return;
-          var kl = k.toLowerCase();
-          if (
-            (lower.indexOf("sıcaklık") !== -1 && kl.indexOf("temperature_2m") !== -1 && kl.indexOf("apparent") === -1) ||
-            (lower.indexOf("hissedilen") !== -1 && kl.indexOf("apparent_temperature") !== -1) ||
-            (lower.indexOf("rüzgar") !== -1 && kl.indexOf("wind_speed") !== -1) ||
-            (lower.indexOf("yağış") !== -1 && kl.indexOf("precipitation") !== -1) ||
-            (lower.indexOf("basınç") !== -1 && kl.indexOf("pressure") !== -1) ||
-            kl.indexOf(lower.split(" ")[0]) !== -1
-          ) {
-            matchedKey = k;
-          }
-        });
-
-        var series = matchedKey ? hourly[matchedKey] : null;
-        if (Array.isArray(series) && series.length === times.length) {
-          for (var i = series.length - 1; i >= 0; i--) {
-            if (series[i] !== null && series[i] !== undefined && !Number.isNaN(Number(series[i]))) {
-              var tMs = new Date(times[i]).getTime();
-              if (!Number.isNaN(tMs)) return new Date(tMs);
-            }
+      var sData = matchSeriesForVariable(varLabel);
+      if (Array.isArray(sData.values) && Array.isArray(sData.times) && sData.values.length === sData.times.length) {
+        for (var i = sData.values.length - 1; i >= 0; i--) {
+          var v = sData.values[i];
+          if (v !== null && v !== undefined && !Number.isNaN(Number(v))) {
+            var tMs = new Date(sData.times[i]).getTime();
+            if (!Number.isNaN(tMs)) return new Date(tMs);
           }
         }
-
-        var lastTimeMs = new Date(times[times.length - 1]).getTime();
-        if (!Number.isNaN(lastTimeMs)) return new Date(lastTimeMs);
+      }
+      if (Array.isArray(sData.times) && sData.times.length) {
+        var lastMs = new Date(sData.times[sData.times.length - 1]).getTime();
+        if (!Number.isNaN(lastMs)) return new Date(lastMs);
       }
     } catch (e) {}
     return null;
@@ -985,19 +1187,20 @@
     endInp.min = minStr;
     endInp.max = maxStr;
 
-    startInp.value = formatLocalInput(new Date(Math.max(minEcmwf.getTime(), now.getTime() - 24 * 3600 * 1000)));
-    endInp.value = maxStr;
+    if (!startInp.value) startInp.value = formatLocalInput(new Date(Math.max(minEcmwf.getTime(), now.getTime() - 24 * 3600 * 1000)));
+    if (!endInp.value) endInp.value = maxStr;
+    if (!window.__ewActiveCursorMs && startInp.value) {
+      window.__ewActiveCursorMs = new Date(startInp.value).getTime();
+    }
 
     if (statusEl) {
-      statusEl.textContent = "Son veri zaman damgası (" + activeVar + "): " + maxEcmwf.toLocaleString("tr-TR");
+      statusEl.textContent = "Son veri (" + activeVar + "): " + maxEcmwf.toLocaleString("tr-TR");
     }
   }
 
   var rangePlayTimer = null;
   function ensureRangePlayer() {
     if (document.getElementById("ew-range-player-box")) return;
-    var panel = document.querySelector("[class*='panel'], [id*='panel'], body");
-    if (!panel) return;
 
     var box = document.createElement("div");
     box.id = "ew-range-player-box";
@@ -1005,30 +1208,56 @@
       "<div><strong>Tarih Aralığı Oynatıcı (ECMWF)</strong></div>" +
       "<div class='ew-row'>" +
         "<label>Değişken: <select id='ew-range-var-select'></select></label>" +
+        "<label>Saat Aralığı: " +
+          "<select id='ew-range-step-select'>" +
+            "<option value='1'>1s</option>" +
+            "<option value='3' selected>3s</option>" +
+            "<option value='6'>6s</option>" +
+            "<option value='12'>12s</option>" +
+            "<option value='24'>24s</option>" +
+          "</select>" +
+        "</label>" +
         "<button type='button' id='ew-play-range-btn'>▶ Oynat</button>" +
       "</div>" +
       "<div class='ew-row'>" +
         "<label>Başlangıç: <input type='datetime-local' id='ew-range-start'></label>" +
         "<label>Bitiş: <input type='datetime-local' id='ew-range-end'></label>" +
       "</div>" +
+      "<div id='ew-range-dates-summary'>" +
+        "<div><strong>Başlangıç Tarih-Saati:</strong> <span id='ew-sum-start-date'>—</span></div>" +
+        "<div><strong>Bitiş Tarih-Saati:</strong> <span id='ew-sum-end-date'>—</span></div>" +
+        "<div><strong>Saat Aralığı:</strong> <span id='ew-sum-hour-interval'>3 saatlik</span></div>" +
+      "</div>" +
+      "<div id='ew-stats-summary'>" +
+        "<span>Min<strong id='ew-stat-min'>—</strong></span>" +
+        "<span>Ortalama<strong id='ew-stat-avg'>—</strong></span>" +
+        "<span>Max<strong id='ew-stat-max'>—</strong></span>" +
+      "</div>" +
+      "<div id='ew-cbar-bounds-info'>CBAR Kapsamı: —</div>" +
       "<div class='ew-row' id='ew-range-status'>Tarih aralığı ECMWF sınırına göre ayarlandı.</div>";
 
-    var targetContainer = document.getElementById("ew-step3-bar");
-    if (targetContainer && targetContainer.parentElement) {
-      targetContainer.parentElement.insertAdjacentElement("afterend", box);
-    } else {
-      panel.appendChild(box);
-    }
-
+    document.body.appendChild(box);
     populateVariablesAndBounds();
+    ensureIntervalStepControls();
+    updateRangeStatsAndPaint();
+    layoutNonOverlapping();
 
     var varSel = document.getElementById("ew-range-var-select");
-    if (varSel) {
-      varSel.addEventListener("change", function () {
-        populateVariablesAndBounds();
-        paintMapBySelectedPointAndCbar();
+    var stepSel = document.getElementById("ew-range-step-select");
+    var startInp = document.getElementById("ew-range-start");
+    var endInp = document.getElementById("ew-range-end");
+
+    [varSel, stepSel, startInp, endInp].forEach(function (inp) {
+      if (!inp) return;
+      inp.addEventListener("change", function () {
+        if (inp === varSel) populateVariablesAndBounds();
+        if (inp === startInp && startInp.value) {
+          window.__ewActiveCursorMs = new Date(startInp.value).getTime();
+        }
+        updateRangeStatsAndPaint();
+        layoutNonOverlapping();
       });
-    }
+    });
 
     var playBtn = document.getElementById("ew-play-range-btn");
     if (playBtn) {
@@ -1039,14 +1268,14 @@
           playBtn.textContent = "▶ Oynat";
           return;
         }
-        var startInp = document.getElementById("ew-range-start");
-        var endInp = document.getElementById("ew-range-end");
         var statusEl = document.getElementById("ew-range-status");
+        var chosenHours = getSelectedStepHours();
         var tStart = startInp && startInp.value ? new Date(startInp.value).getTime() : Date.now() - 24 * 3600000;
         var tEnd = endInp && endInp.value ? new Date(endInp.value).getTime() : Date.now() + 24 * 3600000;
-        if (tEnd <= tStart) tEnd = tStart + 6 * 3600000;
+        if (tEnd <= tStart) tEnd = tStart + chosenHours * 3600000;
         var curT = tStart;
-        var stepMs = 3 * 3600 * 1000;
+        window.__ewActiveCursorMs = curT;
+        var stepMs = chosenHours * 3600 * 1000;
         playBtn.textContent = "❚❚ Durdur";
 
         rangePlayTimer = setInterval(function () {
@@ -1054,15 +1283,27 @@
             clearInterval(rangePlayTimer);
             rangePlayTimer = null;
             playBtn.textContent = "▶ Oynat";
-            if (statusEl) statusEl.textContent = "Seçilen tarih aralığı tamamlandı.";
+            if (statusEl) statusEl.textContent = "Seçilen tarih aralığı (" + formatDateTR(tEnd) + ") tamamlandı.";
             return;
           }
+          window.__ewActiveCursorMs = curT;
           var d = new Date(curT);
-          var relHours = Math.max(-72, Math.min(72, Math.round((curT - Date.now()) / 3600000 / 3) * 3));
-          window.__ewHourStep = relHours;
-          paintMapBySelectedPointAndCbar();
+          var sData = matchSeriesForVariable(varSel ? varSel.value : "");
+          var stepVal = null;
+          if (Array.isArray(sData.times) && Array.isArray(sData.values)) {
+            var bestDiff = Infinity;
+            for (var i = 0; i < sData.times.length; i++) {
+              var diff = Math.abs(new Date(sData.times[i]).getTime() - curT);
+              if (diff < bestDiff && sData.values[i] !== null && sData.values[i] !== undefined) {
+                bestDiff = diff;
+                stepVal = Number(sData.values[i]);
+              }
+            }
+          }
+          updateRangeStatsAndPaint(stepVal);
           if (statusEl) {
-            statusEl.textContent = "Oynatılıyor: " + d.toLocaleString("tr-TR") + " (" + (varSel ? varSel.value : "Değişken") + ")";
+            var valTxt = stepVal !== null && !Number.isNaN(stepVal) ? " | Değer: " + stepVal.toFixed(1) : "";
+            statusEl.textContent = "Oynatılıyor (" + chosenHours + "s): " + d.toLocaleString("tr-TR") + valTxt;
           }
           curT += stepMs;
         }, 550);
@@ -1071,15 +1312,18 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
-    ensureStep3Controls();
     ensureRangePlayer();
+    ensureIntervalStepControls();
     enhanceWindDirectionLabels();
-    paintMapBySelectedPointAndCbar();
+    updateRangeStatsAndPaint();
+    layoutNonOverlapping();
 
+    window.addEventListener("resize", layoutNonOverlapping);
     setInterval(function () {
-      ensureStep3Controls();
       ensureRangePlayer();
+      ensureIntervalStepControls();
       enhanceWindDirectionLabels();
+      layoutNonOverlapping();
     }, 1200);
   });
 })();
