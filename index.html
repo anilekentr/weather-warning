@@ -1994,7 +1994,24 @@
 const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'number' ? hourOffset : 0)) => {
     const offNum = Number.isFinite(Number(offsetHours)) ? Number(offsetHours) : 0;
     const fieldName = v?.om || v?.key || v?.code;
-    const ck = `${v?.code || fieldName}|${offNum}|${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`;
+    const codeKey = String(v?.code || fieldName || "");
+    const ck = `${codeKey}|${offNum}|${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`;
+
+    const findFallbackFromCache = () => {
+      try {
+        if (typeof obsCache !== "object" || !obsCache) return null;
+        if (obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
+          return obsCache[ck].val;
+        }
+        const prefix = `${codeKey}|`;
+        for (const [k, entry] of Object.entries(obsCache)) {
+          if (k.startsWith(prefix) && entry && typeof entry.val === "number" && Number.isFinite(entry.val)) {
+            return entry.val;
+          }
+        }
+      } catch (_) {}
+      return null;
+    };
 
     try {
       if (typeof obsCache === "object" && obsCache && obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
@@ -2005,16 +2022,13 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
     } catch (_) {}
 
     if (Date.now() < rateLimitUntil) {
-      try { console.warn("[EW_RATE_LIMIT]", fieldName, Date.now() - rateLimitUntil); } catch (_) {}
-      try {
-        if (typeof obsCache === "object" && obsCache && obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
-          return { val: obsCache[ck].val, tag: "ECMWF (Cache)" };
-        }
-      } catch (_) {}
-      return { val: null, tag: "Veri yok" };
+      const fbCache = findFallbackFromCache();
+      if (typeof fbCache === "number" && Number.isFinite(fbCache)) {
+        return { val: fbCache, tag: "ECMWF (Cache)" };
+      }
     }
 
-    const waitMs = Math.max(0, 180 - (Date.now() - lastNetAt));
+    const waitMs = Math.max(0, 120 - (Date.now() - lastNetAt));
     if (waitMs > 0) await sleep(waitMs);
     lastNetAt = Date.now();
 
@@ -2029,22 +2043,21 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
           return dOut;
         }
       } catch (_) {}
-      return { val: null, tag: "Veri yok" };
+      const fbDer = findFallbackFromCache();
+      return (typeof fbDer === "number") ? { val: fbDer, tag: "ECMWF (Cache)" } : { val: null, tag: "Veri yok" };
     }
 
     const fieldsParam = encodeURIComponent(fieldName);
     const neededDays = Math.ceil((Math.max(0, offNum) + 24) / 24) + 1;
     const reqDays = Math.min(16, Math.max(2, neededDays));
-    const windUnitParam = v.unit === "km/h" ? "&wind_speed_unit=kmh" : "";
+    const windUnitParam = v?.unit === "km/h" ? "&wind_speed_unit=kmh" : "";
     const hourlyUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${Number(lat).toFixed(4)}&longitude=${Number(lng).toFixed(4)}&hourly=${fieldsParam}${windUnitParam}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
 
     try {
-      try { console.log("[EW_REQ]", fieldName, hourlyUrl); } catch (_) {}
       const res = await fetch(hourlyUrl, { cache: "no-store" });
-      try { console.log("[EW_RES]", fieldName, res.status, res.ok); } catch (_) {}
       if (res.status === 429) {
-        rateLimitUntil = Date.now() + 1200;
-        await sleep(1200);
+        rateLimitUntil = Date.now() + 600;
+        await sleep(650);
         const res2 = await fetch(hourlyUrl, { cache: "no-store" });
         if (res2 && res2.ok) {
           const j2 = await res2.json();
@@ -2057,23 +2070,15 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
             return { val: val2, tag: "ECMWF" };
           }
         }
-        if (typeof obsCache === "object" && obsCache && obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
-          return { val: obsCache[ck].val, tag: "ECMWF (Cache)" };
+        const fb429 = findFallbackFromCache();
+        if (typeof fb429 === "number" && Number.isFinite(fb429)) {
+          return { val: fb429, tag: "ECMWF (Cache)" };
         }
         return { val: null, tag: "Veri yok" };
       }
       if (res.ok) {
         const j = await res.json();
         const val = extractNowVal(j, fieldName, offNum);
-        try {
-          console.log("[EW_VAL_CHECK]", {
-            fieldName,
-            offNum,
-            val,
-            hKeys: j?.hourly ? Object.keys(j.hourly).filter(k => k !== "time") : [],
-            sample: Array.isArray(j?.hourly?.[fieldName]) ? j.hourly[fieldName].slice(0, 3) : null
-          });
-        } catch (_) {}
         if (typeof val === "number" && Number.isFinite(val)) {
           if (typeof obsCache === "object" && obsCache) {
             obsCache[ck] = { val, at: Date.now() };
@@ -2082,9 +2087,7 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
           return { val, tag: "ECMWF" };
         }
       }
-    } catch (err) {
-      try { console.warn("[EW_FETCH_ERR]", fieldName, err); } catch (_) {}
-    }
+    } catch (_) {}
 
     try {
       const fbVal = (v?.code === "tp") ? null : await fetchMetNoVal(lat, lng, v);
@@ -2096,6 +2099,11 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
         return { val: fbVal, tag: "MET-NO" };
       }
     } catch (_) {}
+
+    const fbFinal = findFallbackFromCache();
+    if (typeof fbFinal === "number" && Number.isFinite(fbFinal)) {
+      return { val: fbFinal, tag: "ECMWF (Cache)" };
+    }
 
     return { val: null, tag: "Veri yok" };
   };
