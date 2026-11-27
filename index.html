@@ -1611,7 +1611,19 @@
     activeValue = out.val;
 
     if (typeof out.val === "number" && Number.isFinite(out.val)) {
-      const txtVal = `${out.val.toFixed(2)} ${cur.unit}`;
+      const isWindDirMap = cur.unit === "°" || /wind_direction|^wd/i.test(cur.key || cur.code || cur.om || "");
+      let txtVal = `${out.val.toFixed(2)} ${cur.unit}`;
+      if (isWindDirMap) {
+        const normDeg = ((out.val % 360) + 360) % 360;
+        const dirs16 = [
+          "Kuzey", "Kuzey-Kuzeydoğu", "Kuzeydoğu", "Doğu-Kuzeydoğu",
+          "Doğu", "Doğu-Güneydoğu", "Güneydoğu", "Güney-Güneydoğu",
+          "Güney", "Güney-Güneybatı", "Güneybatı", "Batı-Güneybatı",
+          "Batı", "Batı-Kuzeybatı", "Kuzeybatı", "Kuzey-Kuzeybatı"
+        ];
+        const dIdx = Math.round(normDeg / 22.5) % 16;
+        txtVal = `${normDeg.toFixed(1)}° (${dirs16[dIdx]})`;
+      }
       if (vvEl) vvEl.textContent = txtVal;
       paintCbar(cur, out.val);
       applyValueColorToMap(out.val, cur);
