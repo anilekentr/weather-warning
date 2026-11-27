@@ -1733,8 +1733,9 @@
   const pickHourlyAtNow = (h, arr) => {
     if (!Array.isArray(arr) || !arr.length) return null;
     if (Array.isArray(h?.time) && h.time.length) {
-      const nowStr = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Istanbul" }).slice(0, 13).replace(" ", "T");
-      const idx = h.time.findIndex(item => typeof item === "string" && item.startsWith(nowStr));
+      const targetDate = (typeof getTargetDate === "function") ? getTargetDate() : new Date();
+      const targetStr = targetDate.toLocaleString("sv-SE", { timeZone: "Europe/Istanbul" }).slice(0, 13).replace(" ", "T");
+      const idx = h.time.findIndex(item => typeof item === "string" && item.startsWith(targetStr));
       if (idx >= 0 && typeof arr[idx] === "number" && Number.isFinite(arr[idx])) {
         return arr[idx];
       }
