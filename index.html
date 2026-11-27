@@ -1002,7 +1002,23 @@
       const arr = (pointData && pointData.hourly && pointData.hourly[curVar.key]) || [];
       const raw = arr[idx];
       const hasVal = typeof raw === "number" && Number.isFinite(raw);
-      const valText = hasVal ? `${raw.toFixed(2)} ${curVar.unit}` : "Veri yok";
+      const isWindDirVar = curVar.unit === "°" || /wind_direction/i.test(curVar.key || "");
+      let valText = "Veri yok";
+      if (hasVal) {
+        if (isWindDirVar) {
+          const normDeg = ((raw % 360) + 360) % 360;
+          const dirs16 = [
+            "Kuzey", "Kuzey-Kuzeydoğu", "Kuzeydoğu", "Doğu-Kuzeydoğu",
+            "Doğu", "Doğu-Güneydoğu", "Güneydoğu", "Güney-Güneydoğu",
+            "Güney", "Güney-Güneybatı", "Güneybatı", "Batı-Güneybatı",
+            "Batı", "Batı-Kuzeybatı", "Kuzeybatı", "Kuzey-Kuzeybatı"
+          ];
+          const dIdx = Math.round(normDeg / 22.5) % 16;
+          valText = `${normDeg.toFixed(1)}° (${dirs16[dIdx]})`;
+        } else {
+          valText = `${raw.toFixed(2)} ${curVar.unit}`;
+        }
+      }
 
       let istHourStr = "Veri yok";
       if (hasVal && iso) {
