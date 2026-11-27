@@ -2005,6 +2005,7 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
     } catch (_) {}
 
     if (Date.now() < rateLimitUntil) {
+      try { console.warn("[EW_RATE_LIMIT]", fieldName, Date.now() - rateLimitUntil); } catch (_) {}
       try {
         if (typeof obsCache === "object" && obsCache && obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
           return { val: obsCache[ck].val, tag: "ECMWF (Cache)" };
@@ -2038,7 +2039,9 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
     const hourlyUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${Number(lat).toFixed(4)}&longitude=${Number(lng).toFixed(4)}&hourly=${fieldsParam}${windUnitParam}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
 
     try {
+      try { console.log("[EW_REQ]", fieldName, hourlyUrl); } catch (_) {}
       const res = await fetch(hourlyUrl, { cache: "no-store" });
+      try { console.log("[EW_RES]", fieldName, res.status, res.ok); } catch (_) {}
       if (res.status === 429) {
         rateLimitUntil = Date.now() + 1200;
         await sleep(1200);
