@@ -637,6 +637,11 @@
   font-family: system-ui, -apple-system, sans-serif !important;
   font-size: 10.5px !important;
   box-sizing: border-box !important;
+
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 9999 !important;
 }
 .ewt-btn {
   background: rgba(15, 23, 42, 0.95) !important;
@@ -1866,7 +1871,7 @@
     }
   };
 
-  const fetchRealVal = async (lat, lng, v) => {
+  const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'number' ? hourOffset : 0)) => {
     if (Date.now() < rateLimitUntil) {
       return { val: null, tag: "Veri yok" };
     }
@@ -1890,7 +1895,7 @@
       }
       if (res.ok) {
         const j = await res.json();
-        const val = extractNowVal(j, v.om);
+        const val = extractNowVal(j, v.om, offsetHours);
         if (typeof val === "number" && Number.isFinite(val)) {
           return { val, tag: "ECMWF" };
         }
@@ -1914,7 +1919,7 @@
     if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
     if (vvEl) vvEl.textContent = "Okunuyor...";
 
-    const out = await fetchRealVal(lat, lng, cur);
+    const out = await fetchRealVal(lat, lng, cur, (typeof hourOffset === 'number' ? hourOffset : 0));
     activeValue = out.val;
 
     if (typeof out.val === "number" && Number.isFinite(out.val)) {
