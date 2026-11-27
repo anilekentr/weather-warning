@@ -2314,7 +2314,6 @@
     }
 
     const unitLabel = item.unit ? ` (${item.unit})` : "";
-    const formattedPoint = formatNum(pointVal, item.unit);
     const ptColor = colorForNorm((pointVal - minVal) / Math.max(1e-6, maxVal - minVal), item.palette);
     const statusText = isLivePoint ? "Canlı ECMWF" : "Yaklaşık";
 
@@ -2325,7 +2324,7 @@
     const maxEl = document.getElementById("cbar-max");
 
     if (tEl) tEl.textContent = `${item.name}${unitLabel}`;
-    if (cEl) cEl.textContent = formattedPoint;
+    if (cEl) cEl.textContent = "";
     if (minEl) minEl.textContent = `Min ${formatNum(minVal, item.unit)}`;
     if (midEl) midEl.textContent = `Ort ${formatNum(avgVal, item.unit)}`;
     if (maxEl) maxEl.textContent = `Max ${formatNum(maxVal, item.unit)}`;
@@ -2342,9 +2341,8 @@
         cbarBox.appendChild(singleBox);
       }
       singleBox.innerHTML =
-        `<span>${item.name}${unitLabel}: </span>` +
-        `<span style="color:${ptColor};">${formattedPoint}</span>` +
-        ` · <span style="color:#cbd5e1;font-weight:500;">${statusText}</span>`;
+        `<span>${item.name}${unitLabel}</span> · ` +
+        `<span style="color:${ptColor};">${statusText}</span>`;
     }
 
     if (window.L && window.map) {
@@ -2414,7 +2412,7 @@
         }
       }
 
-      updateSelectedPointMapLabel(selectedPoint.lat, selectedPoint.lon, `${formattedPoint} · ${statusText}`, ptColor);
+      updateSelectedPointMapLabel(selectedPoint.lat, selectedPoint.lon, `${item.name} · ${statusText}`, ptColor);
     }
   }
 
