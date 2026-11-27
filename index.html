@@ -1851,6 +1851,7 @@
   const mapVarToMetNo = (instantDetails, v) => {
     if (!instantDetails || typeof instantDetails !== "object") return null;
     const c = v.code;
+  if (c === "tp") return null;
     if (c === "2t" || c === "app" || c.startsWith("t") || c.startsWith("st")) {
       return typeof instantDetails.air_temperature === "number" ? instantDetails.air_temperature : null;
     }
@@ -1944,7 +1945,7 @@
     } catch (_) {}
 
     try {
-      const fbVal = await fetchMetNoVal(lat, lng, v);
+      const fbVal = (v?.code === "tp") ? null : await fetchMetNoVal(lat, lng, v);
       if (typeof fbVal === "number" && Number.isFinite(fbVal)) {
         return { val: fbVal, tag: "MET-NO" };
       }
