@@ -1,0 +1,95 @@
+OK | 2t | temperature_2m | 2m Sıcaklık
+OK | rh2m | relative_humidity_2m | 2m Bağıl Nem
+OK | 2d | dew_point_2m | 2m Çiy Noktası
+OK | app | apparent_temperature | Hissedilen Sıcaklık
+OK | msl | pressure_msl | Deniz Seviyesi Basıncı
+OK | sp | surface_pressure | Yüzey Basıncı
+OK | tp | precipitation | Toplam Yağış
+OK | rain | rain | Yağmur
+OK | shw | showers | Sağanak Yağış
+OK | sf | snowfall | Kar Yağışı
+OK | sd | snow_depth | Kar Kalınlığı
+OK | wmo | weather_code | Hava Durumu Kodu
+OK | tcc | cloud_cover | Toplam Bulutluluk
+OK | lcc | cloud_cover_low | Alçak Bulut
+OK | mcc | cloud_cover_mid | Orta Bulut
+OK | hcc | cloud_cover_high | Yüksek Bulut
+OK | ws10 | wind_speed_10m | 10m Rüzgar Hızı
+OK | wd10 | wind_direction_10m | 10m Rüzgar Yönü
+OK | 10fg | wind_gusts_10m | 10m Rüzgar Hamlesi
+OK | ws100 | wind_speed_100m | 100m Rüzgar Hızı
+OK | wd100 | wind_direction_100m | 100m Rüzgar Yönü
+VERIYOK_200 | ws200 | wind_speed_200m | 200m Rüzgar Hızı
+VERIYOK_200 | wd200 | wind_direction_200m | 200m Rüzgar Yönü
+OK | cape | cape | CAPE Kararsızlık
+VERIYOK_200 | cin | convective_inhibition | CIN Engelleme
+VERIYOK_200 | li | lifted_index | Lifted Index
+VERIYOK_200 | fz | freezing_level_height | 0°C Donma Seviyesi
+VERIYOK_200 | vis | visibility | Görüş Mesafesi
+OK | swr | shortwave_radiation | Kısa Dalga Radyasyon
+OK | dir | direct_radiation | Doğrudan Radyasyon
+OK | dif | diffuse_radiation | Difüz Radyasyon
+OK | dni | direct_normal_irradiance | DNI Radyasyon
+OK | gti | global_tilted_irradiance | Eğimli Yüzey Işınımı
+VERIYOK_200 | uv | uv_index | UV İndeksi
+VERIYOK_200 | uvc | uv_index_clear_sky | Açık Gökyüzü UV
+OK | sun | sunshine_duration | Güneşlenme Süresi
+OK | et0 | et0_fao_evapotranspiration | ET0 Evapotranspirasyon
+OK | vpd | vapour_pressure_deficit | Buhar Basıncı Açığı
+OK | st0 | soil_temperature_0_to_7cm | Toprak Sıcaklığı 0-7cm
+OK | st7 | soil_temperature_7_to_28cm | Toprak Sıcaklığı 7-28cm
+OK | st28 | soil_temperature_28_to_100cm | Toprak Sıcaklığı 28-100cm
+OK | st100 | soil_temperature_100_to_255cm | Toprak Sıcaklığı 1-2.5m
+OK | sm0 | soil_moisture_0_to_7cm | Toprak Nemi 0-7cm
+OK | sm7 | soil_moisture_7_to_28cm | Toprak Nemi 7-28cm
+OK | sm28 | soil_moisture_28_to_100cm | Toprak Nemi 28-100cm
+OK | sm100 | soil_moisture_100_to_255cm | Toprak Nemi 1-2.5m
+OK | t1000 | temperature_1000hPa | 1000hPa Sıcaklık
+OK | t925 | temperature_925hPa | 925hPa Sıcaklık
+OK | t850 | temperature_850hPa | 850hPa Sıcaklık
+OK | t700 | temperature_700hPa | 700hPa Sıcaklık
+OK | t600 | temperature_600hPa | 600hPa Sıcaklık
+OK | t500 | temperature_500hPa | 500hPa Sıcaklık
+OK | t400 | temperature_400hPa | 400hPa Sıcaklık
+OK | t300 | temperature_300hPa | 300hPa Sıcaklık
+OK | t250 | temperature_250hPa | 250hPa Sıcaklık
+OK | t200 | temperature_200hPa | 200hPa Sıcaklık
+OK | z1000 | geopotential_height_1000hPa | 1000hPa Yükseklik
+OK | z925 | geopotential_height_925hPa | 925hPa Yükseklik
+OK | z850 | geopotential_height_850hPa | 850hPa Yükseklik
+OK | z700 | geopotential_height_700hPa | 700hPa Yükseklik
+OK | z600 | geopotential_height_600hPa | 600hPa Yükseklik
+OK | z500 | geopotential_height_500hPa | 500hPa Yükseklik
+OK | z400 | geopotential_height_400hPa | 400hPa Yükseklik
+OK | z300 | geopotential_height_300hPa | 300hPa Yükseklik
+OK | z250 | geopotential_height_250hPa | 250hPa Yükseklik
+OK | z200 | geopotential_height_200hPa | 200hPa Yükseklik
+OK | ws1000 | wind_speed_1000hPa | 1000hPa Rüzgar
+OK | ws925 | wind_speed_925hPa | 925hPa Rüzgar
+OK | ws850 | wind_speed_850hPa | 850hPa Rüzgar
+OK | ws700 | wind_speed_700hPa | 700hPa Rüzgar
+OK | ws600 | wind_speed_600hPa | 600hPa Rüzgar
+OK | ws500 | wind_speed_500hPa | 500hPa Rüzgar
+OK | ws400 | wind_speed_400hPa | 400hPa Rüzgar
+OK | ws300 | wind_speed_300hPa | 300hPa Rüzgar
+OK | ws250 | wind_speed_250hPa | 250hPa Rüzgar
+OK | ws200 | wind_speed_200hPa | 200hPa Rüzgar
+OK | wd1000 | wind_direction_1000hPa | 1000hPa Yön
+OK | wd925 | wind_direction_925hPa | 925hPa Yön
+OK | wd850 | wind_direction_850hPa | 850hPa Yön
+OK | wd700 | wind_direction_700hPa | 700hPa Yön
+OK | wd600 | wind_direction_600hPa | 600hPa Yön
+OK | wd500 | wind_direction_500hPa | 500hPa Yön
+OK | wd400 | wind_direction_400hPa | 400hPa Yön
+OK | wd300 | wind_direction_300hPa | 300hPa Yön
+OK | wd250 | wind_direction_250hPa | 250hPa Yön
+OK | wd200 | wind_direction_200hPa | 200hPa Yön
+OK | rh850 | relative_humidity_850hPa | 850hPa Bağıl Nem
+OK | rh700 | relative_humidity_700hPa | 700hPa Bağıl Nem
+OK | rh500 | relative_humidity_500hPa | 500hPa Bağıl Nem
+OK | dp850 | dew_point_850hPa | 850hPa Çiy Noktası
+VERIYOK_400 | vor850 | derived_vorticity_850hPa | 850hPa Bağıl Vortisite
+VERIYOK_400 | vor500 | derived_vorticity_500hPa | 500hPa Bağıl Vortisite
+VERIYOK_400 | div850 | derived_divergence_850hPa | 850hPa Yatay Diverjans
+VERIYOK_400 | div250 | derived_divergence_250hPa | 250hPa Yatay Diverjans
+VERIYOK_400 | thk500 | derived_thickness_500_1000 | 500-1000hPa Kalınlık
