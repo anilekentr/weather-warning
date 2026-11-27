@@ -1795,6 +1795,7 @@
 
   const extractNowVal = (j, field) => {
     if (!j || typeof j !== "object") return null;
+    updateEcmwfHorizonFromJson(j);
     updatePrecipTypeSummary(j);
     if (j.current && typeof j.current[field] === "number" && Number.isFinite(j.current[field])) {
       return j.current[field];
@@ -2158,8 +2159,125 @@
     }
   };
 
+  let customPlaying = false;
+  let customPlayTimer = null;
+  let customStepIdx = 0;
+  let maxEcmwfHorizonHours = 384;
+
+  const updateEcmwfHorizonFromJson = (j) => {
+    const times = j?.hourly?.time;
+    if (!Array.isArray(times) || !times.length) return;
+    const lastStr = String(times[times.length - 1] || "");
+    if (!lastStr) return;
+    const parsedMs = Date.parse(lastStr.length === 16 ? `${lastStr}:00+03:00` : lastStr);
+    if (!Number.isFinite(parsedMs)) return;
+    const diffHours = Math.max(24, Math.round((parsedMs - Date.now()) / 3600000));
+    maxEcmwfHorizonHours = diffHours;
+    const slider = document.getElementById("ewt-slider");
+    if (slider && parseInt(slider.max || "48", 10) < maxEcmwfHorizonHours) {
+      slider.max = String(maxEcmwfHorizonHours);
+    }
+  };
+
+  const buildCustomStepOffsets = () => {
+    const horizon = Math.max(24, maxEcmwfHorizonHours || 384);
+    const steps = [0, 1];
+    for (let h = 3; h <= horizon; h += 3) {
+      steps.push(h);
+    }
+    return steps;
+  };
+
+  const ensureCustomPlayButton = () => {
+    const playBtn = document.getElementById("ewt-play");
+    if (!playBtn || document.getElementById("ewt-play-custom")) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "ewt-play-custom";
+    btn.className = playBtn.className || "";
+    btn.title = "0s -> 1s -> 3s, 6s, 9s... (ECMWF ufku boyunca seçili değişkene göre oynat)";
+    btn.textContent = "⏭ 0→1→3s Oynat";
+    btn.style.marginLeft = "6px";
+    playBtn.insertAdjacentElement("afterend", btn);
+  };
+
+  const markStepNoDataIfNeeded = (offsetHours) => {
+    const hasHourlyHorizon = (typeof maxEcmwfHorizonHours === "number") && (offsetHours > maxEcmwfHorizonHours);
+    const winEl = document.getElementById("ewt-window");
+    if (hasHourlyHorizon) {
+      if (winEl) {
+        winEl.textContent = `+${offsetHours}s • Veri yok (ECMWF ufku aşıldı)`;
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const runCustomStepAtIndex = (idx) => {
+    const steps = buildCustomStepOffsets();
+    if (!steps.length) return;
+    if (idx >= steps.length) {
+      setCustomPlaying(false);
+      return;
+    }
+    customStepIdx = idx;
+    const targetOffset = steps[customStepIdx];
+    hourOffset = targetOffset;
+
+    const slider = document.getElementById("ewt-slider");
+    if (slider) {
+      if (parseInt(slider.max || "48", 10) < Math.max(targetOffset, maxEcmwfHorizonHours)) {
+        slider.max = String(Math.max(targetOffset, maxEcmwfHorizonHours));
+      }
+      slider.value = String(targetOffset);
+    }
+
+    const outOfHorizon = markStepNoDataIfNeeded(targetOffset);
+    triggerTimeRefresh();
+    if (outOfHorizon) {
+      const winEl = document.getElementById("ewt-window");
+      if (winEl) winEl.textContent = `+${targetOffset}s • Veri yok`;
+    }
+  };
+
+  const setCustomPlaying = (nextState) => {
+    ensureCustomPlayButton();
+    customPlaying = Boolean(nextState);
+    if (customPlaying && playing) {
+      setPlaying(false);
+    }
+    const cBtn = document.getElementById("ewt-play-custom");
+    if (cBtn) {
+      cBtn.textContent = customPlaying ? "❚❚ Duraklat (0→1→3s)" : "⏭ 0→1→3s Oynat";
+      cBtn.classList.toggle("active", customPlaying);
+    }
+    if (customPlayTimer) {
+      clearInterval(customPlayTimer);
+      customPlayTimer = null;
+    }
+    if (customPlaying) {
+      const steps = buildCustomStepOffsets();
+      const startIdx = steps.findIndex(s => s >= hourOffset);
+      customStepIdx = startIdx >= 0 ? startIdx : 0;
+      runCustomStepAtIndex(customStepIdx);
+      customPlayTimer = setInterval(() => {
+        customStepIdx += 1;
+        const nextSteps = buildCustomStepOffsets();
+        if (customStepIdx >= nextSteps.length) {
+          setCustomPlaying(false);
+          return;
+        }
+        runCustomStepAtIndex(customStepIdx);
+      }, 1500);
+    }
+  };
+
   const setPlaying = (nextState) => {
+    ensureCustomPlayButton();
     playing = Boolean(nextState);
+    if (playing && customPlaying) {
+      setCustomPlaying(false);
+    }
     const playBtn = document.getElementById("ewt-play");
     if (playBtn) {
       playBtn.textContent = playing ? "❚❚ Duraklat" : "▶ Oynat";
@@ -2177,12 +2295,21 @@
     }
   };
 
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", ensureCustomPlayButton, { once: true });
+  } else {
+    ensureCustomPlayButton();
+  }
+
   document.addEventListener("click", (e) => {
     const t = e.target;
     if (!t || !t.id) return;
     if (t.id === "ewt-play") {
       e.stopPropagation();
       setPlaying(!playing);
+    } else if (t.id === "ewt-play-custom") {
+      e.stopPropagation();
+      setCustomPlaying(!customPlaying);
     } else if (t.id === "ewt-prev") {
       e.stopPropagation();
       setPlaying(false);
