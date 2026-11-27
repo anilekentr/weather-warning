@@ -1458,19 +1458,49 @@
     ];
   };
 
-  const paintCbar = (v, val) => {
+  let activeCbarRange = null;
+
+  const getEffectiveRange = (v, pts = []) => {
+    const baseMin = Number(v.min);
+    const baseMax = Number(v.max);
+    const vals = (pts || [])
+      .map(p => (typeof p === "number" ? p : p?.val))
+      .filter(x => typeof x === "number" && Number.isFinite(x));
+
+    if (!vals.length) {
+      return { min: baseMin, max: baseMax };
+    }
+
+    let dMin = Math.min(...vals);
+    let dMax = Math.max(...vals);
+    if (Math.abs(dMax - dMin) < 1e-6) {
+      dMin = Math.min(baseMin, dMin);
+      dMax = Math.max(baseMax, dMax);
+      if (Math.abs(dMax - dMin) < 1e-6) dMax = dMin + 1;
+    }
+    return { min: Number(dMin.toFixed(1)), max: Number(dMax.toFixed(1)) };
+  };
+
+  const ratioWithRange = (val, rng) => {
+    const span = (rng.max > rng.min) ? (rng.max - rng.min) : 1;
+    return Math.max(0, Math.min(1, (Number(val) - rng.min) / span));
+  };
+
+  const paintCbar = (v, val, rangeOverride = null) => {
     let cbar = document.getElementById("cbar-box");
     if (!cbar) {
       cbar = document.createElement("div");
       cbar.id = "cbar-box";
       document.body.appendChild(cbar);
     }
-    const min = Number(v.min), max = Number(v.max);
+    const rng = rangeOverride || activeCbarRange || { min: Number(v.min), max: Number(v.max) };
+    activeCbarRange = rng;
+    const min = rng.min, max = rng.max;
     const q1 = Number((min + (max - min) * 0.25).toFixed(1));
     const q2 = Number((min + (max - min) * 0.50).toFixed(1));
     const q3 = Number((min + (max - min) * 0.75).toFixed(1));
     const hasVal = typeof val === "number" && Number.isFinite(val);
-    const pct = hasVal ? (valueToRatio(val, v) * 100).toFixed(1) : null;
+    const pct = hasVal ? (ratioWithRange(val, rng) * 100).toFixed(1) : null;
     const markerHtml = hasVal
       ? `<div style="position:relative;height:10px;margin:-11px 0 2px 0;"><div style="position:absolute;left:${pct}%;top:0;transform:translateX(-50%);width:3px;height:10px;background:#ffffff;border:1px solid #0f172a;border-radius:1px;"></div></div>`
       : "";
@@ -1547,6 +1577,8 @@
     const validPts = (pts || []).filter(pt => typeof pt.val === "number" && Number.isFinite(pt.val));
     if (!validPts.length) return;
 
+    const rng = getEffectiveRange(targetVar, validPts);
+    paintCbar(targetVar, activeValue, rng);
     const screenPts = validPts.map(pt => {
       const sp = m.latLngToContainerPoint([pt.lat, pt.lng]);
       return { x: sp.x, y: sp.y, val: pt.val };
@@ -1577,7 +1609,7 @@
 
         const interpVal = (exactVal !== null) ? exactVal : (wSum > 0 ? vSum / wSum : null);
         if (typeof interpVal !== "number" || !Number.isFinite(interpVal)) continue;
-        const t = valueToRatio(interpVal, targetVar);
+        const t = ratioWithRange(interpVal, rng);
         const [rr, gg, bb] = ratioToRgb(t);
         ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.42)`;
         ctx.fillRect(x, y, step + 1, step + 1);
