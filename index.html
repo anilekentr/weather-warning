@@ -1375,7 +1375,7 @@
     [220, 38, 38]
   ];
   const GRAD_CSS = `linear-gradient(90deg,${STOPS.map(([r, g, b]) => `rgb(${r},${g},${b})`).join(",")})`;
-  const STORAGE_KEY = "ew_real_obs_v3";
+  const STORAGE_KEY = "ew_real_obs_v3_v2";
 
   let cur = VARS[0];
   let filterText = "";
@@ -1889,31 +1889,30 @@
 
   // MET Norway (api.met.no) uzerinden gercek noktasal deger okuma
   const mapVarToMetNo = (instantDetails, v) => {
-    if (!instantDetails || typeof instantDetails !== "object") return null;
+    if (!instantDetails || typeof instantDetails !== "object" || !v) return null;
     const c = v.code;
-  if (c === "tp") return null;
-    if (c === "2t" || c === "app" || c.startsWith("t") || c.startsWith("st")) {
+    if (c === "2t") {
       return typeof instantDetails.air_temperature === "number" ? instantDetails.air_temperature : null;
     }
-    if (c === "rh2m" || c.startsWith("rh")) {
-      return typeof instantDetails.relative_humidity === "number" ? instantDetails.relative_humidity : null;
-    }
-    if (c === "2d" || c === "dp850") {
+    if (c === "2d") {
       return typeof instantDetails.dew_point_temperature === "number" ? instantDetails.dew_point_temperature : null;
     }
-    if (c === "msl" || c === "sp" || c.startsWith("z")) {
+    if (c === "rh2m") {
+      return typeof instantDetails.relative_humidity === "number" ? instantDetails.relative_humidity : null;
+    }
+    if (c === "msl") {
       return typeof instantDetails.air_pressure_at_sea_level === "number" ? instantDetails.air_pressure_at_sea_level : null;
     }
-    if (c === "ws10" || c === "ws100" || c === "ws200" || c.startsWith("ws")) {
+    if (c === "ws10") {
       return typeof instantDetails.wind_speed === "number" ? Number((instantDetails.wind_speed * 3.6).toFixed(2)) : null;
     }
     if (c === "10fg") {
       return typeof instantDetails.wind_speed_of_gust === "number" ? Number((instantDetails.wind_speed_of_gust * 3.6).toFixed(2)) : null;
     }
-    if (c === "wd10" || c === "wd100" || c === "wd200" || c.startsWith("wd")) {
+    if (c === "wd10") {
       return typeof instantDetails.wind_from_direction === "number" ? instantDetails.wind_from_direction : null;
     }
-    if (c === "tcc" || c === "lcc" || c === "mcc" || c === "hcc") {
+    if (c === "tcc") {
       return typeof instantDetails.cloud_area_fraction === "number" ? instantDetails.cloud_area_fraction : null;
     }
     return null;
