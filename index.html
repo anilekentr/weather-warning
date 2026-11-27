@@ -1724,6 +1724,9 @@
 
 <!-- ew-twin-ecmwf-start -->
 <style id="ew-twin-ecmwf-style">
+  #ew-point-single-value, #ew-ecmwf-panel-status {
+    display: none !important;
+  }
   #ew-cbar, #ew-player-cbar-wrap {
     background: rgba(15, 23, 42, 0.94) !important;
     color: #f8fafc !important;
@@ -1832,19 +1835,6 @@
     background: rgba(56, 189, 248, 0.22);
     color: #ffffff;
   }
-  #ew-ecmwf-panel-status {
-    margin: 6px 0;
-    padding: 5px 8px;
-    border-radius: 6px;
-    background: rgba(9, 13, 22, 0.92);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    font-size: 11px;
-    font-weight: 600;
-    color: #f8fafc;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
   .ew-map-point-badge {
     background: rgba(9, 13, 22, 0.94) !important;
     color: #f8fafc !important;
@@ -1922,6 +1912,31 @@
   let selectedPoint = { lat: 41.01, lon: 28.98 };
   let latestRequestToken = 0;
   const cacheByVarHourPoint = new Map();
+
+  // Leaflet harita nesnesini global veya DOM üzerinden bul
+  function resolveLeafletMap() {
+    if (window.map && typeof window.map.addLayer === "function") return window.map;
+    for (const k of Object.keys(window)) {
+      try {
+        const val = window[k];
+        if (val && typeof val === "object" && typeof val.addLayer === "function" && typeof val.on === "function" && val._container) {
+          window.map = val;
+          return val;
+        }
+      } catch (_) {}
+    }
+    if (window.L && window.L.Map) {
+      const mapEl = document.querySelector(".leaflet-container");
+      if (mapEl && mapEl._leaflet_id && window.L.Map._instances) {
+        const inst = window.L.Map._instances[mapEl._leaflet_id];
+        if (inst) {
+          window.map = inst;
+          return inst;
+        }
+      }
+    }
+    return null;
+  }
 
   function inferMeta(code, rawLabel) {
     const c = String(code || "").trim();
@@ -2291,27 +2306,22 @@
     }
   }
 
-  function ensureEcmwfPanelStatusBadge(item, statusText, ptColor) {
+  function writePanelLiveStatus(item, statusText, ptColor) {
     const cbarBox = document.getElementById("ew-cbar");
-    const filterBox = document.getElementById("ew-var-filter-box");
-    const targetParent = (filterBox && filterBox.parentElement) || (cbarBox && cbarBox.parentElement);
-    if (!targetParent) return;
-
-    let statusEl = document.getElementById("ew-ecmwf-panel-status");
-    if (!statusEl) {
-      statusEl = document.createElement("div");
-      statusEl.id = "ew-ecmwf-panel-status";
-      if (cbarBox && cbarBox.parentElement === targetParent) {
-        targetParent.insertBefore(statusEl, cbarBox);
+    const container = (cbarBox && cbarBox.parentElement) || document.body;
+    let headerNote = document.getElementById("ew-ecmwf-live-note");
+    if (!headerNote) {
+      headerNote = document.createElement("div");
+      headerNote.id = "ew-ecmwf-live-note";
+      headerNote.style.cssText = "font-size:11px;font-weight:700;margin:4px 0 2px 0;padding:3px 7px;border-radius:6px;background:rgba(15,23,42,0.85);display:flex;justify-content:space-between;align-items:center;";
+      if (cbarBox && cbarBox.parentElement === container) {
+        container.insertBefore(headerNote, cbarBox);
       } else {
-        targetParent.appendChild(statusEl);
+        container.appendChild(headerNote);
       }
     }
-
     const unitLabel = item.unit ? ` (${item.unit})` : "";
-    statusEl.innerHTML =
-      `<span>${item.name}${unitLabel}</span>` +
-      `<span style="color:${ptColor};">${statusText}</span>`;
+    headerNote.innerHTML = `<span style="color:#e2e8f0;">${item.name}${unitLabel}</span><span style="color:${ptColor};">${statusText}</span>`;
   }
 
   async function fetchEcmwfPointSeries(lat, lon, code, hourIdx) {
@@ -2354,10 +2364,12 @@
     }
   }
 
-  function updateSelectedPointMapLabel(lat, lon, coordStr, valStr, statusText, color) {
-    if (!window.L || !window.map) return;
+  function updateSelectedPointMapLabel(mapObj, lat, lon, coordStr, valStr, statusText, color) {
+    if (!window.L || !mapObj) return;
     if (!window._ewPointLabelLayer) {
-      window._ewPointLabelLayer = L.layerGroup().addTo(window.map);
+      window._ewPointLabelLayer = L.layerGroup().addTo(mapObj);
+    } else if (!mapObj.hasLayer(window._ewPointLabelLayer)) {
+      window._ewPointLabelLayer.addTo(mapObj);
     }
     window._ewPointLabelLayer.clearLayers();
 
@@ -2400,7 +2412,6 @@
     const coordStr = formatCoord(selectedPoint.lat, selectedPoint.lon);
     const valStr = formatNum(state.pointVal, item.unit);
 
-    // Oynatıcı CBAR ile aynı sade yapı: başlık + renk çubuğu + Min/Ort/Max
     const tEl = document.getElementById("cbar-title");
     const cEl = document.getElementById("cbar-code");
     const minEl = document.getElementById("cbar-min");
@@ -2416,13 +2427,14 @@
     const markerEl = ensureCbarMarker(rGrad, "ew-point-marker");
     positionCbarMarker(markerEl, state.pointVal, state.min, state.max);
 
-    // Canlı / Yaklaşık bilgisi doğrudan ECMWF panelinde
-    ensureEcmwfPanelStatusBadge(item, statusText, ptColor);
+    writePanelLiveStatus(item, statusText, ptColor);
 
-    // Haritada seçili değişkenin noktalarındaki değerlere göre renklenme + nokta üzerinde koordinat ve değer
-    if (window.L && window.map) {
+    const mapObj = resolveLeafletMap();
+    if (window.L && mapObj) {
       if (!window.gridGroup) {
-        window.gridGroup = L.layerGroup().addTo(window.map);
+        window.gridGroup = L.layerGroup().addTo(mapObj);
+      } else if (!mapObj.hasLayer(window.gridGroup)) {
+        window.gridGroup.addTo(mapObj);
       }
       window.gridGroup.clearLayers();
 
@@ -2479,15 +2491,15 @@
           L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
             color: col,
             weight: 0.25,
-            opacity: 0.45,
+            opacity: 0.5,
             fillColor: col,
-            fillOpacity: 0.52,
+            fillOpacity: 0.56,
             interactive: false
           }).addTo(window.gridGroup);
         }
       }
 
-      updateSelectedPointMapLabel(selectedPoint.lat, selectedPoint.lon, coordStr, valStr, statusText, ptColor);
+      updateSelectedPointMapLabel(mapObj, selectedPoint.lat, selectedPoint.lon, coordStr, valStr, statusText, ptColor);
     }
   }
 
@@ -2579,9 +2591,10 @@
   }
 
   function bindMapAndTimelineListeners() {
-    if (window.map && !window.map._ewPointClickBound) {
-      window.map._ewPointClickBound = true;
-      window.map.on("click", function (ev) {
+    const mapObj = resolveLeafletMap();
+    if (mapObj && !mapObj._ewPointClickBound) {
+      mapObj._ewPointClickBound = true;
+      mapObj.on("click", function (ev) {
         if (!ev || !ev.latlng) return;
         selectedPoint = {
           lat: ev.latlng.lat,
@@ -2616,7 +2629,8 @@
     syncEcmwfControls(catalog);
     bindMapAndTimelineListeners();
     updatePlayerCbar(item);
-    if (window.map && window.gridGroup && window.gridGroup.getLayers().length === 0) {
+    const mapObj = resolveLeafletMap();
+    if (mapObj && (!window.gridGroup || !mapObj.hasLayer(window.gridGroup) || window.gridGroup.getLayers().length === 0)) {
       updateEcmwfPanelCbarAndMap(item);
     }
   }
