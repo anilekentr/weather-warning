@@ -719,6 +719,19 @@
   <meta name="twitter:title" content="Eken Weather - ECMWF" />
   <meta name="twitter:description" content="Canlı Meteorolojik görünüm ve tahimn ekranı" />
   <meta name="twitter:image" content="https://ekenweather.vercel.app/eken-weather-og.jpg?v=6" />
+
+<style id="ew-spatial-canvas-style">
+  #ew-cbar-canvas {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
+    z-index: 410 !important;
+    opacity: 1 !important;
+  }
+</style>
+
 </head>
 <body>
   <div id="map"></div>
@@ -1510,7 +1523,7 @@
 
     const south = b.getSouth(), north = b.getNorth();
     const west = b.getWest(), east = b.getEast();
-    const rows = 5, cols = 5;
+    const rows = 4, cols = 4;
 
     for (let r = 0; r < rows; r++) {
       const lat = south + ((r + 0.5) / rows) * (north - south);
@@ -1530,6 +1543,7 @@
     if (!ctx) return;
 
     ctx.clearRect(0, 0, el.width, el.height);
+    const targetVar = v || cur;
     const validPts = (pts || []).filter(pt => typeof pt.val === "number" && Number.isFinite(pt.val));
     if (!validPts.length) return;
 
@@ -1538,8 +1552,8 @@
       return { x: sp.x, y: sp.y, val: pt.val };
     });
 
-    const step = 12;
-    const power = 2.2;
+    const step = 14;
+    const power = 2.0;
     for (let y = 0; y < el.height; y += step) {
       for (let x = 0; x < el.width; x += step) {
         const cx = x + step * 0.5;
@@ -1563,49 +1577,41 @@
 
         const interpVal = (exactVal !== null) ? exactVal : (wSum > 0 ? vSum / wSum : null);
         if (typeof interpVal !== "number" || !Number.isFinite(interpVal)) continue;
-        const t = valueToRatio(interpVal, v);
+        const t = valueToRatio(interpVal, targetVar);
         const [rr, gg, bb] = ratioToRgb(t);
-        ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.36)`;
+        ctx.fillStyle = `rgba(${rr}, ${gg}, ${bb}, 0.42)`;
         ctx.fillRect(x, y, step + 1, step + 1);
       }
     }
   };
 
-  const fetchGridValsBatch = async (gridPts, v, seq) => {
+  const fetchGridValsSequential = async (gridPts, v, seq) => {
     if (!Array.isArray(gridPts) || !gridPts.length) return;
-    const targets = gridPts.filter(pt => pt.val === null);
-    if (!targets.length) return;
+    const targetVar = v || cur;
 
-    const lats = targets.map(pt => pt.lat.toFixed(4)).join(",");
-    const lngs = targets.map(pt => pt.lng.toFixed(4)).join(",");
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${encodeURIComponent(lats)}&longitude=${encodeURIComponent(lngs)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=1`;
+    for (let i = 0; i < gridPts.length; i++) {
+      if (seq !== spatialGridCache.seq) return;
+      const pt = gridPts[i];
+      if (typeof pt.val === "number" && Number.isFinite(pt.val)) continue;
 
-    try {
-      const waitMs = Math.max(0, 1400 - (Date.now() - lastNetAt));
-      if (waitMs > 0) await sleep(waitMs);
-      lastNetAt = Date.now();
-
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok || seq !== spatialGridCache.seq) return;
-      const j = await res.json();
-
-      if (Array.isArray(j)) {
-        j.forEach((item, idx) => {
-          if (targets[idx]) {
-            const val = extractNowVal(item, v.om);
-            if (typeof val === "number" && Number.isFinite(val)) targets[idx].val = val;
-          }
-        });
-      } else if (targets.length === 1 && j && typeof j === "object") {
-        const val = extractNowVal(j, v.om);
-        if (typeof val === "number" && Number.isFinite(val)) targets[0].val = val;
+      const cacheKey = `${targetVar.code}|${pt.lat.toFixed(2)},${pt.lng.toFixed(2)}`;
+      if (obsCache[cacheKey] && typeof obsCache[cacheKey].val === "number") {
+        pt.val = obsCache[cacheKey].val;
+      } else {
+        const out = await fetchRealVal(pt.lat, pt.lng, targetVar);
+        if (seq !== spatialGridCache.seq) return;
+        if (out && typeof out.val === "number" && Number.isFinite(out.val)) {
+          pt.val = out.val;
+          obsCache[cacheKey] = { val: out.val, at: Date.now() };
+          saveStorage(obsCache);
+        }
       }
 
       if (seq === spatialGridCache.seq) {
         const m = findMap();
-        renderSpatialField(m, cur, spatialGridCache.points);
+        renderSpatialField(m, targetVar, spatialGridCache.points);
       }
-    } catch (_) {}
+    }
   };
 
   const applyValueColorToMap = (_val, v) => {
@@ -1621,15 +1627,22 @@
     if (spatialGridCache.key !== bKey || !spatialGridCache.points.length) {
       spatialGridCache.seq += 1;
       const currentSeq = spatialGridCache.seq;
-      const pts = buildViewportGridPoints(m);
+      const pts = buildViewportGridPoints(m).map(pt => {
+        const ck = `${targetVar.code}|${pt.lat.toFixed(2)},${pt.lng.toFixed(2)}`;
+        if (obsCache[ck] && typeof obsCache[ck].val === "number") {
+          return { ...pt, val: obsCache[ck].val };
+        }
+        return pt;
+      });
+
       spatialGridCache.key = bKey;
       spatialGridCache.points = pts;
       renderSpatialField(m, targetVar, pts);
 
       if (spatialGridCache.timer) clearTimeout(spatialGridCache.timer);
       spatialGridCache.timer = setTimeout(() => {
-        fetchGridValsBatch(pts, targetVar, currentSeq);
-      }, 180);
+        fetchGridValsSequential(pts, targetVar, currentSeq);
+      }, 150);
     } else {
       renderSpatialField(m, targetVar, spatialGridCache.points);
     }
