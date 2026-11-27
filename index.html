@@ -122,5 +122,6 @@ map.on("moveend",()=>{clearTimeout(gridTimer);gridTimer=setTimeout(()=>loadGrid(
 map.on("click",e=>{const{lat,lng}=e.latlng;if(marker)map.removeLayer(marker);marker=L.marker([lat,lng]).addTo(map);loadPoint(lat,lng,true);});
 fillSelect();drawCbar();marker=L.marker([coords.lat,coords.lng]).addTo(map);loadPoint(coords.lat,coords.lng,false);
   </script>
+<!-- ew-deploy-trigger: 2026-11-27-1800 -->
 </body>
 </html>
