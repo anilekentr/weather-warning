@@ -2062,6 +2062,15 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
       if (res.ok) {
         const j = await res.json();
         const val = extractNowVal(j, fieldName, offNum);
+        try {
+          console.log("[EW_VAL_CHECK]", {
+            fieldName,
+            offNum,
+            val,
+            hKeys: j?.hourly ? Object.keys(j.hourly).filter(k => k !== "time") : [],
+            sample: Array.isArray(j?.hourly?.[fieldName]) ? j.hourly[fieldName].slice(0, 3) : null
+          });
+        } catch (_) {}
         if (typeof val === "number" && Number.isFinite(val)) {
           if (typeof obsCache === "object" && obsCache) {
             obsCache[ck] = { val, at: Date.now() };
@@ -2070,7 +2079,9 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
           return { val, tag: "ECMWF" };
         }
       }
-    } catch (_) {}
+    } catch (err) {
+      try { console.warn("[EW_FETCH_ERR]", fieldName, err); } catch (_) {}
+    }
 
     try {
       const fbVal = (v?.code === "tp") ? null : await fetchMetNoVal(lat, lng, v);
