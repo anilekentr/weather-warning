@@ -2102,6 +2102,13 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
       if (res.ok) {
         const j = await res.json();
         const val = extractFromPayload(j);
+        try {
+          if (window.__lastFetchDebug) {
+            window.__lastFetchDebug.hourlyKeys = j && j.hourly ? Object.keys(j.hourly) : [];
+            window.__lastFetchDebug.sampleLen = j && j.hourly && Array.isArray(j.hourly[fieldName]) ? j.hourly[fieldName].length : -1;
+            window.__lastFetchDebug.extractedVal = val;
+          }
+        } catch (_) {}
         if (typeof val === "number" && Number.isFinite(val)) {
           if (typeof obsCache === "object" && obsCache) {
             obsCache[ck] = { val, at: Date.now() };
