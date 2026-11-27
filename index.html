@@ -1760,6 +1760,57 @@
     font-weight: 700 !important;
     border: 1px solid rgba(255, 255, 255, 0.22) !important;
   }
+  #ew-ecmwf-filter-section {
+    margin-top: 8px !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.3) !important;
+    color: #f8fafc !important;
+    box-sizing: border-box !important;
+  }
+  #ew-ecmwf-filter-input {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 6px 8px !important;
+    border-radius: 6px !important;
+    background: rgba(9, 13, 22, 0.96) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.45) !important;
+    font-size: 11px !important;
+  }
+  .ew-ecmwf-real-heading {
+    margin-top: 7px !important;
+    margin-bottom: 5px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #7dd3fc !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+  #ew-ecmwf-real-vars-list {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 5px !important;
+    max-height: 120px !important;
+    overflow-y: auto !important;
+  }
+  .ew-real-var-chip {
+    padding: 4px 7px !important;
+    border-radius: 6px !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+  }
+  .ew-real-var-chip.active {
+    background: rgba(2, 132, 199, 0.85) !important;
+    border-color: #7dd3fc !important;
+    color: #ffffff !important;
+  }
   #ew-player-cbar-wrap {
     background: rgba(15, 23, 42, 0.94) !important;
     color: #f8fafc !important;
@@ -1881,7 +1932,7 @@
     default: ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#d73027"]
   };
 
-  const SEED_VARS = [
+  const CANDIDATE_VARS = [
     ["temperature_2m", "2m Sıcaklık", "°C", -10, 35, PALETTES.temp],
     ["relative_humidity_2m", "2m Bağıl Nem", "%", 10, 100, PALETTES.precip],
     ["dew_point_2m", "2m Çiy Noktası", "°C", -8, 24, PALETTES.temp],
@@ -1899,8 +1950,8 @@
     ["wind_direction_10m", "10m Rüzgar Yönü", "°", 0, 360, PALETTES.wind],
     ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²", 0, 900, PALETTES.temp],
     ["cape", "CAPE Kararsızlık", "J/kg", 0, 2500, PALETTES.temp],
-    ["t600", "600hPa Sıcaklık", "°C", -25, 10, PALETTES.temp],
-    ["z600", "600hPa Yükseklik", "gpm", 3800, 4400, PALETTES.pressure]
+    ["temperature_850hPa", "850hPa Sıcaklık", "°C", -20, 25, PALETTES.temp],
+    ["geopotential_height_500hPa", "500hPa Yükseklik", "gpm", 5000, 5950, PALETTES.pressure]
   ];
 
   const GRID_POINTS = [
@@ -1937,7 +1988,10 @@
   let cbarVisible = true;
   let playerTimer = null;
   let isPlaying = false;
+  let filterQuery = "";
   const seriesCache = new Map();
+  const realVarStatus = new Map(); // code -> true (gerçek sayısal veri var) / false (yok)
+  let auditCompleted = false;
 
   function cleanWaitingTextFromCbarAndDom() {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -1970,47 +2024,6 @@
     return null;
   }
 
-  function renderEcmwfPanelRealData(item, hourIdx, state) {
-    cleanWaitingTextFromCbarAndDom();
-    const panel = findEcmwfPanelContainer();
-    if (!panel) return;
-
-    let box = document.getElementById("ew-ecmwf-real-data-box");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "ew-ecmwf-real-data-box";
-      box.innerHTML =
-        "<div class='ew-ecmwf-real-top'>" +
-          "<span id='ew-ecmwf-real-title'>ECMWF Veri</span>" +
-          "<span id='ew-ecmwf-real-badge' class='ew-ecmwf-status-tag'>Yaklaşık</span>" +
-        "</div>" +
-        "<div class='ew-ecmwf-real-sub'>" +
-          "<span id='ew-ecmwf-real-val'>-</span>" +
-          "<span id='ew-ecmwf-real-coord'>-</span>" +
-        "</div>";
-      panel.appendChild(box);
-    }
-
-    const statusText = state.isLivePoint ? "Canlı" : "Yaklaşık";
-    const valStr = formatNum(state.pointVal, item.unit);
-    const coordStr = formatCoord(selectedPoint.lat, selectedPoint.lon);
-    const unitLabel = item.unit ? ` (${item.unit})` : "";
-
-    const titleEl = document.getElementById("ew-ecmwf-real-title");
-    const badgeEl = document.getElementById("ew-ecmwf-real-badge");
-    const valEl = document.getElementById("ew-ecmwf-real-val");
-    const coordEl = document.getElementById("ew-ecmwf-real-coord");
-
-    if (titleEl) titleEl.textContent = `${item.name}${unitLabel}`;
-    if (badgeEl) {
-      badgeEl.textContent = statusText;
-      badgeEl.style.background = state.isLivePoint ? "rgba(16, 185, 129, 0.25)" : "rgba(245, 158, 11, 0.25)";
-      badgeEl.style.color = state.isLivePoint ? "#6ee7b7" : "#fcd34d";
-    }
-    if (valEl) valEl.textContent = `Değer: ${valStr} (Saat +${hourIdx}s)`;
-    if (coordEl) coordEl.textContent = coordStr;
-  }
-
   function resolveLeafletMap() {
     if (window.map && typeof window.map.addLayer === "function") return window.map;
     for (const k of Object.keys(window)) {
@@ -2037,29 +2050,29 @@
 
   function inferMeta(code, rawLabel) {
     const c = String(code || "").trim();
-    const seeded = SEED_VARS.find(x => x[0] === c);
+    const seeded = CANDIDATE_VARS.find(x => x[0] === c);
     const label = (rawLabel || (seeded ? seeded[1] : c)).trim();
     let unit = seeded ? seeded[2] : "";
     let min = seeded ? seeded[3] : -10;
     let max = seeded ? seeded[4] : 35;
     let palette = seeded ? seeded[5] : PALETTES.default;
 
-    if (/^t\d{3,4}$/i.test(c) || /temp|sıcaklık/i.test(c + " " + label)) {
+    if (/temp|sıcaklık/i.test(c + " " + label)) {
       unit = unit || "°C";
       palette = PALETTES.temp;
-      if (!seeded) { min = -25; max = 35; }
-    } else if (/^z\d{3,4}$|^gh\d{3,4}$/i.test(c) || /height|yükseklik|geopot/i.test(c + " " + label)) {
+      if (!seeded) { min = -20; max = 35; }
+    } else if (/geopotential|height|yükseklik/i.test(c + " " + label)) {
       unit = unit || "gpm";
       palette = PALETTES.pressure;
-      if (!seeded) { min = 1200; max = 5600; }
-    } else if (/^q\d{3,4}$|^r\d{3,4}$|rh|humidity|nem/i.test(c + " " + label)) {
+      if (!seeded) { min = 1200; max = 5950; }
+    } else if (/humidity|nem/i.test(c + " " + label)) {
       unit = unit || "%";
       palette = PALETTES.precip;
       if (!seeded) { min = 0; max = 100; }
-    } else if (/^u\d{3,4}$|^v\d{3,4}$|wind|rüzgar/i.test(c + " " + label)) {
+    } else if (/wind|rüzgar/i.test(c + " " + label)) {
       unit = unit || "km/s";
       palette = PALETTES.wind;
-      if (!seeded) { min = 0; max = 100; }
+      if (!seeded) { min = 0; max = 110; }
     } else if (/precip|rain|snow|yağış|kar/i.test(c + " " + label)) {
       unit = unit || "mm";
       palette = PALETTES.precip;
@@ -2067,13 +2080,13 @@
     } else if (/press|basınç/i.test(c + " " + label)) {
       unit = unit || "hPa";
       palette = PALETTES.pressure;
-      if (!seeded) { min = 980; max = 1035; }
+      if (!seeded) { min = 950; max = 1035; }
     }
 
     return { code: c, name: label, unit, min, max, palette };
   }
 
-  function collectAllEcmwfVars() {
+  function collectAllCandidateVars() {
     const map = new Map();
 
     if (Array.isArray(window.vars)) {
@@ -2102,23 +2115,117 @@
       });
     }
 
-    const listEl = document.getElementById("ew-vars-list");
-    if (listEl) {
-      listEl.querySelectorAll("[data-var], [data-code], button, li, div").forEach(el => {
-        const code = (el.getAttribute("data-var") || el.getAttribute("data-code") || "").trim();
-        if (!code) return;
-        const meta = inferMeta(code, (el.textContent || "").trim() || code);
-        if (!map.has(code)) map.set(code, meta);
-      });
-    }
-
-    SEED_VARS.forEach(([code, name, unit, min, max, palette]) => {
+    CANDIDATE_VARS.forEach(([code, name, unit, min, max, palette]) => {
       if (!map.has(code)) {
         map.set(code, { code, name, unit, min, max, palette });
       }
     });
 
     return Array.from(map.values());
+  }
+
+  async function fetchEcmwfSeriesArray(lat, lon, code) {
+    const cacheKey = `${code}|${lat.toFixed(2)}|${lon.toFixed(2)}`;
+    if (seriesCache.has(cacheKey)) {
+      return seriesCache.get(cacheKey);
+    }
+
+    try {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(code)}&forecast_days=3&timezone=auto`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const fail = { ok: false, arr: null };
+        seriesCache.set(cacheKey, fail);
+        return fail;
+      }
+      const data = await res.json();
+      const arr = data && data.hourly && Array.isArray(data.hourly[code]) ? data.hourly[code] : null;
+      const validNumbers = Array.isArray(arr) ? arr.filter(x => typeof x === "number" && Number.isFinite(x)) : [];
+      if (!validNumbers.length) {
+        const fail = { ok: false, arr: null };
+        seriesCache.set(cacheKey, fail);
+        return fail;
+      }
+      const okRes = { ok: true, arr };
+      seriesCache.set(cacheKey, okRes);
+      return okRes;
+    } catch (_) {
+      return { ok: false, arr: null };
+    }
+  }
+
+  // Tüm değişkenleri gerçek ECMWF verisi açısından test et ve yalnızca gerçek değeri olanları listele
+  async function auditRealEcmwfVariables(catalog) {
+    const checks = await Promise.all(
+      catalog.map(async v => {
+        const r = await fetchEcmwfSeriesArray(selectedPoint.lat, selectedPoint.lon, v.code);
+        const hasReal = Boolean(r && r.ok && Array.isArray(r.arr) && r.arr.some(x => typeof x === "number" && Number.isFinite(x)));
+        realVarStatus.set(v.code, hasReal);
+        return { code: v.code, hasReal };
+      })
+    );
+    auditCompleted = true;
+    renderRealOnlyFilterList(catalog);
+    return checks;
+  }
+
+  function renderRealOnlyFilterList(catalog) {
+    const panel = findEcmwfPanelContainer();
+    if (!panel) return;
+
+    let sec = document.getElementById("ew-ecmwf-filter-section");
+    if (!sec) {
+      sec = document.createElement("div");
+      sec.id = "ew-ecmwf-filter-section";
+      sec.innerHTML =
+        "<input id='ew-ecmwf-filter-input' type='text' placeholder='ECMWF gerçek değişken filtrele...' autocomplete='off' />" +
+        "<div class='ew-ecmwf-real-heading'><span>ECMWF Gerçek Verisi Olanlar</span><span id='ew-ecmwf-real-count'>Test ediliyor...</span></div>" +
+        "<div id='ew-ecmwf-real-vars-list'></div>";
+      const varSelect = document.getElementById("var-select");
+      if (varSelect && varSelect.parentElement === panel) {
+        varSelect.insertAdjacentElement("afterend", sec);
+      } else {
+        panel.appendChild(sec);
+      }
+    }
+
+    const inp = document.getElementById("ew-ecmwf-filter-input");
+    if (inp && !inp.dataset.ewBound) {
+      inp.dataset.ewBound = "1";
+      inp.addEventListener("input", () => {
+        filterQuery = inp.value.trim().toLowerCase();
+        renderRealOnlyFilterList(collectAllCandidateVars());
+      });
+    }
+
+    const listEl = document.getElementById("ew-ecmwf-real-vars-list");
+    const countEl = document.getElementById("ew-ecmwf-real-count");
+    if (!listEl) return;
+
+    // Sadece gerçek ECMWF değeri doğrulanmış değişkenleri ekle (yaklaşık/doğrulanmamış olanları yazma)
+    const realVars = catalog.filter(v => {
+      if (realVarStatus.get(v.code) !== true) return false;
+      if (!filterQuery) return true;
+      return (
+        v.name.toLowerCase().includes(filterQuery) ||
+        v.code.toLowerCase().includes(filterQuery) ||
+        String(v.unit || "").toLowerCase().includes(filterQuery)
+      );
+    });
+
+    if (countEl) {
+      countEl.textContent = auditCompleted ? `${realVars.length} gerçek` : "Test ediliyor...";
+    }
+
+    listEl.innerHTML = "";
+    realVars.forEach(v => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "ew-real-var-chip" + (v.code === activeVarCode ? " active" : "");
+      chip.textContent = `${v.name} (${v.unit || v.code})`;
+      chip.addEventListener("click", () => setActiveVar(v.code, "real-filter"));
+      listEl.appendChild(chip);
+    });
   }
 
   function fallbackPointValue(item, lat, lon, hourIdx) {
@@ -2185,6 +2292,47 @@
     return palette[idx];
   }
 
+  function renderEcmwfPanelRealData(item, hourIdx, state) {
+    cleanWaitingTextFromCbarAndDom();
+    const panel = findEcmwfPanelContainer();
+    if (!panel) return;
+
+    let box = document.getElementById("ew-ecmwf-real-data-box");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "ew-ecmwf-real-data-box";
+      box.innerHTML =
+        "<div class='ew-ecmwf-real-top'>" +
+          "<span id='ew-ecmwf-real-title'>ECMWF Veri</span>" +
+          "<span id='ew-ecmwf-real-badge' class='ew-ecmwf-status-tag'>Yaklaşık</span>" +
+        "</div>" +
+        "<div class='ew-ecmwf-real-sub'>" +
+          "<span id='ew-ecmwf-real-val'>-</span>" +
+          "<span id='ew-ecmwf-real-coord'>-</span>" +
+        "</div>";
+      panel.appendChild(box);
+    }
+
+    const statusText = state.isLivePoint ? "Canlı" : "Yaklaşık";
+    const valStr = formatNum(state.pointVal, item.unit);
+    const coordStr = formatCoord(selectedPoint.lat, selectedPoint.lon);
+    const unitLabel = item.unit ? ` (${item.unit})` : "";
+
+    const titleEl = document.getElementById("ew-ecmwf-real-title");
+    const badgeEl = document.getElementById("ew-ecmwf-real-badge");
+    const valEl = document.getElementById("ew-ecmwf-real-val");
+    const coordEl = document.getElementById("ew-ecmwf-real-coord");
+
+    if (titleEl) titleEl.textContent = `${item.name}${unitLabel}`;
+    if (badgeEl) {
+      badgeEl.textContent = statusText;
+      badgeEl.style.background = state.isLivePoint ? "rgba(16, 185, 129, 0.25)" : "rgba(245, 158, 11, 0.25)";
+      badgeEl.style.color = state.isLivePoint ? "#6ee7b7" : "#fcd34d";
+    }
+    if (valEl) valEl.textContent = `Değer: ${valStr} (Saat +${hourIdx}s)`;
+    if (coordEl) coordEl.textContent = coordStr;
+  }
+
   function getActiveHourIndex() {
     const slider = document.getElementById("time-slider");
     if (slider && !Number.isNaN(Number(slider.value))) {
@@ -2225,7 +2373,7 @@
     cbarVisible = Boolean(visible);
     syncCbarButtonUi();
     if (cbarVisible && refreshWhenOpen) {
-      const catalog = collectAllEcmwfVars();
+      const catalog = collectAllCandidateVars();
       const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
       if (item) updatePlayerCbarAndMap(item, getActiveHourIndex());
     }
@@ -2256,7 +2404,7 @@
     if (playerTimer) clearInterval(playerTimer);
     playerTimer = setInterval(() => {
       const nextHour = setActiveHourIndex(getActiveHourIndex() + 1);
-      const catalog = collectAllEcmwfVars();
+      const catalog = collectAllCandidateVars();
       const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
       if (item) {
         updatePlayerCbarAndMap(item, nextHour);
@@ -2388,71 +2536,9 @@
       }
     }
 
-    const listEl = document.getElementById("ew-vars-list");
-    if (listEl) {
-      listEl.querySelectorAll("[data-var], [data-code], button, li").forEach(el => {
-        const code = (el.getAttribute("data-var") || el.getAttribute("data-code") || "").trim();
-        if (!code) return;
-        el.classList.toggle("active", code === activeVarCode);
-        if (!el.dataset.ewItemBound) {
-          el.dataset.ewItemBound = "1";
-          el.addEventListener("click", () => setActiveVar(code, "ecmwf"));
-        }
-      });
-    }
-
     ensureTwinPlayerSelect(catalog);
     ensurePlayerCbarStructure();
-  }
-
-  async function fetchEcmwfSeriesArray(lat, lon, code) {
-    const cacheKey = `${code}|${lat.toFixed(2)}|${lon.toFixed(2)}`;
-    if (seriesCache.has(cacheKey)) {
-      return seriesCache.get(cacheKey);
-    }
-
-    try {
-      const lvMatch = code.match(/^([a-z]+)(\d{3,4})$/i);
-      let url = "";
-      let fieldKey = code;
-      if (lvMatch) {
-        const prefix = lvMatch[1].toLowerCase();
-        const level = lvMatch[2];
-        const varMap = {
-          t: "temperature",
-          z: "geopotential_height",
-          gh: "geopotential_height",
-          q: "specific_humidity",
-          r: "relative_humidity",
-          u: "wind_u_component",
-          v: "wind_v_component"
-        };
-        const omVar = varMap[prefix] || code;
-        fieldKey = `${omVar}_${level}hPa`;
-        url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(fieldKey)}&forecast_days=3&timezone=auto`;
-      } else {
-        url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(code)}&forecast_days=3&timezone=auto`;
-      }
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        const emptyRes = { ok: false, arr: null };
-        seriesCache.set(cacheKey, emptyRes);
-        return emptyRes;
-      }
-      const data = await res.json();
-      const arr = data && data.hourly && Array.isArray(data.hourly[fieldKey]) ? data.hourly[fieldKey] : null;
-      if (!arr || !arr.length) {
-        const emptyRes = { ok: false, arr: null };
-        seriesCache.set(cacheKey, emptyRes);
-        return emptyRes;
-      }
-      const goodRes = { ok: true, arr };
-      seriesCache.set(cacheKey, goodRes);
-      return goodRes;
-    } catch (_) {
-      return { ok: false, arr: null };
-    }
+    renderRealOnlyFilterList(catalog);
   }
 
   function updateSelectedPointMapLabel(mapObj, lat, lon, coordStr, valStr, statusText, color) {
@@ -2465,9 +2551,9 @@
     window._ewPointLabelLayer.clearLayers();
 
     L.circleMarker([lat, lon], {
-      radius: 6,
+      radius: 7,
       color: "#ffffff",
-      weight: 2,
+      weight: 2.5,
       fillColor: color || "#38bdf8",
       fillOpacity: 1,
       interactive: false
@@ -2477,7 +2563,7 @@
       icon: L.divIcon({
         className: "ew-map-point-badge",
         html:
-          `<div style="color:${color || "#f8fafc"};">${valStr} · ${statusText}</div>` +
+          `<div style="color:${color || "#f8fafc"};">Baz: ${valStr} · ${statusText}</div>` +
           `<div style="color:#cbd5e1;font-size:10px;font-weight:500;">${coordStr}</div>`,
         iconSize: null,
         iconAnchor: [0, 34]
@@ -2487,12 +2573,14 @@
     badgeMarker.addTo(window._ewPointLabelLayer);
   }
 
+  // Seçili noktanın değeri (Canlı veya Yaklaşık) referans baz alınarak CBAR'a göre harita renklendirmesi
   function applyStepToCbarAndMap(item, hourIdx, state) {
     if (item.code !== activeVarCode) return;
 
     const unitLabel = item.unit ? ` (${item.unit})` : "";
-    const norm = (state.pointVal - state.min) / Math.max(1e-6, state.max - state.min);
-    const ptColor = colorForNorm(norm, item.palette);
+    const span = Math.max(1e-6, state.max - state.min);
+    const anchorNorm = Math.max(0, Math.min(1, (state.pointVal - state.min) / span));
+    const ptColor = colorForNorm(anchorNorm, item.palette);
     const statusText = state.isLivePoint ? "Canlı" : "Yaklaşık";
     const coordStr = formatCoord(selectedPoint.lat, selectedPoint.lon);
     const valStr = formatNum(state.pointVal, item.unit);
@@ -2531,7 +2619,6 @@
       }
       window.gridGroup.clearLayers();
 
-      const span = Math.max(1e-6, state.max - state.min);
       const latMin = -85.0, latMax = 85.0, lonMin = -180.0, lonMax = 180.0;
       const rows = 34, cols = 72;
       const dLat = (latMax - latMin) / rows;
@@ -2542,8 +2629,8 @@
       const anchorVal = state.pointVal;
 
       const interpSources = [
-        ...GRID_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.valuesByIdx[idx], weightScale: 1.3 })),
-        ...GLOBAL_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.globalVals[idx], weightScale: 1.1 }))
+        ...GRID_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.valuesByIdx[idx], weightScale: 1.25 })),
+        ...GLOBAL_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.globalVals[idx], weightScale: 1.0 }))
       ];
 
       for (let r = 0; r < rows; r++) {
@@ -2553,33 +2640,33 @@
           const latC = lat0 + dLat / 2;
           const lonC = lon0 + dLon / 2;
 
-          const distToAnchor = Math.hypot(latC - anchorLat, lonC - anchorLon);
-          let cellVal;
-          if (distToAnchor <= Math.hypot(dLat, dLon) * 0.75) {
-            cellVal = anchorVal;
+          let dLonDiff = Math.abs(lonC - anchorLon);
+          if (dLonDiff > 180) dLonDiff = 360 - dLonDiff;
+          const distToAnchor = Math.hypot(latC - anchorLat, dLonDiff);
+
+          let fieldVal;
+          if (distToAnchor <= Math.hypot(dLat, dLon) * 0.7) {
+            fieldVal = anchorVal;
           } else {
             let wSum = 0, vSum = 0;
-            const dAnchor = Math.pow(latC - anchorLat, 2) + Math.pow(lonC - anchorLon, 2) + 0.4;
-            const wAnchor = 1.8 / dAnchor;
-            wSum += wAnchor;
-            vSum += wAnchor * anchorVal;
-
             interpSources.forEach(srcPt => {
               if (typeof srcPt.val !== "number" || !Number.isFinite(srcPt.val)) return;
-              let dLonDiff = Math.abs(lonC - srcPt.lon);
-              if (dLonDiff > 180) dLonDiff = 360 - dLonDiff;
-              const dLatDiff = latC - srcPt.lat;
-              const d2 = (dLatDiff * dLatDiff) + (dLonDiff * dLonDiff) + 1.8;
+              let dl = Math.abs(lonC - srcPt.lon);
+              if (dl > 180) dl = 360 - dl;
+              const df = latC - srcPt.lat;
+              const d2 = (df * df) + (dl * dl) + 2.0;
               const w = srcPt.weightScale / d2;
               wSum += w;
               vSum += w * srcPt.val;
             });
-
-            cellVal = wSum > 0 ? (vSum / wSum) : anchorVal;
+            const localField = wSum > 0 ? (vSum / wSum) : anchorVal;
+            // Seçili noktanın değerini baz alıp diğer noktaları seçili noktaya göre kıyasla
+            const relDiff = (localField - anchorVal) * 0.65;
+            fieldVal = anchorVal + relDiff;
           }
 
-          const cellNorm = (cellVal - state.min) / span;
-          const col = colorForNorm(cellNorm, item.palette);
+          const norm = (fieldVal - state.min) / span;
+          const col = colorForNorm(norm, item.palette);
 
           L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
             color: col,
@@ -2629,6 +2716,7 @@
       ? ptSeries.arr[Math.min(ptSeries.arr.length - 1, Math.max(0, hourIdx))]
       : null;
     const isLivePoint = typeof ptValRaw === "number" && Number.isFinite(ptValRaw);
+    realVarStatus.set(item.code, isLivePoint);
     const pointVal = isLivePoint ? ptValRaw : fallbackPt;
 
     const valuesByIdx = gridSeries.map((s, idx) => {
@@ -2650,6 +2738,7 @@
     const maxVal = allVals.length ? Math.max(...allVals) : item.max;
     const avgVal = allVals.length ? (allVals.reduce((acc, v) => acc + v, 0) / allVals.length) : (minVal + maxVal) / 2;
 
+    renderRealOnlyFilterList(collectAllCandidateVars());
     applyStepToCbarAndMap(item, hourIdx, {
       min: minVal,
       max: maxVal,
@@ -2662,7 +2751,7 @@
   }
 
   function setActiveVar(code, source) {
-    const catalog = collectAllEcmwfVars();
+    const catalog = collectAllCandidateVars();
     const item = catalog.find(v => v.code === code) || catalog[0];
     if (!item) return;
     activeVarCode = item.code;
@@ -2690,7 +2779,7 @@
           lat: ev.latlng.lat,
           lon: ev.latlng.lng
         };
-        const catalog = collectAllEcmwfVars();
+        const catalog = collectAllCandidateVars();
         const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
         if (item) {
           updatePlayerCbarAndMap(item, getActiveHourIndex());
@@ -2702,7 +2791,7 @@
     if (slider && !slider.dataset.ewSliderBound) {
       slider.dataset.ewSliderBound = "1";
       slider.addEventListener("input", () => {
-        const catalog = collectAllEcmwfVars();
+        const catalog = collectAllCandidateVars();
         const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
         if (item) {
           updatePlayerCbarAndMap(item, getActiveHourIndex());
@@ -2713,7 +2802,7 @@
 
   function tick() {
     cleanWaitingTextFromCbarAndDom();
-    const catalog = collectAllEcmwfVars();
+    const catalog = collectAllCandidateVars();
     const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
     if (!item) return;
     syncEcmwfControls(catalog);
@@ -2727,12 +2816,16 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       cleanWaitingTextFromCbarAndDom();
+      const cat = collectAllCandidateVars();
       setActiveVar(activeVarCode, "host");
+      auditRealEcmwfVariables(cat);
       bindMapAndTimelineListeners();
     });
   } else {
     cleanWaitingTextFromCbarAndDom();
+    const cat = collectAllCandidateVars();
     setActiveVar(activeVarCode, "host");
+    auditRealEcmwfVariables(cat);
     bindMapAndTimelineListeners();
   }
   setInterval(tick, 1200);
