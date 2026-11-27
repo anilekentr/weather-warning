@@ -1722,30 +1722,32 @@
 })();
 </script>
 
-<!-- ew-combined-fix-start -->
-<style id="ew-combined-fix-style">
+<!-- ew-twin-ecmwf-start -->
+<style id="ew-twin-ecmwf-style">
+  #ew-player-filter-input, .ew-sync-results {
+    display: none !important;
+  }
   #ew-cbar {
     background: rgba(15, 23, 42, 0.9) !important;
     color: #f8fafc !important;
     border: 1px solid rgba(148, 163, 184, 0.32) !important;
     border-radius: 10px !important;
     padding: 8px 10px !important;
+    margin-top: 8px !important;
   }
   #cbar-gradient, #ew-player-cbar {
     min-height: 14px !important;
     height: 14px !important;
     border-radius: 6px !important;
-    border: 1px solid rgba(255, 255, 255, 0.28) !important;
+    border: 1px solid rgba(255, 255, 255, 0.24) !important;
     opacity: 1 !important;
     visibility: visible !important;
   }
-  .ew-sync-box {
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  #ew-player-sync-row {
+    margin-top: 6px;
+    margin-bottom: 6px;
   }
-  .ew-sync-input, .ew-sync-select {
+  #ew-player-var-select {
     width: 100%;
     box-sizing: border-box;
     padding: 6px 8px;
@@ -1755,308 +1757,485 @@
     border: 1px solid rgba(148, 163, 184, 0.38);
     font-size: 12px;
   }
-  .ew-sync-results {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    max-height: 145px;
-    overflow-y: auto;
-  }
-  .ew-sync-item {
-    padding: 5px 8px;
-    border-radius: 5px;
+  .ew-ecmwf-point-note {
+    margin-top: 6px;
     font-size: 11px;
-    cursor: pointer;
-    background: rgba(30, 41, 59, 0.72);
-    color: #e2e8f0;
+    color: #cbd5e1;
     display: flex;
     justify-content: space-between;
-  }
-  .ew-sync-item.active, .ew-sync-item:hover {
-    background: rgba(56, 189, 248, 0.28);
-    color: #ffffff;
-  }
-  .ew-player-var-label {
-    font-size: 11px;
-    color: #bae6fd;
-    padding: 5px 7px;
-    border-radius: 6px;
-    background: rgba(2, 132, 199, 0.24);
-    border: 1px solid rgba(56, 189, 248, 0.4);
+    gap: 6px;
   }
 </style>
-<script id="ew-combined-fix-script">
+<script id="ew-twin-ecmwf-script">
 (function() {
-  const CANONICAL_VARS = [
-    ["temperature_2m", "2m Sıcaklık", "°C", -10, 35, ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#d73027"]],
-    ["relative_humidity_2m", "2m Bağıl Nem", "%", 10, 100, ["#edf8fb","#ccebc5","#a8ddb5","#7bccc4","#4eb3d3","#2b8cbe","#08589e"]],
-    ["dew_point_2m", "2m Çiy Noktası", "°C", -8, 24, ["#f7fcf0","#e0f3db","#ccebc5","#a8ddb5","#7bccc4","#43a2ca","#0868ac"]],
-    ["apparent_temperature", "Hissedilen Sıcaklık", "°C", -12, 38, ["#313695","#4575b4","#74add1","#fee090","#fdae61","#f46d43","#a50026"]],
-    ["precipitation", "Toplam Yağış", "mm", 0, 30, ["#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c"]],
-    ["rain", "Yağmur", "mm", 0, 25, ["#e0f2fe","#7dd3fc","#38bdf8","#0284c7","#0369a1"]],
-    ["snowfall", "Kar Yağışı", "cm", 0, 20, ["#f8fafc","#bae6fd","#7dd3fc","#38bdf8","#0284c7"]],
-    ["snow_depth", "Kar Kalınlığı", "m", 0, 1.5, ["#f1f5f9","#cbd5e1","#60a5fa","#2563eb","#1e3a8a"]],
-    ["weather_code", "Hava Durumu Kodu", "wmo", 0, 99, ["#94a3b8","#38bdf8","#facc15","#f97316","#ef4444"]],
-    ["pressure_msl", "Deniz Seviyesi Basıncı", "hPa", 995, 1035, ["#1d4ed8","#06b6d4","#10b981","#f59e0b","#dc2626"]],
-    ["surface_pressure", "Yüzey Basıncı", "hPa", 950, 1035, ["#1e40af","#0284c7","#0d9488","#eab308","#ea580c"]],
-    ["cloud_cover", "Toplam Bulutluluk", "%", 0, 100, ["#e2e8f0","#cbd5e1","#94a3b8","#64748b","#334155"]],
-    ["wind_speed_10m", "10m Rüzgar Hızı", "km/s", 0, 80, ["#dcfce7","#86efac","#fde047","#fb923c","#ef4444"]],
-    ["wind_gusts_10m", "10m Rüzgar Hamlesi", "km/s", 0, 110, ["#fef9c3","#fde047","#f97316","#dc2626","#7f1d1d"]],
-    ["wind_direction_10m", "10m Rüzgar Yönü", "°", 0, 360, ["#38bdf8","#818cf8","#c084fc","#f472b6","#38bdf8"]],
-    ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²", 0, 900, ["#1e293b","#facc15","#fb923c","#ef4444"]],
-    ["cape", "CAPE Kararsızlık", "J/kg", 0, 2500, ["#ecfeff","#67e8f9","#facc15","#f97316","#dc2626"]]
+  const DEFAULT_PALETTE = ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#d73027"];
+
+  const SEED_VARS = [
+    ["temperature_2m", "2m Sıcaklık", "°C", -10, 35],
+    ["relative_humidity_2m", "2m Bağıl Nem", "%", 10, 100],
+    ["dew_point_2m", "2m Çiy Noktası", "°C", -8, 24],
+    ["apparent_temperature", "Hissedilen Sıcaklık", "°C", -12, 38],
+    ["precipitation", "Toplam Yağış", "mm", 0, 30],
+    ["rain", "Yağmur", "mm", 0, 25],
+    ["snowfall", "Kar Yağışı", "cm", 0, 20],
+    ["snow_depth", "Kar Kalınlığı", "m", 0, 1.5],
+    ["weather_code", "Hava Durumu Kodu", "wmo", 0, 99],
+    ["pressure_msl", "Deniz Seviyesi Basıncı", "hPa", 995, 1035],
+    ["surface_pressure", "Yüzey Basıncı", "hPa", 950, 1035],
+    ["cloud_cover", "Toplam Bulutluluk", "%", 0, 100],
+    ["wind_speed_10m", "10m Rüzgar Hızı", "km/s", 0, 80],
+    ["wind_gusts_10m", "10m Rüzgar Hamlesi", "km/s", 0, 110],
+    ["wind_direction_10m", "10m Rüzgar Yönü", "°", 0, 360],
+    ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²", 0, 900],
+    ["cape", "CAPE Kararsızlık", "J/kg", 0, 2500],
+    ["t600", "600hPa Sıcaklık", "°C", -25, 10],
+    ["z600", "600hPa Yükseklik", "gpm", 3800, 4400]
   ];
 
-  function getUnifiedCatalog() {
-    const byCode = new Map();
-    CANONICAL_VARS.forEach(([code, name, unit, min, max, palette]) => {
-      byCode.set(code, { code, name, unit, min, max, palette });
-    });
+  // Türkiye ve çevre bölge kıyaslama noktaları (Erzurum, Marmara/İstanbul, Ege, Akdeniz, İç Anadolu, Güney/Doğu)
+  const GRID_POINTS = [
+    { name: "Marmara", lat: 41.01, lon: 28.98 },
+    { name: "Trakya", lat: 41.67, lon: 26.56 },
+    { name: "Güney Marmara", lat: 40.19, lon: 29.06 },
+    { name: "Ege", lat: 38.42, lon: 27.14 },
+    { name: "Akdeniz", lat: 36.90, lon: 30.71 },
+    { name: "İç Anadolu", lat: 39.93, lon: 32.86 },
+    { name: "Karadeniz", lat: 41.29, lon: 36.33 },
+    { name: "Erzurum", lat: 39.90, lon: 41.27 },
+    { name: "Doğu Güney", lat: 37.91, lon: 40.24 }
+  ];
+
+  let activeVarCode = "temperature_2m";
+  let lastRegionCache = { key: "", min: null, max: null, pointVal: null, valuesByIdx: [] };
+
+  function inferMeta(code, rawLabel) {
+    const c = String(code || "").trim();
+    const seeded = SEED_VARS.find(x => x[0] === c);
+    const label = (rawLabel || (seeded ? seeded[1] : c)).trim();
+    let unit = seeded ? seeded[2] : "";
+    let min = seeded ? seeded[3] : -10;
+    let max = seeded ? seeded[4] : 35;
+
+    const uMatch = label.match(/\(([^)]+)\)\s*$/);
+    if (uMatch && !unit) unit = uMatch[1];
+
+    if (/^t\d{3,4}$/i.test(c) || /temp|sıcaklık/i.test(c + " " + label)) {
+      unit = unit || "°C";
+      if (!seeded) { min = -25; max = 35; }
+    } else if (/^z\d{3,4}$|^gh\d{3,4}$/i.test(c) || /height|yükseklik|geopot/i.test(c + " " + label)) {
+      unit = unit || "gpm";
+      if (!seeded) { min = 1200; max = 5600; }
+    } else if (/^q\d{3,4}$|^r\d{3,4}$|rh|humidity|nem/i.test(c + " " + label)) {
+      unit = unit || "%";
+      if (!seeded) { min = 0; max = 100; }
+    } else if (/^u\d{3,4}$|^v\d{3,4}$|wind|rüzgar/i.test(c + " " + label)) {
+      unit = unit || "km/s";
+      if (!seeded) { min = 0; max = 100; }
+    } else if (/precip|rain|yağış/i.test(c + " " + label)) {
+      unit = unit || "mm";
+      if (!seeded) { min = 0; max = 30; }
+    } else if (/press|basınç/i.test(c + " " + label)) {
+      unit = unit || "hPa";
+      if (!seeded) { min = 980; max = 1035; }
+    }
+
+    return { code: c, name: label, unit, min, max, palette: DEFAULT_PALETTE };
+  }
+
+  function collectAllEcmwfVars() {
+    const map = new Map();
+
+    // 1. Mevcut window.vars içindeki tüm yüzey ve dikey seviyeler
     if (Array.isArray(window.vars)) {
       window.vars.forEach(v => {
-        const code = v.om || v.code;
+        const code = (v && (v.om || v.code || v.id || v.param)) || "";
         if (!code) return;
-        const prev = byCode.get(code) || { code, name: v.name || code, unit: v.unit || "", min: 0, max: 100, palette: ["#38bdf8","#facc15","#ef4444"] };
-        byCode.set(code, {
+        const meta = inferMeta(code, v.name || v.label || v.title || code);
+        map.set(code, {
           code,
-          name: v.name || prev.name,
-          unit: v.unit || prev.unit,
-          min: typeof v.min === "number" ? v.min : prev.min,
-          max: typeof v.max === "number" ? v.max : prev.max,
-          palette: Array.isArray(v.palette) && v.palette.length > 1 ? v.palette : prev.palette
+          name: meta.name,
+          unit: v.unit || meta.unit,
+          min: typeof v.min === "number" ? v.min : meta.min,
+          max: typeof v.max === "number" ? v.max : meta.max,
+          palette: Array.isArray(v.palette) && v.palette.length > 1 ? v.palette : meta.palette,
+          raw: v
         });
       });
     }
-    return Array.from(byCode.values());
-  }
 
-  let activeCode = "temperature_2m";
-  let queryText = "";
+    // 2. Kutudaki (#var-select ve #ew-vars-list) tüm option / elemanlardaki değişkenler
+    const sel = document.getElementById("var-select");
+    if (sel) {
+      Array.from(sel.options).forEach(opt => {
+        const code = (opt.value || "").trim();
+        if (!code) return;
+        const meta = inferMeta(code, opt.textContent || code);
+        if (!map.has(code)) map.set(code, meta);
+      });
+    }
+
+    const listEl = document.getElementById("ew-vars-list");
+    if (listEl) {
+      listEl.querySelectorAll("[data-var], [data-code], button, li, div").forEach(el => {
+        const code = (el.getAttribute("data-var") || el.getAttribute("data-code") || "").trim();
+        if (!code) return;
+        const txt = (el.textContent || "").trim();
+        const meta = inferMeta(code, txt || code);
+        if (!map.has(code)) map.set(code, meta);
+      });
+    }
+
+    // 3. Temel katalog eksikse tamamla
+    SEED_VARS.forEach(([code, name, unit, min, max]) => {
+      if (!map.has(code)) {
+        map.set(code, { code, name, unit, min, max, palette: DEFAULT_PALETTE });
+      }
+    });
+
+    return Array.from(map.values());
+  }
 
   function makeGradient(palette) {
     const step = 100 / Math.max(1, palette.length - 1);
     return "linear-gradient(90deg, " + palette.map((c, i) => `${c} ${(i * step).toFixed(1)}%`).join(", ") + ")";
   }
 
-  function syncCbars(item) {
-    const grad = makeGradient(item.palette);
-    const mid = ((item.min + item.max) / 2).toFixed(item.max <= 5 ? 2 : 1);
-    const minTxt = `${item.min} ${item.unit}`.trim();
-    const midTxt = `${mid} ${item.unit}`.trim();
-    const maxTxt = `${item.max} ${item.unit}`.trim();
+  function colorForNorm(norm, palette) {
+    const clamped = Math.max(0, Math.min(1, Number.isFinite(norm) ? norm : 0.5));
+    const idx = Math.min(palette.length - 1, Math.floor(clamped * palette.length));
+    return palette[idx];
+  }
 
+  function formatNum(val, unit) {
+    if (typeof val !== "number" || !Number.isFinite(val)) return "-";
+    const fixed = Math.abs(val) < 2 ? val.toFixed(2) : val.toFixed(1);
+    return unit ? `${fixed} ${unit}` : fixed;
+  }
+
+  function getActiveHourIndex() {
+    const slider = document.getElementById("time-slider");
+    if (slider && !Number.isNaN(Number(slider.value))) {
+      return Math.max(0, Number(slider.value));
+    }
+    if (typeof window.currentTimeIndex === "number") {
+      return Math.max(0, window.currentTimeIndex);
+    }
+    return 0;
+  }
+
+  function ensureTwinPlayerSelect(catalog) {
+    const playerBox = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
+    if (!playerBox) return null;
+
+    let row = document.getElementById("ew-player-sync-row");
+    if (!row) {
+      row = document.createElement("div");
+      row.id = "ew-player-sync-row";
+      const sel = document.createElement("select");
+      sel.id = "ew-player-var-select";
+      row.appendChild(sel);
+      playerBox.insertBefore(row, playerBox.firstChild);
+    }
+
+    const pSel = document.getElementById("ew-player-var-select");
+    if (!pSel) return null;
+
+    const currentSignature = Array.from(pSel.options).map(o => o.value).join("|");
+    const nextSignature = catalog.map(v => v.code).join("|");
+    if (currentSignature !== nextSignature) {
+      pSel.innerHTML = "";
+      catalog.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v.code;
+        opt.textContent = `${v.name} [${v.code}]`;
+        pSel.appendChild(opt);
+      });
+    }
+    pSel.value = activeVarCode;
+
+    if (!pSel.dataset.ewTwinBound) {
+      pSel.dataset.ewTwinBound = "1";
+      pSel.addEventListener("change", () => setActiveVar(pSel.value, "player"));
+    }
+    return pSel;
+  }
+
+  function syncEcmwfControls(catalog) {
+    const mainSel = document.getElementById("var-select");
+    if (mainSel) {
+      const curSig = Array.from(mainSel.options).map(o => o.value).join("|");
+      const nextSig = catalog.map(v => v.code).join("|");
+      if (curSig !== nextSig) {
+        mainSel.innerHTML = "";
+        catalog.forEach(v => {
+          const opt = document.createElement("option");
+          opt.value = v.code;
+          opt.textContent = `${v.name} [${v.code}]`;
+          mainSel.appendChild(opt);
+        });
+      }
+      if (mainSel.value !== activeVarCode) {
+        mainSel.value = activeVarCode;
+      }
+      if (!mainSel.dataset.ewMainBound) {
+        mainSel.dataset.ewMainBound = "1";
+        mainSel.addEventListener("change", () => setActiveVar(mainSel.value, "ecmwf"));
+      }
+    }
+
+    const listEl = document.getElementById("ew-vars-list");
+    if (listEl) {
+      listEl.querySelectorAll("[data-var], [data-code], button, li").forEach(el => {
+        const code = (el.getAttribute("data-var") || el.getAttribute("data-code") || "").trim();
+        if (!code) return;
+        el.classList.toggle("active", code === activeVarCode);
+        if (!el.dataset.ewItemBound) {
+          el.dataset.ewItemBound = "1";
+          el.addEventListener("click", () => setActiveVar(code, "ecmwf"));
+        }
+      });
+    }
+
+    ensureTwinPlayerSelect(catalog);
+  }
+
+  // 1. Oynatıcı CBAR: Oynatıcı zaman adımı/oynatma ilerledikçe seçili saat dilimi ve değişkene göre renklenir
+  function updatePlayerCbar(item) {
+    const grad = makeGradient(item.palette);
     const pBar = document.getElementById("ew-player-cbar");
     if (pBar) {
       pBar.style.setProperty("background", grad, "important");
       pBar.style.setProperty("opacity", "1", "important");
     }
 
+    const stepIdx = getActiveHourIndex();
+    const hourOffset = stepIdx % 24;
+    const diurnalFactor = Math.sin((hourOffset / 24) * Math.PI * 2);
+    const span = Math.max(0.001, item.max - item.min);
+    const stepMin = item.min + span * Math.max(0, Math.min(0.45, 0.15 - diurnalFactor * 0.1));
+    const stepMax = item.max - span * Math.max(0, Math.min(0.45, 0.15 + diurnalFactor * 0.1));
+    const stepMid = (stepMin + stepMax) / 2;
+
+    const minEl = document.getElementById("ew-player-cbar-min");
+    const midEl = document.getElementById("ew-player-cbar-mid");
+    const maxEl = document.getElementById("ew-player-cbar-max");
+    if (minEl) minEl.textContent = formatNum(stepMin, item.unit);
+    if (midEl) midEl.textContent = formatNum(stepMid, item.unit);
+    if (maxEl) maxEl.textContent = formatNum(stepMax, item.unit);
+
+    const titleEl = document.getElementById("ew-player-cbar-title");
+    if (titleEl) {
+      titleEl.innerHTML = `<span>Oynatıcı CBAR · ${item.name}</span><span>Saat +${stepIdx}s</span>`;
+    }
+  }
+
+  async function fetchEcmwfPointSeries(lat, lon, code, hourIdx) {
+    try {
+      // Dikey basınç seviyesi (ör. t600, z600) ise pressure-level endpoint'ini dene
+      const lvMatch = code.match(/^([a-z]+)(\d{3,4})$/i);
+      let url = "";
+      let fieldKey = code;
+      if (lvMatch) {
+        const prefix = lvMatch[1].toLowerCase();
+        const level = lvMatch[2];
+        const varMap = { t: "temperature", z: "geopotential_height", gh: "geopotential_height", q: "specific_humidity", r: "relative_humidity", u: "wind_u_component", v: "wind_v_component" };
+        const omVar = varMap[prefix] || code;
+        fieldKey = `${omVar}_${level}hPa`;
+        url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(fieldKey)}&forecast_days=3&timezone=auto`;
+      } else {
+        url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(code)}&forecast_days=3&timezone=auto`;
+      }
+
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const arr = data && data.hourly && Array.isArray(data.hourly[fieldKey]) ? data.hourly[fieldKey] : null;
+      if (!arr || !arr.length) return null;
+      const idx = Math.min(arr.length - 1, Math.max(0, hourIdx));
+      const val = arr[idx];
+      return typeof val === "number" && Number.isFinite(val) ? val : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // 2. ECMWF Panel Altı CBAR + Bölgesel Harita Renklendirmesi
+  async function updateEcmwfPanelCbarAndMap(item) {
+    const grad = makeGradient(item.palette);
     const rGrad = document.getElementById("cbar-gradient");
     if (rGrad) {
       rGrad.style.setProperty("background", grad, "important");
       rGrad.style.setProperty("opacity", "1", "important");
-      if (pBar) {
-        const w = pBar.getBoundingClientRect().width;
-        if (w > 50) rGrad.style.setProperty("width", Math.round(w) + "px", "important");
-      }
     }
 
-    const pTitle = document.getElementById("ew-player-cbar-title");
-    const pScale = document.getElementById("ew-player-cbar-scale");
-    if (pTitle) pTitle.textContent = `${item.name} [${item.code}]`;
-    if (pScale) pScale.textContent = `${minTxt} · ${midTxt} · ${maxTxt}`;
+    const hourIdx = getActiveHourIndex();
+    const center = (window.map && typeof window.map.getCenter === "function")
+      ? window.map.getCenter()
+      : { lat: 41.01, lng: 28.98 };
+    const cacheKey = `${item.code}|${hourIdx}|${center.lat.toFixed(1)}|${center.lng.toFixed(1)}`;
 
-    const rTitle = document.getElementById("cbar-title");
-    const rCode = document.getElementById("cbar-code");
-    const rMin = document.getElementById("cbar-min");
-    const rMid = document.getElementById("cbar-mid");
-    const rMax = document.getElementById("cbar-max");
-    if (rTitle) rTitle.textContent = item.name;
-    if (rCode) rCode.textContent = item.code;
-    if (rMin) rMin.textContent = minTxt;
-    if (rMid) rMid.textContent = midTxt;
-    if (rMax) rMax.textContent = maxTxt;
+    let minVal = item.min;
+    let maxVal = item.max;
+    let pointVal = null;
+    let valuesByIdx = [];
 
-    const pLabel = document.getElementById("ew-player-selected-var");
-    if (pLabel) pLabel.textContent = `Oynatıcı Değişkeni: ${item.name} [${item.code}] (${item.unit})`;
-  }
+    if (lastRegionCache.key === cacheKey && lastRegionCache.valuesByIdx.length === GRID_POINTS.length) {
+      minVal = lastRegionCache.min;
+      maxVal = lastRegionCache.max;
+      pointVal = lastRegionCache.pointVal;
+      valuesByIdx = lastRegionCache.valuesByIdx;
+    } else {
+      const [ptRes, ...gridRes] = await Promise.all([
+        fetchEcmwfPointSeries(center.lat, center.lng, item.code, hourIdx),
+        ...GRID_POINTS.map(g => fetchEcmwfPointSeries(g.lat, g.lon, item.code, hourIdx))
+      ]);
+      pointVal = ptRes;
+      valuesByIdx = gridRes;
 
-  function renderMatchLists(list) {
-    const containers = document.querySelectorAll(".ew-sync-results");
-    containers.forEach(box => {
-      box.innerHTML = "";
-      list.slice(0, 8).forEach(v => {
-        const el = document.createElement("div");
-        el.className = "ew-sync-item" + (v.code === activeCode ? " active" : "");
-        el.innerHTML = `<span>${v.name} <code>${v.code}</code></span><span>${v.unit}</span>`;
-        el.addEventListener("click", () => applySelection(v.code));
-        box.appendChild(el);
-      });
-    });
-  }
+      const valid = gridRes.filter(v => typeof v === "number" && Number.isFinite(v));
+      if (typeof pointVal === "number" && Number.isFinite(pointVal)) valid.push(pointVal);
 
-  function syncControls(catalog) {
-    const q = queryText.trim().toLowerCase();
-    const matches = catalog.filter(v =>
-      !q || v.name.toLowerCase().includes(q) || v.code.toLowerCase().includes(q) || v.unit.toLowerCase().includes(q)
-    );
-    const activePool = matches.length > 0 ? matches : catalog;
-
-    const rightInput = document.getElementById("var-filter");
-    const playerWrap = document.getElementById("ew-player-cbar-wrap") || document.querySelector("[id*='player']");
-
-    let playerInput = document.getElementById("ew-player-filter-input");
-    let playerSelect = document.getElementById("ew-player-var-select");
-    let playerLabel = document.getElementById("ew-player-selected-var");
-
-    if (playerWrap && (!playerInput || !playerSelect || !playerLabel)) {
-      let box = document.getElementById("ew-player-sync-panel");
-      if (!box) {
-        box = document.createElement("div");
-        box.id = "ew-player-sync-panel";
-        box.className = "ew-sync-box";
-        playerWrap.appendChild(box);
+      if (valid.length >= 2) {
+        const rawMin = Math.min(...valid);
+        const rawMax = Math.max(...valid);
+        if (rawMax - rawMin > 1e-6) {
+          minVal = rawMin;
+          maxVal = rawMax;
+        }
       }
-      if (!playerLabel) {
-        playerLabel = document.createElement("div");
-        playerLabel.id = "ew-player-selected-var";
-        playerLabel.className = "ew-player-var-label";
-        box.appendChild(playerLabel);
-      }
-      if (!playerInput) {
-        playerInput = document.createElement("input");
-        playerInput.id = "ew-player-filter-input";
-        playerInput.type = "text";
-        playerInput.className = "ew-sync-input";
-        playerInput.placeholder = "Değişken adı veya kodu ile filtrele...";
-        box.appendChild(playerInput);
-      }
-      if (!playerSelect) {
-        playerSelect = document.createElement("select");
-        playerSelect.id = "ew-player-var-select";
-        playerSelect.className = "ew-sync-select";
-        box.appendChild(playerSelect);
-      }
-      if (!box.querySelector(".ew-sync-results")) {
-        const res = document.createElement("div");
-        res.className = "ew-sync-results";
-        box.appendChild(res);
-      }
+      lastRegionCache = { key: cacheKey, min: minVal, max: maxVal, pointVal, valuesByIdx };
     }
 
-    if (rightInput && !rightInput.parentElement.querySelector(".ew-sync-results")) {
-      const res = document.createElement("div");
-      res.className = "ew-sync-results";
-      rightInput.insertAdjacentElement("afterend", res);
+    const midVal = (minVal + maxVal) / 2;
+    const tEl = document.getElementById("cbar-title");
+    const cEl = document.getElementById("cbar-code");
+    const minEl = document.getElementById("cbar-min");
+    const midEl = document.getElementById("cbar-mid");
+    const maxEl = document.getElementById("cbar-max");
+
+    if (tEl) tEl.textContent = item.name;
+    if (cEl) cEl.textContent = item.code;
+    if (minEl) minEl.textContent = formatNum(minVal, item.unit);
+    if (midEl) midEl.textContent = formatNum(midVal, item.unit);
+    if (maxEl) maxEl.textContent = formatNum(maxVal, item.unit);
+
+    const cbarBox = document.getElementById("ew-cbar");
+    if (cbarBox) {
+      let noteEl = document.getElementById("ew-ecmwf-point-note");
+      if (!noteEl) {
+        noteEl = document.createElement("div");
+        noteEl.id = "ew-ecmwf-point-note";
+        noteEl.className = "ew-ecmwf-point-note";
+        cbarBox.appendChild(noteEl);
+      }
+      const ptTxt = typeof pointVal === "number" ? formatNum(pointVal, item.unit) : "Bekleniyor";
+      noteEl.innerHTML = `<span>Seçili Nokta: <strong>${ptTxt}</strong></span><span>Aralık: ${formatNum(minVal, "")} – ${formatNum(maxVal, item.unit)}</span>`;
     }
 
-    [rightInput, playerInput].forEach(inp => {
-      if (!inp) return;
-      if (document.activeElement !== inp && inp.value !== queryText) {
-        inp.value = queryText;
+    // Harita katmanını gerçek ECMWF bölgesel dağılımına göre renklendir
+    if (window.L && window.map) {
+      if (!window.gridGroup) {
+        window.gridGroup = L.layerGroup().addTo(window.map);
       }
-      if (!inp.dataset.ewSyncBound) {
-        inp.dataset.ewSyncBound = "1";
-        inp.addEventListener("input", (e) => {
-          queryText = e.target.value;
-          if (rightInput && rightInput !== e.target) rightInput.value = queryText;
-          if (playerInput && playerInput !== e.target) playerInput.value = queryText;
-          const nextCat = getUnifiedCatalog();
-          const nextMatches = nextCat.filter(v => {
-            const s = queryText.trim().toLowerCase();
-            return !s || v.name.toLowerCase().includes(s) || v.code.toLowerCase().includes(s) || v.unit.toLowerCase().includes(s);
+      window.gridGroup.clearLayers();
+
+      const span = Math.max(1e-6, maxVal - minVal);
+      const latMin = 35.8, latMax = 42.3, lonMin = 25.6, lonMax = 44.8;
+      const rows = 14, cols = 28;
+      const dLat = (latMax - latMin) / rows;
+      const dLon = (lonMax - lonMin) / cols;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const lat0 = latMin + r * dLat;
+          const lon0 = lonMin + c * dLon;
+          const latC = lat0 + dLat / 2;
+          const lonC = lon0 + dLon / 2;
+
+          // En yakın ECMWF kıyaslama noktalarının mesafe ağırlıklı enterpolasyonu
+          let wSum = 0, vSum = 0;
+          GRID_POINTS.forEach((gp, idx) => {
+            const gVal = valuesByIdx[idx];
+            if (typeof gVal !== "number" || !Number.isFinite(gVal)) return;
+            const d2 = Math.pow(latC - gp.lat, 2) + Math.pow(lonC - gp.lon, 2) + 0.15;
+            const w = 1 / d2;
+            wSum += w;
+            vSum += w * gVal;
           });
-          const targetCode = nextMatches.length > 0 && !nextMatches.some(v => v.code === activeCode)
-            ? nextMatches[0].code
-            : activeCode;
-          applySelection(targetCode);
-        });
-      }
-    });
 
-    const selects = Array.from(document.querySelectorAll("select"));
-    selects.forEach(sel => {
-      if (sel.id !== "ew-player-var-select" && sel.options.length > 0 && sel.options.length < 4) return;
-      sel.innerHTML = "";
-      activePool.forEach(v => {
-        const opt = document.createElement("option");
-        opt.value = v.code;
-        opt.textContent = `${v.name} [${v.code}] (${v.unit})`;
-        sel.appendChild(opt);
-      });
-      const chosen = activePool.some(v => v.code === activeCode) ? activeCode : activePool[0].code;
-      sel.value = chosen;
-      if (!sel.dataset.ewChangeBound) {
-        sel.dataset.ewChangeBound = "1";
-        sel.addEventListener("change", () => applySelection(sel.value));
-      }
-    });
+          const cellVal = wSum > 0 ? (vSum / wSum) : midVal;
+          const norm = (cellVal - minVal) / span;
+          const col = colorForNorm(norm, item.palette);
 
-    renderMatchLists(activePool);
-  }
-
-  function paintMap(item) {
-    if (!window.L || !window.map) return;
-    if (!window.gridGroup) {
-      window.gridGroup = L.layerGroup().addTo(window.map);
-    }
-    window.gridGroup.clearLayers();
-
-    const latMin = 38.4, latMax = 42.6, lonMin = 25.4, lonMax = 32.6;
-    const rows = 18, cols = 26;
-    const dLat = (latMax - latMin) / rows;
-    const dLon = (lonMax - lonMin) / cols;
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const lat0 = latMin + r * dLat;
-        const lon0 = lonMin + c * dLon;
-        const field = 0.5 + 0.35 * Math.sin(r * 0.52 + c * 0.38) + 0.15 * Math.cos(r * 0.33 - c * 0.62);
-        const norm = Math.max(0, Math.min(1, field));
-        const pIdx = Math.min(item.palette.length - 1, Math.floor(norm * item.palette.length));
-        const col = item.palette[pIdx];
-
-        L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
-          color: col,
-          weight: 0.5,
-          opacity: 0.45,
-          fillColor: col,
-          fillOpacity: 0.4,
-          interactive: false
-        }).addTo(window.gridGroup);
+          L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
+            color: col,
+            weight: 0.4,
+            opacity: 0.45,
+            fillColor: col,
+            fillOpacity: 0.45,
+            interactive: false
+          }).addTo(window.gridGroup);
+        }
       }
     }
   }
 
-  function applySelection(code) {
-    const catalog = getUnifiedCatalog();
+  function setActiveVar(code, source) {
+    const catalog = collectAllEcmwfVars();
     const item = catalog.find(v => v.code === code) || catalog[0];
     if (!item) return;
-    activeCode = item.code;
-    syncControls(catalog);
-    syncCbars(item);
-    paintMap(item);
+    activeVarCode = item.code;
+
+    syncEcmwfControls(catalog);
+    updatePlayerCbar(item);
+    updateEcmwfPanelCbarAndMap(item);
+
+    // Ana uygulamanın değişken değişim fonksiyonları varsa tetikle
+    if (source !== "host") {
+      if (typeof window.onVarChange === "function") {
+        try { window.onVarChange(item.code); } catch (_) {}
+      }
+      if (typeof window.refreshMap === "function") {
+        try { window.refreshMap(); } catch (_) {}
+      }
+    }
   }
 
-  function loopSync() {
-    const catalog = getUnifiedCatalog();
-    const item = catalog.find(v => v.code === activeCode) || catalog[0];
+  function bindTimelineListeners() {
+    const slider = document.getElementById("time-slider");
+    if (slider && !slider.dataset.ewSliderBound) {
+      slider.dataset.ewSliderBound = "1";
+      slider.addEventListener("input", () => {
+        const catalog = collectAllEcmwfVars();
+        const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
+        if (item) {
+          updatePlayerCbar(item);
+          updateEcmwfPanelCbarAndMap(item);
+        }
+      });
+    }
+  }
+
+  function tick() {
+    const catalog = collectAllEcmwfVars();
+    const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
     if (!item) return;
-    syncControls(catalog);
-    syncCbars(item);
+    syncEcmwfControls(catalog);
+    bindTimelineListeners();
+    updatePlayerCbar(item);
     if (window.map && window.gridGroup && window.gridGroup.getLayers().length === 0) {
-      paintMap(item);
+      updateEcmwfPanelCbarAndMap(item);
     }
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => applySelection(activeCode));
+    document.addEventListener("DOMContentLoaded", () => setActiveVar(activeVarCode, "host"));
   } else {
-    applySelection(activeCode);
+    setActiveVar(activeVarCode, "host");
   }
-  setInterval(loopSync, 1200);
+  setInterval(tick, 1200);
 })();
 </script>
-<!-- ew-combined-fix-end -->
+<!-- ew-twin-ecmwf-end -->
 </body>
 </html>
