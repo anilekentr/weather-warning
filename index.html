@@ -1692,7 +1692,29 @@
     }
   };
 
-  const applyValueColorToMap = (_val, v) => {
+  const syncActiveCbar = (v, val) => {
+      const target = v || curVar || (typeof cur !== "undefined" ? cur : null);
+      if (!target) return;
+      const gradEl = document.getElementById("cbar-grad");
+      if (gradEl && Array.isArray(target.palette) && target.palette.length > 1) {
+        const stops = target.palette.map((c, i) => {
+          const pct = Math.round((i / (target.palette.length - 1)) * 100);
+          return `rgb(${c[0]},${c[1]},${c[2]}) ${pct}%`;
+        }).join(", ");
+        gradEl.style.background = `linear-gradient(90deg, ${stops})`;
+      }
+      const nameEl = document.getElementById("cbar-name");
+      const unitEl = document.getElementById("cbar-unit");
+      if (nameEl) nameEl.textContent = target.name || target.code || "";
+      if (unitEl) unitEl.textContent = target.unit || "";
+      const ticksEl = document.getElementById("cbar-ticks");
+      if (ticksEl && typeof target.min === "number" && typeof target.max === "number") {
+        const mid = ((target.min + target.max) / 2).toFixed(1);
+        const curTxt = (typeof val === "number" && Number.isFinite(val)) ? ` (${val})` : "";
+        ticksEl.innerHTML = `<span>${target.min}</span><span>${mid}${curTxt}</span><span>${target.max}</span>`;
+      }
+    };
+    const applyValueColorToMap = (_val, v) => {
     const m = findMap();
     if (!m) return;
 
@@ -1760,16 +1782,20 @@
   const pickHourlyAtNow = (h, arr, offsetHours = 0) => {
     if (!Array.isArray(arr) || !arr.length) return null;
     const off = Number.isFinite(Number(offsetHours)) ? Number(offsetHours) : 0;
+    const isNum = (x) => typeof x === "number" && Number.isFinite(x);
+    let idx = -1;
     if (Array.isArray(h?.time) && h.time.length) {
       const baseDate = (typeof getTargetDate === "function") ? getTargetDate() : new Date();
       const targetDate = new Date(baseDate.getTime() + off * 3600000);
       const targetStr = targetDate.toLocaleString("sv-SE", { timeZone: "Europe/Istanbul" }).slice(0, 13).replace(" ", "T");
-      let idx = h.time.findIndex(item => typeof item === "string" && item.startsWith(targetStr));
+      idx = h.time.findIndex(item => typeof item === "string" && item.startsWith(targetStr));
       if (idx < 0) {
         const targetMs = targetDate.getTime();
         let bestDiff = Infinity;
         for (let i = 0; i < h.time.length; i++) {
-          const tMs = Date.parse(String(h.time[i]).length === 16 ? `${h.time[i]}:00+03:00` : h.time[i]);
+          if (!isNum(arr[i])) continue;
+          const rawT = String(h.time[i]);
+          const tMs = Date.parse(rawT.length === 16 ? `${rawT}:00+03:00` : rawT);
           if (Number.isFinite(tMs)) {
             const diff = Math.abs(tMs - targetMs);
             if (diff < bestDiff) {
@@ -1778,15 +1804,16 @@
             }
           }
         }
-        if (bestDiff > 3 * 3600000) idx = -1;
       }
-      if (idx >= 0) {
-        return (typeof arr[idx] === "number" && Number.isFinite(arr[idx])) ? arr[idx] : null;
-      }
-      if (off !== 0) return null;
     }
-    const nums = arr.filter(x => typeof x === "number" && Number.isFinite(x));
-    return nums.length ? nums[Math.min(nums.length - 1, 12)] : null;
+    if (idx >= 0 && isNum(arr[idx])) return arr[idx];
+    for (let i = Math.max(0, idx); i < arr.length; i++) {
+      if (isNum(arr[i])) return arr[i];
+    }
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (isNum(arr[i])) return arr[i];
+    }
+    return null;
   };
 
   const updatePrecipTypeSummary = (j) => {
@@ -2008,6 +2035,7 @@
     const effOff = (typeof overrideOffset === 'number' && Number.isFinite(overrideOffset)) ? overrideOffset : ((typeof window.__ewHourOffset === 'number') ? window.__ewHourOffset : (typeof hourOffset === 'number' ? hourOffset : 0));
       const out = await fetchRealVal(lat, lng, cur, effOff);
     activeValue = out.val;
+      syncActiveCbar(cur, out.val);
     try {
       console.log("[EW_DIAG]", {
         code: cur?.code,
