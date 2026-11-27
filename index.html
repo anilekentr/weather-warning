@@ -1238,7 +1238,7 @@
 
 
 <!-- EKEN WEATHER CLEAN START -->
-<div id="ew-single-panel">
+<div id="ew-single-panel" style="display:none !important;">
   <div class="ews-box">
     <div class="ews-row"><span class="ews-k">Koordinat:</span><span id="ews-coord" class="ews-v">Haritaya tıklayın</span></div>
     <div class="ews-row"><span class="ews-k">İl:</span><span id="ews-il" class="ews-v">—</span></div>
@@ -1260,7 +1260,8 @@
       const urlStr = typeof input === "string" ? input : (input && input.url) || "";
       const latMatch = urlStr.match(/[?&]latitude=([^&]+)/i);
       if (urlStr.includes("api.open-meteo.com") && latMatch && decodeURIComponent(latMatch[1]).split(",").length > 8) {
-        return Promise.resolve(new Response(JSON.stringify({ blocked_bulk_grid: true }), {
+        return origFetch(input, init); // bypass blocked_bulk_grid
+        // return Promise.resolve(new Response(JSON.stringify({ blocked_bulk_grid: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" }
         }));
