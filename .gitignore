@@ -1,6 +1,0 @@
-*.grib2
-*.grib2.*
-*.idx
-*.bak*
-*.log
-__pycache__/
