@@ -1928,6 +1928,7 @@
           console.log("[EW_FETCH]", { fieldName, hourlyUrl, arrSample });
         } catch (_) {}
         const val = extractNowVal(j, fieldName, offsetHours);
+        try { console.log('[EW_EXTRACT]', { fieldName, val, precip: j?.hourly?.precipitation?.slice(0, 6) }); } catch (_) {}
         if (typeof val === "number" && Number.isFinite(val)) {
           return { val, tag: "ECMWF" };
         }
