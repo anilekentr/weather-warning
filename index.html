@@ -2108,6 +2108,7 @@
       ]);
       pointVal = ptRes;
       valuesByIdx = gridRes;
+      lastRenderState.globalValsByIdx = globalRes;
 
       const valid = gridRes.filter(v => typeof v === "number" && Number.isFinite(v));
       if (typeof pointVal === "number" && Number.isFinite(pointVal)) valid.push(pointVal);
