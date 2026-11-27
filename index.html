@@ -1905,26 +1905,35 @@
     if (waitMs > 0) await sleep(waitMs);
     lastNetAt = Date.now();
 
+    const fieldName = v.om || v.key || v.code;
     const precipBundle = ["precipitation", "rain", "showers", "snowfall", "snow_depth", "weather_code"];
-    const fieldsSet = new Set([v.om]);
-    if (precipBundle.includes(v.om) || v.code === "wmo") {
+    const fieldsSet = new Set([fieldName].filter(Boolean));
+    if (precipBundle.includes(fieldName) || v.code === "wmo") {
       precipBundle.forEach(f => fieldsSet.add(f));
     }
     const fieldsParam = Array.from(fieldsSet).map(encodeURIComponent).join(",");
     const reqDays = Math.min(16, Math.max(16, Math.ceil((Math.max(0, Number(offsetHours) || 0) + 24) / 24)));
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${fieldsParam}&hourly=${fieldsParam}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
+    const windUnitParam = v.unit === "km/h" ? "&wind_speed_unit=kmh" : "";
+    const hourlyUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${fieldsParam}${windUnitParam}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
     try {
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(hourlyUrl, { cache: "no-store" });
       if (res.status === 429) {
         rateLimitUntil = Date.now() + 25000;
         return { val: null, tag: "Veri yok" };
       }
       if (res.ok) {
         const j = await res.json();
-        const val = extractNowVal(j, v.om, offsetHours);
+        const val = extractNowVal(j, fieldName, offsetHours);
         if (typeof val === "number" && Number.isFinite(val)) {
           return { val, tag: "ECMWF" };
         }
+      }
+    } catch (_) {}
+
+    try {
+      const fbVal = await fetchMetNoVal(lat, lng, v);
+      if (typeof fbVal === "number" && Number.isFinite(fbVal)) {
+        return { val: fbVal, tag: "MET-NO" };
       }
     } catch (_) {}
 
