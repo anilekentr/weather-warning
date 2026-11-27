@@ -612,36 +612,23 @@
 
 /* === EKEN TIME BAR === */
 #ew-time-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 9999;
   display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
   visibility: visible !important;
   opacity: 1 !important;
-  flex-wrap: wrap !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  position: fixed !important;
-  left: 50% !important;
-  bottom: 12px !important;
-  transform: translateX(-50%) !important;
-  z-index: 9999 !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  max-width: calc(100vw - 24px) !important;
-  padding: 6px 10px !important;
-  border-radius: 10px !important;
-  background: rgba(9, 17, 34, 0.96) !important;
-  border: 1px solid rgba(56, 189, 248, 0.45) !important;
-  color: #f8fafc !important;
-  font-family: system-ui, -apple-system, sans-serif !important;
-  font-size: 10.5px !important;
-  box-sizing: border-box !important;
-
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  z-index: 9999 !important;
 }
 .ewt-btn {
   background: rgba(15, 23, 42, 0.95) !important;
@@ -1886,7 +1873,8 @@
       precipBundle.forEach(f => fieldsSet.add(f));
     }
     const fieldsParam = Array.from(fieldsSet).map(encodeURIComponent).join(",");
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${fieldsParam}&hourly=${fieldsParam}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=16`;
+    const reqDays = Math.min(16, Math.max(16, Math.ceil((Math.max(0, off) + 24) / 24)));
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${fieldsParam}&hourly=${fieldsParam}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
     try {
       const res = await fetch(url, { cache: "no-store" });
       if (res.status === 429) {
