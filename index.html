@@ -8,7 +8,7 @@
   window.__ekenEcmwfDedupInstalled = true;
 
   const CACHE_TTL_MS = 10 * 60 * 1000; // 10 dakika onbellek
-  const COOLDOWN_429_MS = 90 * 1000; // 429 sonrasi 90 saniye bekleme
+  const COOLDOWN_429_MS = 1500; // 429 sonrasi 90 saniye bekleme
   const responseCache = new Map();
   const inflightMap = new Map();
   const baseFetch = window.fetch.bind(window);
@@ -1998,6 +1998,7 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
     const fieldName = v?.om || v?.key || v?.code;
     const codeKey = String(v?.code || fieldName || "");
     const ck = `${codeKey}|${offNum}|${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`;
+    const isPressureLevel = /hpa/i.test(String(fieldName || "")) || /^(t|z|ws|wd|rh|gh)(500|600|700|850|925|1000)$/i.test(codeKey);
 
     const findFallbackFromCache = () => {
       try {
@@ -2015,6 +2016,23 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
       return null;
     };
 
+    const extractFromPayload = (payload) => {
+      const direct = extractNowVal(payload, fieldName, offNum);
+      if (typeof direct === "number" && Number.isFinite(direct)) return direct;
+      const h = payload?.hourly;
+      if (!h || typeof h !== "object") return null;
+      const arr = Array.isArray(h[fieldName])
+        ? h[fieldName]
+        : Object.entries(h).find(([k, val]) => k !== "time" && Array.isArray(val))?.[1];
+      if (!Array.isArray(arr)) return null;
+      const idx = Math.max(0, Math.min(arr.length - 1, offNum));
+      for (let step = 0; step < arr.length; step++) {
+        const cand = arr[(idx + step) % arr.length];
+        if (typeof cand === "number" && Number.isFinite(cand)) return cand;
+      }
+      return null;
+    };
+
     try {
       if (typeof obsCache === "object" && obsCache && obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
         if ((Date.now() - (obsCache[ck].at || 0)) < 600000) {
@@ -2022,6 +2040,13 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
         }
       }
     } catch (_) {}
+
+    if (Date.now() < rateLimitUntil) {
+      const fbCache = findFallbackFromCache();
+      if (typeof fbCache === "number" && Number.isFinite(fbCache)) {
+        return { val: fbCache, tag: "ECMWF (Cache)" };
+      }
+    }
 
     const waitMs = Math.max(0, 120 - (Date.now() - lastNetAt));
     if (waitMs > 0) await sleep(waitMs);
@@ -2058,7 +2083,7 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
         const res2 = await fetch(hourlyUrl, { cache: "no-store" });
         if (res2 && res2.ok) {
           const j2 = await res2.json();
-          const val2 = extractNowVal(j2, fieldName, offNum);
+          const val2 = extractFromPayload(j2);
           if (typeof val2 === "number" && Number.isFinite(val2)) {
             if (typeof obsCache === "object" && obsCache) {
               obsCache[ck] = { val: val2, at: Date.now() };
@@ -2075,7 +2100,7 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
       }
       if (res.ok) {
         const j = await res.json();
-        const val = extractNowVal(j, fieldName, offNum);
+        const val = extractFromPayload(j);
         if (typeof val === "number" && Number.isFinite(val)) {
           if (typeof obsCache === "object" && obsCache) {
             obsCache[ck] = { val, at: Date.now() };
@@ -2083,30 +2108,23 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
           }
           return { val, tag: "ECMWF" };
         }
-        const arr = j?.hourly?.[fieldName];
-        if (Array.isArray(arr)) {
-          const firstNum = arr.find(x => typeof x === "number" && Number.isFinite(x));
-          if (typeof firstNum === "number" && Number.isFinite(firstNum)) {
-            if (typeof obsCache === "object" && obsCache) {
-              obsCache[ck] = { val: firstNum, at: Date.now() };
-              if (typeof saveStorage === "function") saveStorage(obsCache);
-            }
-            return { val: firstNum, tag: "ECMWF" };
-          }
-        }
       }
-    } catch (_) {}
+    } catch (_e) {
+      try { if (window.__lastFetchDebug) window.__lastFetchDebug.err = String(_e && (_e.message || _e)); } catch (_) {}
+    }
 
-    try {
-      const fbVal = (v?.code === "tp") ? null : await fetchMetNoVal(lat, lng, v);
-      if (typeof fbVal === "number" && Number.isFinite(fbVal)) {
-        if (typeof obsCache === "object" && obsCache) {
-          obsCache[ck] = { val: fbVal, at: Date.now() };
-          if (typeof saveStorage === "function") saveStorage(obsCache);
+    if (!isPressureLevel) {
+      try {
+        const fbVal = (v?.code === "tp") ? null : await fetchMetNoVal(lat, lng, v);
+        if (typeof fbVal === "number" && Number.isFinite(fbVal)) {
+          if (typeof obsCache === "object" && obsCache) {
+            obsCache[ck] = { val: fbVal, at: Date.now() };
+            if (typeof saveStorage === "function") saveStorage(obsCache);
+          }
+          return { val: fbVal, tag: "MET-NO" };
         }
-        return { val: fbVal, tag: "MET-NO" };
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     const fbFinal = findFallbackFromCache();
     if (typeof fbFinal === "number" && Number.isFinite(fbFinal)) {
