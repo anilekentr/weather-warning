@@ -2162,13 +2162,21 @@
       b.textContent = `${v.name} (${v.unit})`;
       b.title = `${v.name} — ${v.om} [${v.unit}]`;
       b.addEventListener("click", e => {
+        e.preventDefault();
         e.stopPropagation();
         cur = v;
         renderVars();
         const vnEl = document.getElementById("ews-vname");
         if (vnEl) vnEl.textContent = `${cur.name} (${cur.code}):`;
-        const pt = lastPt || (findMap()?.getCenter ? { lat: findMap().getCenter().lat, lng: findMap().getCenter().lng } : null);
-        if (pt) refreshPoint(pt.lat, pt.lng);
+        const mNow = findMap();
+        const cNow = mNow && mNow.getCenter ? mNow.getCenter() : null;
+        const pt = lastPt || (cNow ? { lat: cNow.lat, lng: cNow.lng } : { lat: 40.9933, lng: 28.9243 });
+        lastPt = { lat: pt.lat, lng: pt.lng };
+        if (mNow) {
+          if (typeof mNow.invalidateSize === "function") mNow.invalidateSize();
+          placeBlueMarker(mNow, lastPt.lat, lastPt.lng, `${cur.name}: Okunuyor...`);
+        }
+        refreshPoint(lastPt.lat, lastPt.lng);
       });
       varsEl.appendChild(b);
     });
@@ -2179,6 +2187,11 @@
     const m = findMap();
     if (!m) return;
     if (typeof m.invalidateSize === "function") m.invalidateSize();
+    const container = m.getContainer && m.getContainer();
+    if (container) {
+      container.style.pointerEvents = "auto";
+      container.style.touchAction = "manipulation";
+    }
     if (!m._ewMapSafeBound) {
       m._ewMapSafeBound = true;
       m.on("click", e => {
@@ -2191,14 +2204,18 @@
       });
       m.on("moveend zoomend resize", () => {
         hideOldBottom();
+        if (typeof m.invalidateSize === "function") m.invalidateSize();
+        if (lastPt) placeBlueMarker(m, lastPt.lat, lastPt.lng);
         applyValueColorToMap(activeValue, cur);
       });
       const c = m.getCenter ? m.getCenter() : null;
       if (c && !lastPt) {
         lastPt = { lat: c.lat, lng: c.lng };
+        placeBlueMarker(m, lastPt.lat, lastPt.lng, `${cur?.name || ""}: Okunuyor...`);
         refreshPoint(c.lat, c.lng);
       }
     } else {
+      if (lastPt) placeBlueMarker(m, lastPt.lat, lastPt.lng);
       applyValueColorToMap(activeValue, cur);
     }
   };
