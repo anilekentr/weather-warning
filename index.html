@@ -2536,33 +2536,15 @@
     return `${fUtc(sMs)} → ${fUtc(eMs)} · Süre: ${hrs} sa · ECMWF günlük kota aşıldı`;
   };
 
+  try {
+    localStorage.removeItem(LOCK_KEY);
+    localStorage.removeItem("ew_real_obs_v3");
+  } catch (_) {}
+
   const enforceNoStaleDataWhenQuotaExceeded = () => {
-    const lockedUntil = Number(localStorage.getItem(LOCK_KEY) || 0) || 0;
-    const vvEl = document.getElementById("ews-vval");
-    if (!vvEl) return;
-    const winEl = ensureTimeWindowEl(vvEl);
-
-    if (Date.now() < lockedUntil) {
-      if (vvEl.textContent.trim() !== "Veri yok") {
-        vvEl.textContent = "Veri yok";
-        vvEl.dataset.ewState = "no-data";
-      }
-      if (winEl) {
-        winEl.textContent = getWindowText();
-      }
-      const marker = document.querySelector("#cbar-box [data-ew-marker='1']");
-      if (marker) marker.style.display = "none";
-    }
+    const marker = document.querySelector("#cbar-box [data-ew-marker='1']");
+    if (marker) marker.style.display = "";
   };
-
-  // Ilk yuklemede kota kilidini aktif tut (12 saatlik pencere)
-  if (!Number(localStorage.getItem(LOCK_KEY) || 0)) {
-    try {
-      localStorage.setItem(LOCK_KEY, String(Date.now() + 12 * 3600 * 1000));
-    } catch (_) {}
-  }
-
-  enforceNoStaleDataWhenQuotaExceeded();
   setInterval(enforceNoStaleDataWhenQuotaExceeded, 250);
 })();
 </script>
