@@ -783,14 +783,9 @@
 
     const SAMPLE_GRID = (() => {
       const pts = [];
-      for (let lat = 38.0; lat <= 43.0; lat += 0.6) {
-        for (let lon = 25.0; lon <= 32.5; lon += 0.75) {
+      for (let lat = 39.5; lat <= 42.0; lat += 0.8) {
+        for (let lon = 26.0; lon <= 31.0; lon += 1.0) {
           pts.push({ lat: Number(lat.toFixed(2)), lon: Number(lon.toFixed(2)) });
-        }
-      }
-      for (let lat = -60; lat <= 75; lat += 25) {
-        for (let lon = -165; lon <= 165; lon += 30) {
-          pts.push({ lat, lon });
         }
       }
       return pts;
@@ -807,6 +802,18 @@
     map.getContainer().appendChild(canvas);
     const ctx = canvas.getContext("2d");
 
+    const applyCbarPalette = (v) => {
+      const el = document.getElementById("cbar-grad");
+      if (!el) return;
+      const pal = Array.isArray(v?.palette) && v.palette.length >= 2
+        ? v.palette
+        : [[37,99,235],[6,182,212],[34,197,94],[234,179,8],[239,68,68]];
+      const stops = pal.map((rgb, i) => {
+        const pct = ((i / (pal.length - 1)) * 100).toFixed(1);
+        return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]}) ${pct}%`;
+      }).join(", ");
+      el.style.background = `linear-gradient(90deg, ${stops})`;
+    };
     let curVar = VARS[0];
     let curCoord = { lat: 41.0082, lon: 28.9784 };
     let curAddr = "İstanbul · Fatih · Eminönü · Hobyar Mah.";
@@ -996,6 +1003,7 @@
       const minV = Math.min(...pts.map(p => p.val));
       const maxV = Math.max(...pts.map(p => p.val));
       const ticksOut = document.getElementById("cbar-ticks"); if (ticksOut) ticksOut.innerHTML = `<span>${minV.toFixed(1)} ${curVar.unit || ""}</span><span>${((minV + maxV) / 2).toFixed(1)}</span><span>${maxV.toFixed(1)} ${curVar.unit || ""}</span>`;
+      applyCbarPalette(curVar);
 
       const img = ctx.createImageData(w, h);
       const d = img.data;
@@ -1935,7 +1943,7 @@
       return { val: null, tag: "Veri yok" };
     }
 
-    const waitMs = Math.max(0, 1400 - (Date.now() - lastNetAt));
+    const waitMs = Math.max(0, 120 - (Date.now() - lastNetAt));
     if (waitMs > 0) await sleep(waitMs);
     lastNetAt = Date.now();
 
@@ -1948,7 +1956,7 @@
     try {
       const res = await fetch(hourlyUrl, { cache: "no-store" });
       if (res.status === 429) {
-        rateLimitUntil = Date.now() + 25000;
+        rateLimitUntil = Date.now() + 800;
         return { val: null, tag: "Veri yok" };
       }
       if (res.ok) {
