@@ -1888,7 +1888,7 @@
       precipBundle.forEach(f => fieldsSet.add(f));
     }
     const fieldsParam = Array.from(fieldsSet).map(encodeURIComponent).join(",");
-    const reqDays = Math.min(16, Math.max(16, Math.ceil((Math.max(0, off) + 24) / 24)));
+    const reqDays = Math.min(16, Math.max(16, Math.ceil((Math.max(0, Number(offsetHours) || 0) + 24) / 24)));
       const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${fieldsParam}&hourly=${fieldsParam}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
     try {
       const res = await fetch(url, { cache: "no-store" });
