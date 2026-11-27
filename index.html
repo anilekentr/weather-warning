@@ -1972,7 +1972,12 @@
         const dIdx = Math.round(normDeg / 22.5) % 16;
         txtVal = `${normDeg.toFixed(1)}° (${dirs16[dIdx]})`;
       }
-      if (vvEl) vvEl.textContent = txtVal;
+      if (vvEl) {
+        vvEl.textContent = txtVal;
+        vvEl.setAttribute("data-src-code", String(cur?.code || ""));
+        vvEl.setAttribute("data-src-om", String(cur?.om || ""));
+        vvEl.setAttribute("data-src-raw", String(out.val));
+      }
       paintCbar(cur, out.val);
       applyValueColorToMap(out.val, cur);
       if (m && window.L) {
