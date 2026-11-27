@@ -624,6 +624,8 @@
   bottom: 12px !important;
   transform: translateX(-50%) !important;
   z-index: 9999 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   max-width: calc(100vw - 24px) !important;
   padding: 6px 10px !important;
   border-radius: 10px !important;
@@ -1877,7 +1879,7 @@
       precipBundle.forEach(f => fieldsSet.add(f));
     }
     const fieldsParam = Array.from(fieldsSet).map(encodeURIComponent).join(",");
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${fieldsParam}&hourly=${fieldsParam}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=1`;
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${fieldsParam}&hourly=${fieldsParam}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=16`;
     try {
       const res = await fetch(url, { cache: "no-store" });
       if (res.status === 429) {
