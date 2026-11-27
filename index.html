@@ -1832,28 +1832,30 @@
     background: rgba(56, 189, 248, 0.22);
     color: #ffffff;
   }
-  #ew-point-single-value {
-    margin-top: 7px;
-    padding: 6px 8px;
-    border-radius: 7px;
-    background: #090d16;
-    border: 1px solid rgba(148, 163, 184, 0.32);
-    font-size: 12px;
+  #ew-ecmwf-panel-status {
+    margin: 6px 0;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: rgba(9, 13, 22, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    font-size: 11px;
     font-weight: 600;
     color: #f8fafc;
-    text-align: center;
-    letter-spacing: 0.2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   .ew-map-point-badge {
-    background: rgba(9, 13, 22, 0.92) !important;
+    background: rgba(9, 13, 22, 0.94) !important;
     color: #f8fafc !important;
-    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    border: 1px solid rgba(255, 255, 255, 0.38) !important;
     border-radius: 6px !important;
-    padding: 3px 7px !important;
+    padding: 4px 8px !important;
     font-size: 11px !important;
     font-weight: 700 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7) !important;
     white-space: nowrap !important;
+    line-height: 1.35 !important;
   }
 </style>
 <script id="ew-twin-ecmwf-script">
@@ -1917,7 +1919,7 @@
   ];
 
   let activeVarCode = "temperature_2m";
-  let selectedPoint = { lat: 41.01, lon: 28.98, label: "İstanbul / Marmara" };
+  let selectedPoint = { lat: 41.01, lon: 28.98 };
   let latestRequestToken = 0;
   const cacheByVarHourPoint = new Map();
 
@@ -2049,6 +2051,12 @@
     return unit ? `${fixed} ${unit}` : fixed;
   }
 
+  function formatCoord(lat, lon) {
+    const latDir = lat >= 0 ? "K" : "G";
+    const lonDir = lon >= 0 ? "D" : "B";
+    return `${Math.abs(lat).toFixed(2)}°${latDir}, ${Math.abs(lon).toFixed(2)}°${lonDir}`;
+  }
+
   function makeGradient(palette) {
     const step = 100 / Math.max(1, palette.length - 1);
     return "linear-gradient(90deg, " + palette.map((c, i) => `${c} ${(i * step).toFixed(1)}%`).join(", ") + ")";
@@ -2147,7 +2155,7 @@
         row.addEventListener("mousedown", (e) => {
           e.preventDefault();
           setActiveVar(m.code, "search");
-          inputEl.value = `${m.name}`;
+          inputEl.value = m.name;
           resultsEl.style.display = "none";
         });
         resultsEl.appendChild(row);
@@ -2283,6 +2291,29 @@
     }
   }
 
+  function ensureEcmwfPanelStatusBadge(item, statusText, ptColor) {
+    const cbarBox = document.getElementById("ew-cbar");
+    const filterBox = document.getElementById("ew-var-filter-box");
+    const targetParent = (filterBox && filterBox.parentElement) || (cbarBox && cbarBox.parentElement);
+    if (!targetParent) return;
+
+    let statusEl = document.getElementById("ew-ecmwf-panel-status");
+    if (!statusEl) {
+      statusEl = document.createElement("div");
+      statusEl.id = "ew-ecmwf-panel-status";
+      if (cbarBox && cbarBox.parentElement === targetParent) {
+        targetParent.insertBefore(statusEl, cbarBox);
+      } else {
+        targetParent.appendChild(statusEl);
+      }
+    }
+
+    const unitLabel = item.unit ? ` (${item.unit})` : "";
+    statusEl.innerHTML =
+      `<span>${item.name}${unitLabel}</span>` +
+      `<span style="color:${ptColor};">${statusText}</span>`;
+  }
+
   async function fetchEcmwfPointSeries(lat, lon, code, hourIdx) {
     try {
       const lvMatch = code.match(/^([a-z]+)(\d{3,4})$/i);
@@ -2323,7 +2354,7 @@
     }
   }
 
-  function updateSelectedPointMapLabel(lat, lon, text, color) {
+  function updateSelectedPointMapLabel(lat, lon, coordStr, valStr, statusText, color) {
     if (!window.L || !window.map) return;
     if (!window._ewPointLabelLayer) {
       window._ewPointLabelLayer = L.layerGroup().addTo(window.map);
@@ -2342,9 +2373,11 @@
     const badgeMarker = L.marker([lat, lon], {
       icon: L.divIcon({
         className: "ew-map-point-badge",
-        html: `<span style="color:${color || "#f8fafc"};">${text}</span>`,
+        html:
+          `<div style="color:${color || "#f8fafc"};">${valStr} · ${statusText}</div>` +
+          `<div style="color:#cbd5e1;font-size:10px;font-weight:500;">${coordStr}</div>`,
         iconSize: null,
-        iconAnchor: [0, 26]
+        iconAnchor: [0, 34]
       }),
       interactive: false
     });
@@ -2363,8 +2396,11 @@
 
     const unitLabel = item.unit ? ` (${item.unit})` : "";
     const ptColor = colorForNorm((state.pointVal - state.min) / Math.max(1e-6, state.max - state.min), item.palette);
-    const statusText = state.isLivePoint ? "Canlı ECMWF" : "Yaklaşık";
+    const statusText = state.isLivePoint ? "Canlı" : "Yaklaşık";
+    const coordStr = formatCoord(selectedPoint.lat, selectedPoint.lon);
+    const valStr = formatNum(state.pointVal, item.unit);
 
+    // Oynatıcı CBAR ile aynı sade yapı: başlık + renk çubuğu + Min/Ort/Max
     const tEl = document.getElementById("cbar-title");
     const cEl = document.getElementById("cbar-code");
     const minEl = document.getElementById("cbar-min");
@@ -2373,26 +2409,17 @@
 
     if (tEl) tEl.textContent = `${item.name}${unitLabel}`;
     if (cEl) cEl.textContent = "";
-    if (minEl) minEl.textContent = `Min ${formatNum(state.min, item.unit)}`;
-    if (midEl) midEl.textContent = `Ort ${formatNum(state.avg, item.unit)}`;
-    if (maxEl) maxEl.textContent = `Max ${formatNum(state.max, item.unit)}`;
+    if (minEl) minEl.textContent = formatNum(state.min, item.unit);
+    if (midEl) midEl.textContent = formatNum(state.avg, item.unit);
+    if (maxEl) maxEl.textContent = formatNum(state.max, item.unit);
 
     const markerEl = ensureCbarMarker(rGrad, "ew-point-marker");
     positionCbarMarker(markerEl, state.pointVal, state.min, state.max);
 
-    const cbarBox = document.getElementById("ew-cbar");
-    if (cbarBox) {
-      let singleBox = document.getElementById("ew-point-single-value");
-      if (!singleBox) {
-        singleBox = document.createElement("div");
-        singleBox.id = "ew-point-single-value";
-        cbarBox.appendChild(singleBox);
-      }
-      singleBox.innerHTML =
-        `<span>${item.name}${unitLabel}</span> · ` +
-        `<span style="color:${ptColor};">${statusText}</span>`;
-    }
+    // Canlı / Yaklaşık bilgisi doğrudan ECMWF panelinde
+    ensureEcmwfPanelStatusBadge(item, statusText, ptColor);
 
+    // Haritada seçili değişkenin noktalarındaki değerlere göre renklenme + nokta üzerinde koordinat ve değer
     if (window.L && window.map) {
       if (!window.gridGroup) {
         window.gridGroup = L.layerGroup().addTo(window.map);
@@ -2460,7 +2487,7 @@
         }
       }
 
-      updateSelectedPointMapLabel(selectedPoint.lat, selectedPoint.lon, `${item.name} · ${statusText}`, ptColor);
+      updateSelectedPointMapLabel(selectedPoint.lat, selectedPoint.lon, coordStr, valStr, statusText, ptColor);
     }
   }
 
@@ -2474,7 +2501,6 @@
       return;
     }
 
-    // Seçilen yeni değişkene geçildiğinde önceki değişken verisi ekranda kalmasın
     const initialPointVal = fallbackPointValue(item, selectedPoint.lat, selectedPoint.lon, hourIdx);
     const initialGridVals = GRID_POINTS.map(g => fallbackPointValue(item, g.lat, g.lon, hourIdx));
     const initialGlobalVals = GLOBAL_POINTS.map(g => fallbackPointValue(item, g.lat, g.lon, hourIdx));
@@ -2559,8 +2585,7 @@
         if (!ev || !ev.latlng) return;
         selectedPoint = {
           lat: ev.latlng.lat,
-          lon: ev.latlng.lng,
-          label: "Seçili Nokta"
+          lon: ev.latlng.lng
         };
         const catalog = collectAllEcmwfVars();
         const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
