@@ -1574,6 +1574,13 @@
       cvs = document.createElement("canvas");
       cvs.id = "ew-cbar-canvas";
     }
+    cvs.style.position = "absolute";
+    cvs.style.top = "0";
+    cvs.style.left = "0";
+    cvs.style.width = "100%";
+    cvs.style.height = "100%";
+    cvs.style.pointerEvents = "none";
+    cvs.style.zIndex = "420";
     if (cvs.parentElement !== container) {
       const ov = container.querySelector(".leaflet-overlay-pane");
       if (ov && ov.parentElement === container) container.insertBefore(cvs, ov.nextSibling);
@@ -2080,6 +2087,26 @@
         vvEl.setAttribute("data-src-raw", String(out.val));
       }
       paintCbar(cur, out.val);
+      if (typeof out.val === "number" && Number.isFinite(out.val)) {
+        try {
+          const _mNow = findMap();
+          const _bKey = (_mNow && _mNow.getBounds && _mNow.getBounds().isValid && _mNow.getBounds().isValid())
+            ? `${cur.code}|${effOff}|${_mNow.getBounds().getSouth().toFixed(2)},${_mNow.getBounds().getWest().toFixed(2)},${_mNow.getBounds().getNorth().toFixed(2)},${_mNow.getBounds().getEast().toFixed(2)}`
+            : `${cur.code}|${effOff}`;
+          if (!Array.isArray(spatialGridCache.points) || !spatialGridCache.points.length || spatialGridCache.key !== _bKey) {
+            spatialGridCache.key = _bKey;
+            spatialGridCache.points = _mNow ? buildViewportGridPoints(_mNow) : [];
+          }
+          const _offKey = effOff;
+          const _ck = `${cur.code}|${_offKey}|${lat.toFixed(2)},${lng.toFixed(2)}`;
+          if (typeof obsCache === "object" && obsCache) {
+            obsCache[_ck] = { val: out.val, at: Date.now() };
+            if (typeof saveStorage === "function") saveStorage(obsCache);
+          }
+          spatialGridCache.points.push({ lat, lng, val: out.val });
+          if (_mNow) renderSpatialField(_mNow, cur, spatialGridCache.points);
+        } catch (_) {}
+      }
       applyValueColorToMap(out.val, cur);
       if (m && window.L) {
         if (!ptMarker) {
