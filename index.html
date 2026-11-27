@@ -124,7 +124,23 @@ fillSelect();drawCbar();marker=L.marker([coords.lat,coords.lng]).addTo(map);load
   </script>
 <!-- ew-deploy-trigger: 2026-11-27-1800 -->
 <div id="ew-play-bar" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.2);display:flex;flex-direction:column;gap:5px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;"><div><div style="font-size:10px;color:#94a3b8;">Başlangıç</div><input id="play-start" type="datetime-local" style="width:100%;padding:3px 5px;background:#1e293b;border:1px solid #334155;border-radius:5px;color:#f8fafc;font-size:10.5px;" /></div><div><div style="font-size:10px;color:#94a3b8;">Bitiş</div><input id="play-end" type="datetime-local" style="width:100%;padding:3px 5px;background:#1e293b;border:1px solid #334155;border-radius:5px;color:#f8fafc;font-size:10.5px;" /></div></div><div style="display:flex;align-items:center;gap:6px;"><button id="btn-play-range" type="button" style="padding:4px 9px;background:#0284c7;border:1px solid #38bdf8;border-radius:5px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">▶ Oynat</button><span id="ew-max-horizon" style="font-size:10px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Ufuk: —</span></div></div>
-<script>let playTimer=null;function normIsoH(v){if(!v)return"";const s=v.slice(0,13);return s.length===13?s+":00":v;}function toLocIn(s){return s?s.slice(0,16):"";}function syncPlayBounds(){const times=(data&&data.hourly&&data.hourly.time)||[];if(!times.length)return;const ci=nowIdx(times);const nowMs=Date.parse.toISOString());const maxStr=times[times.length-1];const maxMs=Date.parse;const forwardMs=&&!Number.isNaN(maxMs)&&maxMs>nowMs)?(maxMs-nowMs):0;const earliestStartMs=nowMs-forwardMs;let sIdx=0;for(let i=0;i<times.length;i++){const tMs=Date.parse(times[i]);if&&tMs>=earliestStartMs){sIdx=i;break;}}const eStartStr=times[sIdx];const allMinStr=times[0];const sEl=document.getElementById("play-start");const eEl=document.getElementById("play-end");const hEl=document.getElementById("ew-max-horizon");if{sEl.min=toLocIn;sEl.max=toLocIn;eEl.min=toLocIn;eEl.max=toLocIn;ifsEl.value=toLocIn;else if<eStartStr)sEl.value=toLocIn;else if>maxStr)sEl.value=toLocIn;if>maxStr)eEl.value=toLocIn;else if<allMinStr)eEl.value=toLocIn;}ifhEl.textContent=`En erken: ${eStartStr.replace("T"," ")} | Son: ${maxStr.replace("T"," ")}`;}function stopRangePlay(){if(playTimer){clearInterval(playTimer);playTimer=null;}const b=document.getElementById("btn-play-range");if(b){b.textContent="▶ Oynat";b.style.background="#0284c7";}}function stepPlayIdx(idx){const times=(data&&data.hourly&&data.hourly.time)||[];if(!times.length)return;tIdx=Math.max(0,Math.min(times.length-1,idx));drawTime();drawCbar();drawList();if(gridPayload&&Array.isArray(gridPayload.raw)){gridPayload.tIdx=tIdx;drawGrid();}}function toggleRangePlay(){if(playTimer){stopRangePlay();return;}const times=(data&&data.hourly&&data.hourly.time)||[];if(!times.length)return;syncPlayBounds();const sEl=document.getElementById("play-start");const eEl=document.getElementById("play-end");const st=normIsoH;const en=normIsoH;let a=times.findIndex(t=>t>=st);if(a===-1)a=0;let bIdx=times.length-1;for(let i=times.length-1;i>=0;i--){if(times[i]<=en){bIdx=i;break;}}if(bIdx<a)bIdx=a;stepPlayIdx(a);const btn=document.getElementById("btn-play-range");if(btn){btn.textContent="■ Durdur";btn.style.background="#dc2626";}playTimer=setInterval(()=>{if(tIdx>=bIdx){stopRangePlay();return;}stepPlayIdx(tIdx+1);},450);}setTimeout(()=>{const b=document.getElementById("btn-play-range");if(b)b.onclick=toggleRangePlay;syncPlayBounds();},200);</script>
-<script id="cleanTempDir">setInterval(()=>{document.querySelectorAll("#ew-vars-list *,.ew-var-item *,.ew-loc-box *,.ew-panel *").forEach(el=>{if(el.children.length===0&&el.textContent&&el.textContent.includes("(")){const t=el.textContent;if(/Sıcaklık|Hissedilen|temperature_2m|apparent_temperature|°C/i.test(t)&&/yön|rüzgar|wind|K|KD|D|GD|G|GB|B|KB/i.test(t)){el.textContent=t.replace(/\s*\([^)]*\)/g,"").trim();}}});},300);</script>
+
+<script id="cleanTempDir">
+document.addEventListener("DOMContentLoaded", function () {
+  setInterval(function () {
+    try {
+      var els = document.querySelectorAll("#ew-vars-list *,.ew-var-item *,.ew-loc-box *,.ew-panel *");
+      els.forEach(function (el) {
+        if (el.children.length === 0 && typeof el.textContent === "string" && el.textContent.indexOf("(") !== -1) {
+          var t = el.textContent;
+          if ((/Sıcaklık|Hissedilen|temperature_2m|apparent_temperature|°C/i.test(t)) && (/yön|rüzgar|wind/i.test(t))) {
+            el.textContent = t.replace(/\s*\([^)]*\)/g, "").trim();
+          }
+        }
+      });
+    } catch (err) {}
+  }, 500);
+});
+</script>
 </body>
 </html>
