@@ -1794,6 +1794,12 @@
     gap: 6px;
     align-items: center;
   }
+  #ew-player-below-cbar-row {
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
   .ew-player-action-btn {
     flex: 1;
     padding: 6px 8px;
@@ -1818,47 +1824,6 @@
     color: #f8fafc;
     border: 1px solid rgba(148, 163, 184, 0.4);
     font-size: 12px;
-  }
-  #ew-var-filter-box {
-    margin-top: 6px;
-    margin-bottom: 6px;
-    position: relative;
-  }
-  #ew-var-search-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(9, 13, 22, 0.96);
-    color: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.45);
-    font-size: 12px;
-  }
-  #ew-var-search-results {
-    display: none;
-    margin-top: 4px;
-    max-height: 150px;
-    overflow-y: auto;
-    border-radius: 6px;
-    background: rgba(15, 23, 42, 0.98);
-    border: 1px solid rgba(148, 163, 184, 0.4);
-  }
-  .ew-var-search-item {
-    padding: 5px 8px;
-    font-size: 11px;
-    color: #e2e8f0;
-    cursor: pointer;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .ew-var-search-item:last-child {
-    border-bottom: none;
-  }
-  .ew-var-search-item:hover, .ew-var-search-item.active {
-    background: rgba(56, 189, 248, 0.22);
-    color: #ffffff;
   }
   .ew-map-point-badge {
     background: rgba(9, 13, 22, 0.94) !important;
@@ -2099,16 +2064,13 @@
     return `${Math.abs(lat).toFixed(2)}°${latDir}, ${Math.abs(lon).toFixed(2)}°${lonDir}`;
   }
 
-  function buildStepGradient(palette, activeNorm) {
+  function buildStepGradient(palette) {
     const n = palette.length;
-    const clamped = Math.max(0, Math.min(1, Number.isFinite(activeNorm) ? activeNorm : 0.5));
-    const activeIdx = Math.min(n - 1, Math.floor(clamped * n));
     const step = 100 / n;
     return "linear-gradient(90deg, " + palette.map((c, i) => {
       const start = (i * step).toFixed(1);
       const end = ((i + 1) * step).toFixed(1);
-      const isCurrentStep = i === activeIdx;
-      return isCurrentStep ? `${c} ${start}%, ${c} ${end}%` : `${c} ${start}%, ${c} ${end}%`;
+      return `${c} ${start}%, ${c} ${end}%`;
     }).join(", ") + ")";
   }
 
@@ -2142,6 +2104,28 @@
     return wrapped;
   }
 
+  function syncCbarButtonUi() {
+    const wrap = document.getElementById("ew-player-cbar-wrap");
+    const btn = document.getElementById("ew-player-cbar-toggle-btn");
+    if (wrap) {
+      wrap.style.setProperty("display", cbarVisible ? "block" : "none", "important");
+    }
+    if (btn) {
+      btn.classList.toggle("active", cbarVisible);
+      btn.textContent = cbarVisible ? "CBAR Açık" : "CBAR Kapalı";
+    }
+  }
+
+  function setCbarState(visible, refreshWhenOpen) {
+    cbarVisible = Boolean(visible);
+    syncCbarButtonUi();
+    if (cbarVisible && refreshWhenOpen) {
+      const catalog = collectAllEcmwfVars();
+      const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
+      if (item) updatePlayerCbarAndMap(item, getActiveHourIndex());
+    }
+  }
+
   function togglePlayStepLoop() {
     const playBtn = document.getElementById("ew-player-play-btn");
     if (isPlaying) {
@@ -2157,12 +2141,14 @@
       return;
     }
 
+    // Oynat butonuna basıldığında CBAR kapalı duruma geçer
+    setCbarState(false, false);
+
     isPlaying = true;
     if (playBtn) {
       playBtn.textContent = "Duraklat";
       playBtn.classList.add("active");
     }
-    // Hızlı saat saat geçişi
     if (playerTimer) clearInterval(playerTimer);
     playerTimer = setInterval(() => {
       const nextHour = setActiveHourIndex(getActiveHourIndex() + 1);
@@ -2172,24 +2158,6 @@
         updatePlayerCbarAndMap(item, nextHour);
       }
     }, 350);
-  }
-
-  function toggleCbarVisibility() {
-    cbarVisible = !cbarVisible;
-    const wrap = document.getElementById("ew-player-cbar-wrap");
-    const btn = document.getElementById("ew-player-cbar-toggle-btn");
-    if (wrap) {
-      wrap.style.setProperty("display", cbarVisible ? "block" : "none", "important");
-    }
-    if (btn) {
-      btn.classList.toggle("active", cbarVisible);
-      btn.textContent = cbarVisible ? "CBAR Açık" : "CBAR Kapalı";
-    }
-    if (cbarVisible) {
-      const catalog = collectAllEcmwfVars();
-      const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
-      if (item) updatePlayerCbarAndMap(item, getActiveHourIndex());
-    }
   }
 
   function ensurePlayerCbarStructure() {
@@ -2204,7 +2172,6 @@
         document.body.appendChild(wrap);
       }
     }
-    wrap.style.setProperty("display", cbarVisible ? "block" : "none", "important");
 
     if (!document.getElementById("ew-player-cbar-title") || !document.getElementById("ew-player-cbar") || !document.getElementById("ew-player-cbar-min")) {
       wrap.innerHTML =
@@ -2216,6 +2183,27 @@
           "<span id='ew-player-cbar-max'>Max</span>" +
         "</div>";
     }
+
+    let belowRow = document.getElementById("ew-player-below-cbar-row");
+    if (!belowRow) {
+      belowRow = document.createElement("div");
+      belowRow.id = "ew-player-below-cbar-row";
+      wrap.insertAdjacentElement("afterend", belowRow);
+    }
+
+    let cbarBtn = document.getElementById("ew-player-cbar-toggle-btn");
+    if (!cbarBtn) {
+      cbarBtn = document.createElement("button");
+      cbarBtn.id = "ew-player-cbar-toggle-btn";
+      cbarBtn.type = "button";
+      cbarBtn.className = "ew-player-action-btn";
+      cbarBtn.addEventListener("click", () => setCbarState(!cbarVisible, true));
+    }
+    if (cbarBtn.parentElement !== belowRow) {
+      belowRow.appendChild(cbarBtn);
+    }
+
+    syncCbarButtonUi();
     return wrap;
   }
 
@@ -2242,15 +2230,7 @@
       playBtn.textContent = isPlaying ? "Duraklat" : "Oynat";
       playBtn.addEventListener("click", togglePlayStepLoop);
 
-      const cbarBtn = document.createElement("button");
-      cbarBtn.id = "ew-player-cbar-toggle-btn";
-      cbarBtn.type = "button";
-      cbarBtn.className = "ew-player-action-btn" + (cbarVisible ? " active" : "");
-      cbarBtn.textContent = cbarVisible ? "CBAR Açık" : "CBAR Kapalı";
-      cbarBtn.addEventListener("click", toggleCbarVisibility);
-
       ctrlRow.appendChild(playBtn);
-      ctrlRow.appendChild(cbarBtn);
       row.appendChild(ctrlRow);
 
       playerBox.insertBefore(row, playerBox.firstChild);
@@ -2318,6 +2298,7 @@
     }
 
     ensureTwinPlayerSelect(catalog);
+    ensurePlayerCbarStructure();
   }
 
   async function fetchEcmwfSeriesArray(lat, lon, code) {
@@ -2413,7 +2394,7 @@
     const valStr = formatNum(state.pointVal, item.unit);
 
     ensurePlayerCbarStructure();
-    const grad = buildStepGradient(item.palette, norm);
+    const grad = buildStepGradient(item.palette);
     const pBar = document.getElementById("ew-player-cbar");
     if (pBar) {
       pBar.style.setProperty("background", grad, "important");
