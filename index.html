@@ -1383,6 +1383,22 @@
   let activeValue = null;
   let cvs = null;
   let ptMarker = null;
+  const placeBlueMarker = (mapObj, lat, lng, labelText) => {
+    try {
+      if (!mapObj || !window.L || typeof lat !== "number" || typeof lng !== "number") return;
+      if (!ptMarker) {
+        ptMarker = window.L.circleMarker([lat, lng], {
+          radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2
+        }).addTo(mapObj);
+      } else {
+        ptMarker.setLatLng([lat, lng]);
+        if (!mapObj.hasLayer(ptMarker)) ptMarker.addTo(mapObj);
+      }
+      if (labelText) {
+        ptMarker.bindTooltip(labelText, { permanent: false, direction: "top" });
+      }
+    } catch (_) {}
+  };
   let rateLimitUntil = 0;
   let lastNetAt = 0;
 
@@ -2108,15 +2124,10 @@
         } catch (_) {}
       }
       applyValueColorToMap(out.val, cur);
-      if (m && window.L) {
-        if (!ptMarker) {
-          ptMarker = window.L.circleMarker([lat, lng], {
-            radius: 6, color: "#fff", fillColor: "#0284c7", fillOpacity: 0.95, weight: 2
-          }).addTo(m);
-        } else {
-          ptMarker.setLatLng([lat, lng]);
-        }
-        ptMarker.bindTooltip(`${cur.name}: ${txtVal}`, { permanent: false, direction: "top" }).openTooltip();
+      lastPt = { lat, lng };
+      placeBlueMarker(m, lat, lng, `${cur.name}: ${txtVal}`);
+      if (ptMarker && typeof ptMarker.openTooltip === "function") {
+        try { ptMarker.openTooltip(); } catch (_) {}
       }
     } else {
       if (vvEl) vvEl.textContent = `Veri yok (${out.tag})`;
@@ -2174,6 +2185,7 @@
         hideOldBottom();
         if (e?.latlng) {
           lastPt = { lat: e.latlng.lat, lng: e.latlng.lng };
+          placeBlueMarker(m, lastPt.lat, lastPt.lng, `${cur?.name || ""}: Okunuyor...`);
           refreshPoint(lastPt.lat, lastPt.lng);
         }
       });
