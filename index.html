@@ -1699,22 +1699,108 @@
     }
   };
 
+  const WmoPrecipLabels = {
+    0: "Açık / Bulutsuz",
+    1: "Çoğunlukla Açık",
+    2: "Parçalı Bulutlu",
+    3: "Kapalı",
+    45: "Sis",
+    48: "Kırağılı Sis",
+    51: "Hafif Çisenti",
+    53: "Orta Çisenti",
+    55: "Yoğun Çisenti",
+    56: "Hafif Dondurucu Çisenti",
+    57: "Yoğun Dondurucu Çisenti",
+    61: "Hafif Yağmur",
+    63: "Orta Yağmur",
+    65: "Kuvvetli Yağmur",
+    66: "Hafif Dondurucu Yağmur",
+    67: "Kuvvetli Dondurucu Yağmur",
+    71: "Hafif Kar Yağışı",
+    73: "Orta Kar Yağışı",
+    75: "Yoğun Kar Yağışı",
+    77: "Kar Tanesi / Granül",
+    80: "Hafif Sağanak Yağmur",
+    81: "Orta Sağanak Yağmur",
+    82: "Şiddetli Sağanak Yağmur",
+    85: "Hafif Kar Sağanağı",
+    86: "Kuvvetli Kar Sağanağı",
+    95: "Gökgürültülü Fırtına",
+    96: "Gökgürültülü Sağanak ve Hafif Dolu",
+    99: "Gökgürültülü Sağanak ve Kuvvetli Dolu"
+  };
+
+  const pickHourlyAtNow = (h, arr) => {
+    if (!Array.isArray(arr) || !arr.length) return null;
+    if (Array.isArray(h?.time) && h.time.length) {
+      const nowStr = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Istanbul" }).slice(0, 13).replace(" ", "T");
+      const idx = h.time.findIndex(item => typeof item === "string" && item.startsWith(nowStr));
+      if (idx >= 0 && typeof arr[idx] === "number" && Number.isFinite(arr[idx])) {
+        return arr[idx];
+      }
+    }
+    const nums = arr.filter(x => typeof x === "number" && Number.isFinite(x));
+    return nums.length ? nums[Math.min(nums.length - 1, 12)] : null;
+  };
+
+  const updatePrecipTypeSummary = (j) => {
+    const h = j?.hourly || {};
+    const wmo = (typeof j?.current?.weather_code === "number" && Number.isFinite(j.current.weather_code))
+      ? j.current.weather_code
+      : pickHourlyAtNow(h, h.weather_code);
+    const tp = (typeof j?.current?.precipitation === "number" && Number.isFinite(j.current.precipitation))
+      ? j.current.precipitation
+      : pickHourlyAtNow(h, h.precipitation);
+    const rain = (typeof j?.current?.rain === "number" && Number.isFinite(j.current.rain))
+      ? j.current.rain
+      : pickHourlyAtNow(h, h.rain);
+    const shw = (typeof j?.current?.showers === "number" && Number.isFinite(j.current.showers))
+      ? j.current.showers
+      : pickHourlyAtNow(h, h.showers);
+    const sf = (typeof j?.current?.snowfall === "number" && Number.isFinite(j.current.snowfall))
+      ? j.current.snowfall
+      : pickHourlyAtNow(h, h.snowfall);
+
+    const types = [];
+    if (typeof rain === "number" && rain > 0) types.push(`Yağmur (${rain.toFixed(1)} mm)`);
+    if (typeof shw === "number" && shw > 0) types.push(`Sağanak (${shw.toFixed(1)} mm)`);
+    if (typeof sf === "number" && sf > 0) types.push(`Kar (${sf.toFixed(1)} cm)`);
+    if (wmo === 96 || wmo === 99) types.push(wmo === 99 ? "Kuvvetli Dolu" : "Hafif Dolu");
+    else if (wmo === 66 || wmo === 67) types.push("Dondurucu Yağmur");
+    else if (wmo === 56 || wmo === 57) types.push("Dondurucu Çisenti");
+    else if ((wmo >= 71 && wmo <= 77) || wmo === 85 || wmo === 86) {
+      if (!types.some(t => t.startsWith("Kar"))) types.push("Kar");
+    } else if (wmo >= 80 && wmo <= 82) {
+      if (!types.some(t => t.startsWith("Sağanak"))) types.push("Sağanak");
+    } else if ((wmo >= 61 && wmo <= 65) || (wmo >= 51 && wmo <= 55)) {
+      if (!types.some(t => t.startsWith("Yağmur"))) types.push("Yağmur / Çisenti");
+    }
+
+    const wmoText = (typeof wmo === "number" && Number.isFinite(wmo))
+      ? (WmoPrecipLabels[wmo] || `WMO ${wmo}`)
+      : null;
+
+    window.__lastPrecipTypeDetail = {
+      wmo: typeof wmo === "number" ? wmo : null,
+      wmoText,
+      precipitation: typeof tp === "number" ? tp : null,
+      rain: typeof rain === "number" ? rain : null,
+      showers: typeof shw === "number" ? shw : null,
+      snowfall: typeof sf === "number" ? sf : null,
+      activeTypes: types,
+      summary: types.length ? types.join(" + ") : (wmoText || "Yağış yok")
+    };
+  };
+
   const extractNowVal = (j, field) => {
     if (!j || typeof j !== "object") return null;
+    updatePrecipTypeSummary(j);
     if (j.current && typeof j.current[field] === "number" && Number.isFinite(j.current[field])) {
       return j.current[field];
     }
     const h = j.hourly;
     if (h && Array.isArray(h[field])) {
-      if (Array.isArray(h.time) && h.time.length) {
-        const nowStr = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Istanbul" }).slice(0, 13).replace(" ", "T");
-        const idx = h.time.findIndex(item => typeof item === "string" && item.startsWith(nowStr));
-        if (idx >= 0 && typeof h[field][idx] === "number" && Number.isFinite(h[field][idx])) {
-          return h[field][idx];
-        }
-      }
-      const nums = h[field].filter(x => typeof x === "number" && Number.isFinite(x));
-      if (nums.length) return nums[Math.min(nums.length - 1, 12)];
+      return pickHourlyAtNow(h, h[field]);
     }
     return null;
   };
@@ -1780,7 +1866,13 @@
     if (waitMs > 0) await sleep(waitMs);
     lastNetAt = Date.now();
 
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${encodeURIComponent(v.om)}&hourly=${encodeURIComponent(v.om)}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=1`;
+    const precipBundle = ["precipitation", "rain", "showers", "snowfall", "snow_depth", "weather_code"];
+    const fieldsSet = new Set([v.om]);
+    if (precipBundle.includes(v.om) || v.code === "wmo") {
+      precipBundle.forEach(f => fieldsSet.add(f));
+    }
+    const fieldsParam = Array.from(fieldsSet).map(encodeURIComponent).join(",");
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=${fieldsParam}&hourly=${fieldsParam}${v.unit === "km/h" ? "&wind_speed_unit=kmh" : ""}&timezone=Europe%2FIstanbul&forecast_days=1`;
     try {
       const res = await fetch(url, { cache: "no-store" });
       if (res.status === 429) {
