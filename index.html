@@ -2173,7 +2173,7 @@
     const parsedMs = Date.parse(lastStr.length === 16 ? `${lastStr}:00+03:00` : lastStr);
     if (!Number.isFinite(parsedMs)) return;
     const diffHours = Math.max(24, Math.round((parsedMs - Date.now()) / 3600000));
-    maxEcmwfHorizonHours = diffHours;
+    maxEcmwfHorizonHours = Math.max(maxEcmwfHorizonHours || 0, diffHours);
     const slider = document.getElementById("ewt-slider");
     if (slider && parseInt(slider.max || "48", 10) < maxEcmwfHorizonHours) {
       slider.max = String(maxEcmwfHorizonHours);
