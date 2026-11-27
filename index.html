@@ -1741,11 +1741,11 @@
     width: 100%;
   }
   #cbar-gradient, #ew-player-cbar {
-    min-height: 14px !important;
-    height: 14px !important;
+    min-height: 15px !important;
+    height: 15px !important;
     width: 100% !important;
     border-radius: 6px !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.32) !important;
     opacity: 1 !important;
     visibility: visible !important;
   }
@@ -1753,12 +1753,12 @@
     position: absolute;
     top: -3px;
     width: 4px;
-    height: 20px;
+    height: 21px;
     margin-left: -2px;
     background: #ffffff;
     border: 1px solid #0f172a;
     border-radius: 2px;
-    box-shadow: 0 0 6px rgba(0, 0, 0, 0.85);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
     pointer-events: none;
     z-index: 5;
   }
@@ -1768,15 +1768,17 @@
     align-items: center !important;
     font-size: 11px !important;
     color: #e2e8f0 !important;
-    margin-top: 5px !important;
+    margin-top: 6px !important;
+    gap: 6px !important;
   }
   .ew-cbar-header, #ew-player-cbar-title, #ew-cbar .cbar-top {
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    margin-bottom: 5px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    margin-bottom: 6px !important;
+    gap: 8px !important;
   }
   #ew-player-sync-row {
     margin-top: 6px;
@@ -1793,42 +1795,59 @@
     font-size: 12px;
   }
   #ew-point-single-value {
-    margin-top: 6px;
+    margin-top: 7px;
     padding: 6px 8px;
     border-radius: 7px;
     background: #090d16;
-    border: 1px solid rgba(148, 163, 184, 0.28);
+    border: 1px solid rgba(148, 163, 184, 0.32);
     font-size: 12px;
     font-weight: 600;
     color: #f8fafc;
     text-align: center;
     letter-spacing: 0.2px;
   }
+  .ew-map-point-badge {
+    background: rgba(9, 13, 22, 0.92) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    border-radius: 6px !important;
+    padding: 3px 7px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65) !important;
+    white-space: nowrap !important;
+  }
 </style>
 <script id="ew-twin-ecmwf-script">
 (function() {
-  const DEFAULT_PALETTE = ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#d73027"];
+  const PALETTES = {
+    temp: ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#a50026"],
+    precip: ["#e0f2fe","#bae6fd","#7dd3fc","#38bdf8","#0284c7","#1d4ed8","#4338ca","#6d28d9"],
+    wind: ["#ecfeff","#a5f3fc","#67e8f9","#22d3ee","#10b981","#eab308","#f97316","#dc2626"],
+    pressure: ["#1e3a8a","#2563eb","#38bdf8","#34d399","#facc15","#fb923c","#ef4444","#7f1d1d"],
+    default: ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#d73027"]
+  };
 
   const SEED_VARS = [
-    ["temperature_2m", "2m Sıcaklık", "°C", -10, 35],
-    ["relative_humidity_2m", "2m Bağıl Nem", "%", 10, 100],
-    ["dew_point_2m", "2m Çiy Noktası", "°C", -8, 24],
-    ["apparent_temperature", "Hissedilen Sıcaklık", "°C", -12, 38],
-    ["precipitation", "Toplam Yağış", "mm", 0, 30],
-    ["rain", "Yağmur", "mm", 0, 25],
-    ["snowfall", "Kar Yağışı", "cm", 0, 20],
-    ["snow_depth", "Kar Kalınlığı", "m", 0, 1.5],
-    ["weather_code", "Hava Durumu Kodu", "wmo", 0, 99],
-    ["pressure_msl", "Deniz Seviyesi Basıncı", "hPa", 995, 1035],
-    ["surface_pressure", "Yüzey Basıncı", "hPa", 950, 1035],
-    ["cloud_cover", "Toplam Bulutluluk", "%", 0, 100],
-    ["wind_speed_10m", "10m Rüzgar Hızı", "km/s", 0, 80],
-    ["wind_gusts_10m", "10m Rüzgar Hamlesi", "km/s", 0, 110],
-    ["wind_direction_10m", "10m Rüzgar Yönü", "°", 0, 360],
-    ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²", 0, 900],
-    ["cape", "CAPE Kararsızlık", "J/kg", 0, 2500],
-    ["t600", "600hPa Sıcaklık", "°C", -25, 10],
-    ["z600", "600hPa Yükseklik", "gpm", 3800, 4400]
+    ["temperature_2m", "2m Sıcaklık", "°C", -10, 35, PALETTES.temp],
+    ["relative_humidity_2m", "2m Bağıl Nem", "%", 10, 100, PALETTES.precip],
+    ["dew_point_2m", "2m Çiy Noktası", "°C", -8, 24, PALETTES.temp],
+    ["apparent_temperature", "Hissedilen Sıcaklık", "°C", -12, 38, PALETTES.temp],
+    ["precipitation", "Toplam Yağış", "mm", 0, 30, PALETTES.precip],
+    ["rain", "Yağmur", "mm", 0, 25, PALETTES.precip],
+    ["snowfall", "Kar Yağışı", "cm", 0, 20, PALETTES.precip],
+    ["snow_depth", "Kar Kalınlığı", "m", 0, 1.5, PALETTES.precip],
+    ["weather_code", "Hava Durumu Kodu", "wmo", 0, 99, PALETTES.default],
+    ["pressure_msl", "Deniz Seviyesi Basıncı", "hPa", 995, 1035, PALETTES.pressure],
+    ["surface_pressure", "Yüzey Basıncı", "hPa", 950, 1035, PALETTES.pressure],
+    ["cloud_cover", "Toplam Bulutluluk", "%", 0, 100, PALETTES.precip],
+    ["wind_speed_10m", "10m Rüzgar Hızı", "km/s", 0, 80, PALETTES.wind],
+    ["wind_gusts_10m", "10m Rüzgar Hamlesi", "km/s", 0, 110, PALETTES.wind],
+    ["wind_direction_10m", "10m Rüzgar Yönü", "°", 0, 360, PALETTES.wind],
+    ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²", 0, 900, PALETTES.temp],
+    ["cape", "CAPE Kararsızlık", "J/kg", 0, 2500, PALETTES.temp],
+    ["t600", "600hPa Sıcaklık", "°C", -25, 10, PALETTES.temp],
+    ["z600", "600hPa Yükseklik", "gpm", 3800, 4400, PALETTES.pressure]
   ];
 
   const GRID_POINTS = [
@@ -1865,6 +1884,7 @@
     key: "",
     min: null,
     max: null,
+    avg: null,
     pointVal: null,
     isLivePoint: false,
     valuesByIdx: [],
@@ -1878,28 +1898,35 @@
     let unit = seeded ? seeded[2] : "";
     let min = seeded ? seeded[3] : -10;
     let max = seeded ? seeded[4] : 35;
+    let palette = seeded ? seeded[5] : PALETTES.default;
 
     if (/^t\d{3,4}$/i.test(c) || /temp|sıcaklık/i.test(c + " " + label)) {
       unit = unit || "°C";
+      palette = PALETTES.temp;
       if (!seeded) { min = -25; max = 35; }
     } else if (/^z\d{3,4}$|^gh\d{3,4}$/i.test(c) || /height|yükseklik|geopot/i.test(c + " " + label)) {
       unit = unit || "gpm";
+      palette = PALETTES.pressure;
       if (!seeded) { min = 1200; max = 5600; }
     } else if (/^q\d{3,4}$|^r\d{3,4}$|rh|humidity|nem/i.test(c + " " + label)) {
       unit = unit || "%";
+      palette = PALETTES.precip;
       if (!seeded) { min = 0; max = 100; }
     } else if (/^u\d{3,4}$|^v\d{3,4}$|wind|rüzgar/i.test(c + " " + label)) {
       unit = unit || "km/s";
+      palette = PALETTES.wind;
       if (!seeded) { min = 0; max = 100; }
-    } else if (/precip|rain|yağış/i.test(c + " " + label)) {
+    } else if (/precip|rain|snow|yağış|kar/i.test(c + " " + label)) {
       unit = unit || "mm";
+      palette = PALETTES.precip;
       if (!seeded) { min = 0; max = 30; }
     } else if (/press|basınç/i.test(c + " " + label)) {
       unit = unit || "hPa";
+      palette = PALETTES.pressure;
       if (!seeded) { min = 980; max = 1035; }
     }
 
-    return { code: c, name: label, unit, min, max, palette: DEFAULT_PALETTE };
+    return { code: c, name: label, unit, min, max, palette };
   }
 
   function collectAllEcmwfVars() {
@@ -1941,9 +1968,9 @@
       });
     }
 
-    SEED_VARS.forEach(([code, name, unit, min, max]) => {
+    SEED_VARS.forEach(([code, name, unit, min, max, palette]) => {
       if (!map.has(code)) {
-        map.set(code, { code, name, unit, min, max, palette: DEFAULT_PALETTE });
+        map.set(code, { code, name, unit, min, max, palette });
       }
     });
 
@@ -2064,7 +2091,7 @@
       catalog.forEach(v => {
         const opt = document.createElement("option");
         opt.value = v.code;
-        opt.textContent = `${v.name} [${v.code}]`;
+        opt.textContent = `${v.name} (${v.unit || v.code})`;
         pSel.appendChild(opt);
       });
     }
@@ -2087,7 +2114,7 @@
         catalog.forEach(v => {
           const opt = document.createElement("option");
           opt.value = v.code;
-          opt.textContent = `${v.name} [${v.code}]`;
+          opt.textContent = `${v.name} (${v.unit || v.code})`;
           mainSel.appendChild(opt);
         });
       }
@@ -2142,7 +2169,8 @@
 
     const titleEl = document.getElementById("ew-player-cbar-title");
     if (titleEl) {
-      titleEl.innerHTML = `<span>Oynatıcı CBAR · ${item.name}</span><span>Saat +${stepIdx}s</span>`;
+      const unitLabel = item.unit ? ` (${item.unit})` : "";
+      titleEl.innerHTML = `<span>${item.name}${unitLabel}</span><span>Saat +${stepIdx}s</span>`;
     }
   }
 
@@ -2183,6 +2211,34 @@
     }
   }
 
+  function updateSelectedPointMapLabel(lat, lon, text, color) {
+    if (!window.L || !window.map) return;
+    if (!window._ewPointLabelLayer) {
+      window._ewPointLabelLayer = L.layerGroup().addTo(window.map);
+    }
+    window._ewPointLabelLayer.clearLayers();
+
+    L.circleMarker([lat, lon], {
+      radius: 6,
+      color: "#ffffff",
+      weight: 2,
+      fillColor: color || "#38bdf8",
+      fillOpacity: 1,
+      interactive: false
+    }).addTo(window._ewPointLabelLayer);
+
+    const badgeMarker = L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: "ew-map-point-badge",
+        html: `<span style="color:${color || "#f8fafc"};">${text}</span>`,
+        iconSize: null,
+        iconAnchor: [0, 26]
+      }),
+      interactive: false
+    });
+    badgeMarker.addTo(window._ewPointLabelLayer);
+  }
+
   async function updateEcmwfPanelCbarAndMap(item) {
     const grad = makeGradient(item.palette);
     const rGrad = document.getElementById("cbar-gradient");
@@ -2196,6 +2252,7 @@
 
     let minVal = item.min;
     let maxVal = item.max;
+    let avgVal = (item.min + item.max) / 2;
     let pointVal = null;
     let isLivePoint = false;
     let valuesByIdx = [];
@@ -2204,6 +2261,7 @@
     if (lastRenderState.key === key && lastRenderState.valuesByIdx.length === GRID_POINTS.length) {
       minVal = lastRenderState.min;
       maxVal = lastRenderState.max;
+      avgVal = lastRenderState.avg;
       pointVal = lastRenderState.pointVal;
       isLivePoint = Boolean(lastRenderState.isLivePoint);
       valuesByIdx = lastRenderState.valuesByIdx;
@@ -2240,12 +2298,14 @@
           minVal = rawMin;
           maxVal = rawMax;
         }
+        avgVal = allVals.reduce((acc, v) => acc + v, 0) / allVals.length;
       }
 
       lastRenderState = {
         key,
         min: minVal,
         max: maxVal,
+        avg: avgVal,
         pointVal,
         isLivePoint,
         valuesByIdx,
@@ -2253,10 +2313,10 @@
       };
     }
 
-    const allSampleVals = [pointVal, ...valuesByIdx, ...globalVals].filter(v => typeof v === "number" && Number.isFinite(v));
-    const avgVal = allSampleVals.length
-      ? allSampleVals.reduce((acc, v) => acc + v, 0) / allSampleVals.length
-      : (minVal + maxVal) / 2;
+    const unitLabel = item.unit ? ` (${item.unit})` : "";
+    const formattedPoint = formatNum(pointVal, item.unit);
+    const ptColor = colorForNorm((pointVal - minVal) / Math.max(1e-6, maxVal - minVal), item.palette);
+    const statusText = isLivePoint ? "Canlı ECMWF" : "Yaklaşık";
 
     const tEl = document.getElementById("cbar-title");
     const cEl = document.getElementById("cbar-code");
@@ -2264,11 +2324,11 @@
     const midEl = document.getElementById("cbar-mid");
     const maxEl = document.getElementById("cbar-max");
 
-    if (tEl) tEl.textContent = item.name;
-    if (cEl) cEl.textContent = item.code;
-    if (minEl) minEl.textContent = formatNum(minVal, item.unit);
-    if (midEl) midEl.textContent = formatNum(avgVal, item.unit);
-    if (maxEl) maxEl.textContent = formatNum(maxVal, item.unit);
+    if (tEl) tEl.textContent = `${item.name}${unitLabel}`;
+    if (cEl) cEl.textContent = formattedPoint;
+    if (minEl) minEl.textContent = `Min ${formatNum(minVal, item.unit)}`;
+    if (midEl) midEl.textContent = `Ort ${formatNum(avgVal, item.unit)}`;
+    if (maxEl) maxEl.textContent = `Max ${formatNum(maxVal, item.unit)}`;
 
     const markerEl = ensureCbarMarker(rGrad, "ew-point-marker");
     positionCbarMarker(markerEl, pointVal, minVal, maxVal);
@@ -2281,9 +2341,10 @@
         singleBox.id = "ew-point-single-value";
         cbarBox.appendChild(singleBox);
       }
-      const ptColor = colorForNorm((pointVal - minVal) / Math.max(1e-6, maxVal - minVal), item.palette);
-      const srcTag = isLivePoint ? "Canlı ECMWF" : "Yaklaşık değer";
-      singleBox.innerHTML = `<span style="color:${ptColor};">${formatNum(pointVal, item.unit)}</span> · <span style="color:#cbd5e1;font-weight:500;">${srcTag}</span>`;
+      singleBox.innerHTML =
+        `<span>${item.name}${unitLabel}: </span>` +
+        `<span style="color:${ptColor};">${formattedPoint}</span>` +
+        ` · <span style="color:#cbd5e1;font-weight:500;">${statusText}</span>`;
     }
 
     if (window.L && window.map) {
@@ -2314,24 +2375,31 @@
           const latC = lat0 + dLat / 2;
           const lonC = lon0 + dLon / 2;
 
-          let wSum = 0, vSum = 0;
-          const dAnchor = Math.pow(latC - anchorLat, 2) + Math.pow(lonC - anchorLon, 2) + 0.4;
-          const wAnchor = 1.8 / dAnchor;
-          wSum += wAnchor;
-          vSum += wAnchor * anchorVal;
+          const distToAnchor = Math.hypot(latC - anchorLat, lonC - anchorLon);
+          let cellVal;
+          if (distToAnchor <= Math.hypot(dLat, dLon) * 0.75) {
+            cellVal = anchorVal;
+          } else {
+            let wSum = 0, vSum = 0;
+            const dAnchor = Math.pow(latC - anchorLat, 2) + Math.pow(lonC - anchorLon, 2) + 0.4;
+            const wAnchor = 1.8 / dAnchor;
+            wSum += wAnchor;
+            vSum += wAnchor * anchorVal;
 
-          interpSources.forEach(srcPt => {
-            if (typeof srcPt.val !== "number" || !Number.isFinite(srcPt.val)) return;
-            let dLonDiff = Math.abs(lonC - srcPt.lon);
-            if (dLonDiff > 180) dLonDiff = 360 - dLonDiff;
-            const dLatDiff = latC - srcPt.lat;
-            const d2 = (dLatDiff * dLatDiff) + (dLonDiff * dLonDiff) + 1.8;
-            const w = srcPt.weightScale / d2;
-            wSum += w;
-            vSum += w * srcPt.val;
-          });
+            interpSources.forEach(srcPt => {
+              if (typeof srcPt.val !== "number" || !Number.isFinite(srcPt.val)) return;
+              let dLonDiff = Math.abs(lonC - srcPt.lon);
+              if (dLonDiff > 180) dLonDiff = 360 - dLonDiff;
+              const dLatDiff = latC - srcPt.lat;
+              const d2 = (dLatDiff * dLatDiff) + (dLonDiff * dLonDiff) + 1.8;
+              const w = srcPt.weightScale / d2;
+              wSum += w;
+              vSum += w * srcPt.val;
+            });
 
-          const cellVal = wSum > 0 ? (vSum / wSum) : anchorVal;
+            cellVal = wSum > 0 ? (vSum / wSum) : anchorVal;
+          }
+
           const norm = (cellVal - minVal) / span;
           const col = colorForNorm(norm, item.palette);
 
@@ -2345,6 +2413,8 @@
           }).addTo(window.gridGroup);
         }
       }
+
+      updateSelectedPointMapLabel(selectedPoint.lat, selectedPoint.lon, `${formattedPoint} · ${statusText}`, ptColor);
     }
   }
 
