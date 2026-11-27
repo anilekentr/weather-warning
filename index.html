@@ -1991,53 +1991,82 @@
       const raw = kind === "vorticity" ? ((e.v - w.v) / dx - (n.u - so.u) / dy) : ((e.u - w.u) / dx + (n.v - so.v) / dy);
       return { val: Number((raw * 1e5).toFixed(2)), tag: "ECMWF" };
     };
-    const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'number' ? hourOffset : 0)) => {
+const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'number' ? hourOffset : 0)) => {
+    const offNum = Number.isFinite(Number(offsetHours)) ? Number(offsetHours) : 0;
+    const fieldName = v?.om || v?.key || v?.code;
+    const ck = `${v?.code || fieldName}|${offNum}|${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`;
+
+    try {
+      if (typeof obsCache === "object" && obsCache && obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
+        if ((Date.now() - (obsCache[ck].at || 0)) < 600000) {
+          return { val: obsCache[ck].val, tag: "ECMWF (Cache)" };
+        }
+      }
+    } catch (_) {}
+
     if (Date.now() < rateLimitUntil) {
+      try {
+        if (typeof obsCache === "object" && obsCache && obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
+          return { val: obsCache[ck].val, tag: "ECMWF (Cache)" };
+        }
+      } catch (_) {}
       return { val: null, tag: "Veri yok" };
     }
 
-    const waitMs = Math.max(0, 120 - (Date.now() - lastNetAt));
+    const waitMs = Math.max(0, 180 - (Date.now() - lastNetAt));
     if (waitMs > 0) await sleep(waitMs);
     lastNetAt = Date.now();
 
-    const fieldName = v.om || v.key || v.code;
-      if (String(fieldName).startsWith("derived_")) { try { return await fetchDerivedEcmwfVal(lat, lng, fieldName, offsetHours); } catch (_) { return { val: null, tag: "Veri yok" }; } }
+    if (String(fieldName).startsWith("derived_")) {
+      try {
+        const dOut = await fetchDerivedEcmwfVal(lat, lng, fieldName, offNum);
+        if (dOut && typeof dOut.val === "number" && Number.isFinite(dOut.val)) {
+          if (typeof obsCache === "object" && obsCache) {
+            obsCache[ck] = { val: dOut.val, at: Date.now() };
+            if (typeof saveStorage === "function") saveStorage(obsCache);
+          }
+          return dOut;
+        }
+      } catch (_) {}
+      return { val: null, tag: "Veri yok" };
+    }
+
     const fieldsParam = encodeURIComponent(fieldName);
-    const reqDays = Math.min(16, Math.max(16, Math.ceil((Math.max(0, Number(offsetHours) || 0) + 24) / 24)));
+    const neededDays = Math.ceil((Math.max(0, offNum) + 24) / 24) + 1;
+    const reqDays = Math.min(16, Math.max(2, neededDays));
     const windUnitParam = v.unit === "km/h" ? "&wind_speed_unit=kmh" : "";
-    const hourlyUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=${fieldsParam}${windUnitParam}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
+    const hourlyUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${Number(lat).toFixed(4)}&longitude=${Number(lng).toFixed(4)}&hourly=${fieldsParam}${windUnitParam}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
+
     try {
       const res = await fetch(hourlyUrl, { cache: "no-store" });
       if (res.status === 429) {
-        rateLimitUntil = Date.now() + 350;
-        await sleep(450);
+        rateLimitUntil = Date.now() + 1200;
+        await sleep(1200);
         const res2 = await fetch(hourlyUrl, { cache: "no-store" });
         if (res2 && res2.ok) {
           const j2 = await res2.json();
-          const val2 = extractNowVal(j2, fieldName, offsetHours);
+          const val2 = extractNowVal(j2, fieldName, offNum);
           if (typeof val2 === "number" && Number.isFinite(val2)) {
+            if (typeof obsCache === "object" && obsCache) {
+              obsCache[ck] = { val: val2, at: Date.now() };
+              if (typeof saveStorage === "function") saveStorage(obsCache);
+            }
             return { val: val2, tag: "ECMWF" };
           }
+        }
+        if (typeof obsCache === "object" && obsCache && obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
+          return { val: obsCache[ck].val, tag: "ECMWF (Cache)" };
         }
         return { val: null, tag: "Veri yok" };
       }
       if (res.ok) {
         const j = await res.json();
-        try {
-          const arrSample = Array.isArray(j?.hourly?.[fieldName]) ? j.hourly[fieldName].slice(0, 4) : null;
-          console.log("[EW_FETCH]", { fieldName, hourlyUrl, arrSample });
-        } catch (_) {}
-        const val = extractNowVal(j, fieldName, offsetHours);
-        try {
-          if (fieldName === 'precipitation') {
-            console.log('[EW_EXTRACT_PRECIP] ' + JSON.stringify({
-              val,
-              precip6: j?.hourly?.precipitation?.slice(0, 6) ?? null,
-              time6: j?.hourly?.time?.slice(0, 6) ?? null
-            }));
-          }
-        } catch (_) {}
+        const val = extractNowVal(j, fieldName, offNum);
         if (typeof val === "number" && Number.isFinite(val)) {
+          if (typeof obsCache === "object" && obsCache) {
+            obsCache[ck] = { val, at: Date.now() };
+            if (typeof saveStorage === "function") saveStorage(obsCache);
+          }
           return { val, tag: "ECMWF" };
         }
       }
@@ -2046,6 +2075,10 @@
     try {
       const fbVal = (v?.code === "tp") ? null : await fetchMetNoVal(lat, lng, v);
       if (typeof fbVal === "number" && Number.isFinite(fbVal)) {
+        if (typeof obsCache === "object" && obsCache) {
+          obsCache[ck] = { val: fbVal, at: Date.now() };
+          if (typeof saveStorage === "function") saveStorage(obsCache);
+        }
         return { val: fbVal, tag: "MET-NO" };
       }
     } catch (_) {}
@@ -2139,12 +2172,19 @@
     if (ilceEl) ilceEl.textContent = "—";
     if (mahEl) mahEl.textContent = "—";
     try {
-      const a = (await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=tr`)).json())?.address || {};
-      if (ilEl) ilEl.textContent = a.province || a.city || a.state || "Açık Alan / Deniz";
+      const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const tId = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
+      const gRes = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${Number(lat).toFixed(4)}&lon=${Number(lng).toFixed(4)}&accept-language=tr`,
+        ctrl ? { signal: ctrl.signal } : undefined
+      );
+      if (tId) clearTimeout(tId);
+      const a = gRes.ok ? ((await gRes.json())?.address || {}) : {};
+      if (ilEl) ilEl.textContent = a.province || a.city || a.state || `${Number(lat).toFixed(2)}°K, ${Number(lng).toFixed(2)}°D`;
       if (ilceEl) ilceEl.textContent = a.town || a.county || a.city_district || a.district || "—";
       if (mahEl) mahEl.textContent = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || "—";
     } catch (_) {
-      if (ilEl) ilEl.textContent = "Konum alınamadı";
+      if (ilEl) ilEl.textContent = `${Number(lat).toFixed(2)}°K, ${Number(lng).toFixed(2)}°D`;
     }
   };
 
