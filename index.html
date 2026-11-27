@@ -1896,8 +1896,8 @@
 
   const extractNowVal = (j, field, offsetHours = 0) => {
     if (!j || typeof j !== "object") return null;
-    updateEcmwfHorizonFromJson(j);
-    updatePrecipTypeSummary(j);
+    if (typeof updateEcmwfHorizonFromJson === 'function') { try { updateEcmwfHorizonFromJson(j); } catch (_) {} }
+    if (typeof updatePrecipTypeSummary === 'function') { try { updatePrecipTypeSummary(j); } catch (_) {} }
     const off = Number(offsetHours);
     const hasOffset = typeof off === "number" && Number.isFinite(off) && Math.abs(off) > 0;
     if (!hasOffset && j.current && typeof j.current[field] === "number" && Number.isFinite(j.current[field])) {
