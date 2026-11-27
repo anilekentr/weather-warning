@@ -1957,6 +1957,16 @@
     const effOff = (typeof overrideOffset === 'number' && Number.isFinite(overrideOffset)) ? overrideOffset : ((typeof window.__ewHourOffset === 'number') ? window.__ewHourOffset : (typeof hourOffset === 'number' ? hourOffset : 0));
       const out = await fetchRealVal(lat, lng, cur, effOff);
     activeValue = out.val;
+    try {
+      console.log("[EW_DIAG]", {
+        code: cur?.code,
+        om: cur?.om,
+        unit: cur?.unit,
+        outVal: out?.val,
+        tag: out?.tag,
+        precipDetail: window.__lastPrecipTypeDetail || null
+      });
+    } catch (_) {}
 
     if (typeof out.val === "number" && Number.isFinite(out.val)) {
       const isWindDirMap = cur.unit === "°" || /wind_direction|^wd/i.test(cur.key || cur.code || cur.om || "");
