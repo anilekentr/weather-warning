@@ -1866,6 +1866,7 @@
     min: null,
     max: null,
     pointVal: null,
+    isLivePoint: false,
     valuesByIdx: [],
     globalValsByIdx: []
   };
@@ -2196,6 +2197,7 @@
     let minVal = item.min;
     let maxVal = item.max;
     let pointVal = null;
+    let isLivePoint = false;
     let valuesByIdx = [];
     let globalVals = [];
 
@@ -2203,6 +2205,7 @@
       minVal = lastRenderState.min;
       maxVal = lastRenderState.max;
       pointVal = lastRenderState.pointVal;
+      isLivePoint = Boolean(lastRenderState.isLivePoint);
       valuesByIdx = lastRenderState.valuesByIdx;
       globalVals = lastRenderState.globalValsByIdx || [];
     } else {
@@ -2212,7 +2215,8 @@
         Promise.all(GLOBAL_POINTS.map(g => fetchEcmwfPointSeries(g.lat, g.lon, item.code, hourIdx)))
       ]);
 
-      pointVal = (typeof ptRes === "number" && Number.isFinite(ptRes))
+      isLivePoint = typeof ptRes === "number" && Number.isFinite(ptRes);
+      pointVal = isLivePoint
         ? ptRes
         : fallbackPointValue(item, selectedPoint.lat, selectedPoint.lon, hourIdx);
 
@@ -2243,12 +2247,17 @@
         min: minVal,
         max: maxVal,
         pointVal,
+        isLivePoint,
         valuesByIdx,
         globalValsByIdx: globalVals
       };
     }
 
-    const midVal = (minVal + maxVal) / 2;
+    const allSampleVals = [pointVal, ...valuesByIdx, ...globalVals].filter(v => typeof v === "number" && Number.isFinite(v));
+    const avgVal = allSampleVals.length
+      ? allSampleVals.reduce((acc, v) => acc + v, 0) / allSampleVals.length
+      : (minVal + maxVal) / 2;
+
     const tEl = document.getElementById("cbar-title");
     const cEl = document.getElementById("cbar-code");
     const minEl = document.getElementById("cbar-min");
@@ -2258,13 +2267,12 @@
     if (tEl) tEl.textContent = item.name;
     if (cEl) cEl.textContent = item.code;
     if (minEl) minEl.textContent = formatNum(minVal, item.unit);
-    if (midEl) midEl.textContent = formatNum(midVal, item.unit);
+    if (midEl) midEl.textContent = formatNum(avgVal, item.unit);
     if (maxEl) maxEl.textContent = formatNum(maxVal, item.unit);
 
     const markerEl = ensureCbarMarker(rGrad, "ew-point-marker");
     positionCbarMarker(markerEl, pointVal, minVal, maxVal);
 
-    // Siyah kutuda seçili noktanın koordinatındaki değerini sade olarak yaz
     const cbarBox = document.getElementById("ew-cbar");
     if (cbarBox) {
       let singleBox = document.getElementById("ew-point-single-value");
@@ -2274,10 +2282,10 @@
         cbarBox.appendChild(singleBox);
       }
       const ptColor = colorForNorm((pointVal - minVal) / Math.max(1e-6, maxVal - minVal), item.palette);
-      singleBox.innerHTML = `<span style="color:${ptColor};">${formatNum(pointVal, item.unit)}</span>`;
+      const srcTag = isLivePoint ? "Canlı ECMWF" : "Yaklaşık değer";
+      singleBox.innerHTML = `<span style="color:${ptColor};">${formatNum(pointVal, item.unit)}</span> · <span style="color:#cbd5e1;font-weight:500;">${srcTag}</span>`;
     }
 
-    // Seçili değişkenin diğer noktalardaki değerlerine göre haritayı renklendir
     if (window.L && window.map) {
       if (!window.gridGroup) {
         window.gridGroup = L.layerGroup().addTo(window.map);
