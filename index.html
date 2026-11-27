@@ -965,7 +965,9 @@
           ].filter((v, i, arr) => v && arr.indexOf(v) === i);
           curAddr = parts.length ? parts.join(" · ") : (j.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
         }
-      } catch (_) {}
+      } catch (_e) {
+      try { if (window.__lastFetchDebug) window.__lastFetchDebug.err = String(_e && (_e.message || _e)); } catch (_) {}
+    }
       return curAddr;
     }
 
@@ -2045,9 +2047,11 @@ const fetchRealVal = async (lat, lng, v, offsetHours = (typeof hourOffset === 'n
     const reqDays = Math.min(16, Math.max(2, neededDays));
     const windUnitParam = v?.unit === "km/h" ? "&wind_speed_unit=kmh" : "";
     const hourlyUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${Number(lat).toFixed(4)}&longitude=${Number(lng).toFixed(4)}&hourly=${fieldsParam}${windUnitParam}&timezone=Europe%2FIstanbul&forecast_days=${reqDays}`;
+    try { window.__lastFetchDebug = { fieldName, hourlyUrl, ts: Date.now(), status: null, err: null }; } catch (_) {}
 
     try {
       const res = await fetch(hourlyUrl, { cache: "no-store" });
+      try { if (window.__lastFetchDebug) window.__lastFetchDebug.status = res.status; } catch (_) {}
       if (res.status === 429) {
         rateLimitUntil = Date.now() + 600;
         await sleep(650);
