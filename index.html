@@ -995,7 +995,7 @@
 
       const minV = Math.min(...pts.map(p => p.val));
       const maxV = Math.max(...pts.map(p => p.val));
-      document.getElementById("cbar-ticks").innerHTML = `<span>${minV.toFixed(1)} ${curVar.unit}</span><span>${((minV + maxV) / 2).toFixed(1)}</span><span>${maxV.toFixed(1)} ${curVar.unit}</span>`;
+      const ticksOut = document.getElementById("cbar-ticks"); if (ticksOut) ticksOut.innerHTML = `<span>${minV.toFixed(1)} ${curVar.unit || ""}</span><span>${((minV + maxV) / 2).toFixed(1)}</span><span>${maxV.toFixed(1)} ${curVar.unit || ""}</span>`;
 
       const img = ctx.createImageData(w, h);
       const d = img.data;
@@ -1533,7 +1533,7 @@
           `<span id="cbar-name">${targetVar.name} (${targetVar.code})</span>` +
           `<span id="cbar-unit" style="color:#7dd3fc;">${unitTxt}</span>` +
         `</div>` +
-        `<div id="cbar-grad" style="height:8px;border-radius:4px;margin:4px 0;background:${GRAD_CSS};border:1px solid rgba(255,255,255,0.25);"></div>` +
+        `<div id="cbar-grad" style="height:8px;border-radius:4px;margin:4px 0;background:${Array.isArray(targetVar.palette) && targetVar.palette.length > 1 ? `linear-gradient(90deg, ${targetVar.palette.map((c, i) => `rgb(${c[0]},${c[1]},${c[2]}) ${Math.round((i / (targetVar.palette.length - 1)) * 100)}%`).join(", ")})` : GRAD_CSS};border:1px solid rgba(255,255,255,0.25);"></div>` +
         markerHtml +
         `<div id="cbar-ticks" style="display:flex;justify-content:space-between;color:#e2e8f0;line-height:1.15;font-size:9px;">` +
           `<span>${safeMin}</span><span>${q1}</span><span>${q2}</span><span>${q3}</span><span>${safeMax}</span>` +
