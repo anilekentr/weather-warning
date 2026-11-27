@@ -1461,24 +1461,43 @@
   let activeCbarRange = null;
 
   const getEffectiveRange = (v, pts = []) => {
-    const baseMin = Number(v.min);
-    const baseMax = Number(v.max);
+    const hasOfficial = Boolean(
+      v && v.official === true &&
+      typeof v.min === "number" && Number.isFinite(v.min) &&
+      typeof v.max === "number" && Number.isFinite(v.max) &&
+      v.max > v.min
+    );
+
+    if (hasOfficial) {
+      return {
+        min: Number(Number(v.min).toFixed(2)),
+        max: Number(Number(v.max).toFixed(2)),
+        isOfficial: true
+      };
+    }
+
     const vals = (pts || [])
       .map(p => (typeof p === "number" ? p : p?.val))
       .filter(x => typeof x === "number" && Number.isFinite(x));
 
-    if (!vals.length) {
-      return { min: baseMin, max: baseMax };
+    if (typeof activeValue === "number" && Number.isFinite(activeValue) && !vals.includes(activeValue)) {
+      vals.push(activeValue);
     }
 
-    let dMin = Math.min(...vals);
-    let dMax = Math.max(...vals);
-    if (Math.abs(dMax - dMin) < 1e-6) {
-      dMin = Math.min(baseMin, dMin);
-      dMax = Math.max(baseMax, dMax);
-      if (Math.abs(dMax - dMin) < 1e-6) dMax = dMin + 1;
+    if (!vals.length) {
+      const fMin = typeof v?.min === "number" && Number.isFinite(v.min) ? Number(v.min) : 0;
+      const fMax = typeof v?.max === "number" && Number.isFinite(v.max) && v.max > fMin ? Number(v.max) : fMin + 1;
+      return { min: fMin, max: fMax, isOfficial: false };
     }
-    return { min: Number(dMin.toFixed(1)), max: Number(dMax.toFixed(1)) };
+
+    const dMin = Math.min(...vals);
+    let dMax = Math.max(...vals);
+    if (Math.abs(dMax - dMin) < 1e-9) {
+      dMax = dMin + 1;
+    }
+
+    const fmt = (n) => Number(n.toFixed(2));
+    return { min: fmt(dMin), max: fmt(dMax), isOfficial: false };
   };
 
   const ratioWithRange = (val, rng) => {
