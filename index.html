@@ -2945,51 +2945,67 @@ setInterval(syncFlagPosition, 1000);
 </script>
 <!-- EKEN CLEAN UNBLOCK & FLAG END -->
 
+
+
 <!-- EKEN WEATHER ONLY MAP START -->
 <style id="ew-only-map-style">
-  html, body, #map {
+  html, body {
     margin: 0 !important;
     padding: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
     overflow: hidden !important;
+    background: #0b1220 !important;
   }
-  body > *:not(#map):not(script):not(style) {
-    display: none !important;
-  }
-  #ew-single-panel,
-  #cbar,
-  #cbar-wrap,
-  #music-bar,
-  .leaflet-control-container .leaflet-top.leaflet-right,
-  .leaflet-control-container .leaflet-bottom.leaflet-right,
-  .leaflet-control-container .leaflet-bottom.leaflet-left {
-    display: none !important;
+  #map {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 1 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 </style>
 <script id="ew-only-map-script">
 (() => {
-  const keepOnlyMap = () => {
+  const hideNonMap = () => {
     const mapEl = document.getElementById("map");
     if (!mapEl) return;
-    Array.from(document.body.children).forEach((el) => {
-      if (el !== mapEl && el.tagName !== "SCRIPT" && el.tagName !== "STYLE") {
-        el.style.setProperty("display", "none", "important");
+
+    const all = Array.from(document.querySelectorAll("body *"));
+    for (const el of all) {
+      if (
+        el === mapEl ||
+        mapEl.contains(el) ||
+        el.contains(mapEl) ||
+        el.tagName === "SCRIPT" ||
+        el.tagName === "STYLE"
+      ) {
+        continue;
       }
-    });
+      el.style.setProperty("display", "none", "important");
+      el.style.setProperty("visibility", "hidden", "important");
+    }
+
     if (window.map && typeof window.map.invalidateSize === "function") {
       try { window.map.invalidateSize(); } catch (_) {}
     }
   };
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", keepOnlyMap, { once: true });
-  } else {
-    keepOnlyMap();
-  }
-  window.addEventListener("load", keepOnlyMap, { once: true });
+
+  hideNonMap();
+  document.addEventListener("DOMContentLoaded", hideNonMap);
+  window.addEventListener("load", hideNonMap);
+  setTimeout(hideNonMap, 300);
+  setTimeout(hideNonMap, 1200);
+
+  try {
+    const obs = new MutationObserver(() => hideNonMap());
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+  } catch (_) {}
 })();
 </script>
 <!-- EKEN WEATHER ONLY MAP END -->
-
 </body>
 </html>
