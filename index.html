@@ -1688,6 +1688,7 @@
       if (seq === spatialGridCache.seq) {
         const m = findMap();
         renderSpatialField(m, targetVar, spatialGridCache.points);
+      if (typeof syncActiveCbar === "function") syncActiveCbar(targetVar, null);
       }
     }
   };
@@ -1720,16 +1721,17 @@
 
     const targetVar = v || cur;
     const b = m.getBounds && m.getBounds().isValid && m.getBounds().isValid() ? m.getBounds() : null;
+    const _offB = (typeof window.__ewHourOffset === 'number') ? window.__ewHourOffset : (typeof hourOffset === 'number' ? hourOffset : 0);
     const bKey = b
-      ? `${targetVar.code}|${b.getSouth().toFixed(2)},${b.getWest().toFixed(2)},${b.getNorth().toFixed(2)},${b.getEast().toFixed(2)}`
-      : `${targetVar.code}`;
+      ? `${targetVar.code}|${_offB}|${b.getSouth().toFixed(2)},${b.getWest().toFixed(2)},${b.getNorth().toFixed(2)},${b.getEast().toFixed(2)}`
+      : `${targetVar.code}|${_offB}`;
 
     if (spatialGridCache.key !== bKey || !spatialGridCache.points.length) {
       spatialGridCache.seq += 1;
       const currentSeq = spatialGridCache.seq;
       const pts = buildViewportGridPoints(m).map(pt => {
         const _offCk = (typeof window.__ewHourOffset === 'number') ? window.__ewHourOffset : (typeof hourOffset === 'number' ? hourOffset : 0); const ck = `${targetVar.code}|${_offCk}|${pt.lat.toFixed(2)},${pt.lng.toFixed(2)}`;
-        if (obsCache[ck] && typeof obsCache[ck].val === "number") {
+        if (obsCache[ck] && typeof obsCache[ck].val === "number" && Number.isFinite(obsCache[ck].val)) {
           return { ...pt, val: obsCache[ck].val };
         }
         return pt;
@@ -1738,6 +1740,7 @@
       spatialGridCache.key = bKey;
       spatialGridCache.points = pts;
       renderSpatialField(m, targetVar, pts);
+      if (typeof syncActiveCbar === "function") syncActiveCbar(targetVar, null);
 
       if (spatialGridCache.timer) clearTimeout(spatialGridCache.timer);
       spatialGridCache.timer = setTimeout(() => {
@@ -1745,6 +1748,7 @@
       }, 150);
     } else {
       renderSpatialField(m, targetVar, spatialGridCache.points);
+      if (typeof syncActiveCbar === "function") syncActiveCbar(targetVar, null);
     }
   };
 
