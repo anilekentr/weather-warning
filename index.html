@@ -3146,18 +3146,39 @@
     return res;
   }
 
+  function degOnlyAndTrDir(deg) {
+    if (typeof deg !== "number" || !Number.isFinite(deg)) return null;
+    const norm = ((deg % 360) + 360) % 360;
+    const dirs = [
+      "Kuzey", "Kuzey-Kuzeydoğu", "Kuzeydoğu", "Doğu-Kuzeydoğu",
+      "Doğu", "Doğu-Güneydoğu", "Güneydoğu", "Güney-Güneydoğu",
+      "Güney", "Güney-Güneybatı", "Güneybatı", "Batı-Güneybatı",
+      "Batı", "Batı-Kuzeybatı", "Kuzeybatı", "Kuzey-Kuzeybatı"
+    ];
+    const idx = Math.round(norm / 22.5) % 16;
+    const roundedDeg = Math.round(norm);
+    return {
+      deg: roundedDeg,
+      trDir: dirs[idx],
+      text: `${roundedDeg}° · ${dirs[idx]}`
+    };
+  }
+
   function computeRangeStatsForVar(data, varCode, indices) {
     const h = data.hourly;
     const units = data.hourly_units || {};
     const meta = ALL_ECMWF_VARS.find(v => v[0] === varCode) || [varCode, varCode, ""];
     const unitStr = units[varCode] || meta[2] || "";
     const arr = Array.isArray(h[varCode]) ? h[varCode] : null;
+    const isWindDir = /wind_direction/i.test(varCode);
 
     let minVal = Infinity;
     let minTime = "-";
     let maxVal = -Infinity;
     let maxTime = "-";
     let sumVal = 0;
+    let sumSin = 0;
+    let sumCos = 0;
     let countVal = 0;
 
     if (arr) {
@@ -3173,14 +3194,42 @@
             maxTime = formatHourPretty(h.time[idx]);
           }
           sumVal += v;
+          const rad = (v * Math.PI) / 180;
+          sumSin += Math.sin(rad);
+          sumCos += Math.cos(rad);
           countVal += 1;
         }
       }
     }
 
-    const avgVal = countVal > 0 ? (sumVal / countVal) : null;
     const hasMin = Number.isFinite(minVal);
     const hasMax = Number.isFinite(maxVal);
+
+    if (isWindDir) {
+      const minInfo = hasMin ? degOnlyAndTrDir(minVal) : null;
+      const maxInfo = hasMax ? degOnlyAndTrDir(maxVal) : null;
+      let avgInfo = null;
+      let avgDegRaw = null;
+      if (countVal > 0) {
+        const meanAngle = (Math.atan2(sumSin / countVal, sumCos / countVal) * 180) / Math.PI;
+        avgDegRaw = ((meanAngle % 360) + 360) % 360;
+        avgInfo = degOnlyAndTrDir(avgDegRaw);
+      }
+
+      return {
+        unitStr: "°",
+        minVal: hasMin ? minInfo.deg : null,
+        minTime,
+        maxVal: hasMax ? maxInfo.deg : null,
+        maxTime,
+        avgVal: avgDegRaw,
+        minStr: minInfo ? `${minInfo.text} (${minTime})` : "-",
+        avgStr: avgInfo ? `${avgInfo.text}` : "-",
+        maxStr: maxInfo ? `${maxInfo.text} (${maxTime})` : "-"
+      };
+    }
+
+    const avgVal = countVal > 0 ? (sumVal / countVal) : null;
 
     return {
       unitStr,
