@@ -4946,459 +4946,9 @@
 </script>
 <!-- EW_EXACT_PICKED_VAR_POINT_CBAR_END -->
 
-<!-- EW_FORCE_SELECTED_VAR_ON_CLICK_START -->
-<script>
-(function () {
-  const VAR_MAP = [
-    ["wind_speed_10m", "wind speed 10m", "km/h"],
-    ["wind_speed_80m", "wind speed 80m", "km/h"],
-    ["wind_speed_100m", "wind speed 100m", "km/h"],
-    ["wind_speed_120m", "wind speed 120m", "km/h"],
-    ["wind_gusts_10m", "wind gusts 10m", "km/h"],
-    ["wind_speed_1000hPa", "wind speed (1000 hPa)", "km/h"],
-    ["wind_speed_925hPa", "wind speed (925 hPa)", "km/h"],
-    ["wind_speed_850hPa", "wind speed (850 hPa)", "km/h"],
-    ["wind_speed_700hPa", "wind speed (700 hPa)", "km/h"],
-    ["wind_speed_500hPa", "wind speed (500 hPa)", "km/h"],
-    ["temperature_2m", "temperature 2m", "°C"],
-    ["apparent_temperature", "apparent temperature", "°C"],
-    ["precipitation", "precipitation", "mm"],
-    ["rain", "rain", "mm"],
-    ["pressure_msl", "pressure msl", "hPa"],
-    ["relative_humidity_2m", "relative humidity 2m", "%"]
-  ];
 
-  let activeVar = {
-    key: "wind_speed_10m",
-    label: "wind speed 10m",
-    unit: "km/h",
-    value: NaN,
-    min: NaN,
-    max: NaN,
-    lat: 41.0082,
-    lon: 28.9784,
-    place: "İstanbul / Fatih · Mahalle: Eminönü"
-  };
-  let opSeq = 0;
-  let reinforceTimer = null;
 
-  function cleanLabel(key, rawText) {
-    if (key) {
-      return String(key)
-        .replace(/_(\d+)hPa$/, " ($1 hPa)")
-        .replace(/_(\d+)m$/, " ($1 m)")
-        .replace(/_/g, " ")
-        .trim();
-    }
-    if (rawText) {
-      return rawText.replace(/\[[^\]]+\]/g, "").trim();
-    }
-    return "variable";
-  }
 
-  function fmt(v, u) {
-    if (!Number.isFinite(v)) return "-";
-    if (u === "m³/m³") return v.toFixed(3);
-    if (u === "m/s") return v.toFixed(2);
-    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
-    return v.toFixed(2);
-  }
-
-  function paintPanels() {
-    const valStr = Number.isFinite(activeVar.value)
-      ? `${fmt(activeVar.value, activeVar.unit)} ${activeVar.unit}`.trim()
-      : `- ${activeVar.unit}`.trim();
-
-    const right = document.getElementById("ew-ui-right") || document.getElementById("ew-dual-panel");
-    if (right) {
-      right.innerHTML = `
-        <div style="font-size:11px;font-weight:700;color:#7dd3fc;">KOORDİNAT: ${activeVar.lat.toFixed(4)}°N, ${activeVar.lon.toFixed(4)}°E</div>
-        <div style="font-size:12px;font-weight:700;margin-top:4px;">${activeVar.place}</div>
-        <div style="font-size:14px;font-weight:800;margin-top:6px;">${activeVar.label} [${activeVar.unit}]: ${valStr}</div>
-      `;
-    }
-
-    const cbar = document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar");
-    if (cbar) {
-      const minStr = Number.isFinite(activeVar.min) ? `${fmt(activeVar.min, activeVar.unit)} ${activeVar.unit}`.trim() : "-";
-      const maxStr = Number.isFinite(activeVar.max) ? `${fmt(activeVar.max, activeVar.unit)} ${activeVar.unit}`.trim() : "-";
-      cbar.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;">
-          <span style="color:#e0f2fe;">${activeVar.label} · Birim: ${activeVar.unit}</span>
-          <span style="color:#ffffff;background:rgba(2,132,199,0.42);border:1px solid rgba(125,211,252,0.5);border-radius:6px;padding:2px 9px;">${valStr}</span>
-        </div>
-        <div style="height:11px;width:100%;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,#313695,#4575b4,#74add1,#abd9e9,#fee090,#fdae61,#f46d43,#d73027);"></div>
-        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#cbd5e1;">
-          <span>Nokta: ${activeVar.lat.toFixed(4)}°N, ${activeVar.lon.toFixed(4)}°E</span>
-          <span>Aralık: ${minStr} .. ${maxStr}</span>
-        </div>
-      `;
-    }
-  }
-
-  function scheduleReinforce() {
-    paintPanels();
-    if (reinforceTimer) clearInterval(reinforceTimer);
-    let ticks = 0;
-    reinforceTimer = setInterval(() => {
-      paintPanels();
-      ticks += 1;
-      if (ticks >= 12) {
-        clearInterval(reinforceTimer);
-        reinforceTimer = null;
-      }
-    }, 150);
-  }
-
-  async function fetchSelectedVarAtCoord(lat, lon, updateGeo) {
-    const seq = ++opSeq;
-    activeVar.lat = Number(lat);
-    activeVar.lon = Number(lon);
-    activeVar.value = NaN;
-    scheduleReinforce();
-
-    if (updateGeo) {
-      try {
-        const gUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${activeVar.lat}&lon=${activeVar.lon}&zoom=17&addressdetails=1&accept-language=tr`;
-        const gr = await fetch(gUrl, { headers: { Accept: "application/json" } });
-        if (gr.ok && seq === opSeq) {
-          const gj = await gr.json();
-          const a = gj.address || {};
-          const il = a.province || a.state || a.city || "Konum";
-          const ilce = a.town || a.county || a.city_district || a.district || "";
-          const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.road || "-";
-          activeVar.place = `${[il, ilce].filter(Boolean).join(" / ")} · Mahalle: ${mah}`;
-          scheduleReinforce();
-        }
-      } catch (_) {}
-    }
-
-    try {
-      const eUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${activeVar.lat.toFixed(4)}&longitude=${activeVar.lon.toFixed(4)}&hourly=${encodeURIComponent(activeVar.key)}&timezone=auto&forecast_days=7`;
-      const er = await fetch(eUrl);
-      if (!er.ok || seq !== opSeq) return;
-      const ej = await er.json();
-      const raw = (ej && ej.hourly && Array.isArray(ej.hourly[activeVar.key])) ? ej.hourly[activeVar.key] : [];
-      const times = (ej && ej.hourly && Array.isArray(ej.hourly.time)) ? ej.hourly.time : [];
-      if (ej && ej.hourly_units && ej.hourly_units[activeVar.key]) {
-        activeVar.unit = ej.hourly_units[activeVar.key];
-      }
-      const nums = raw.map(Number).filter(Number.isFinite);
-      if (nums.length) {
-        activeVar.min = Math.min(...nums);
-        activeVar.max = Math.max(...nums);
-        let idx = 0, best = Infinity, nowMs = Date.now();
-        times.forEach((t, i) => {
-          const d = Math.abs(Date.parse(t) - nowMs);
-          if (Number.isFinite(d) && d < best) { best = d; idx = i; }
-        });
-        activeVar.value = nums[Math.min(nums.length - 1, idx)];
-      }
-      scheduleReinforce();
-    } catch (_) {}
-  }
-
-  document.addEventListener("click", function (ev) {
-    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
-    if (!btn) return;
-    const txt = (btn.textContent || "").trim();
-    const low = txt.toLowerCase();
-
-    let key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey || btn.dataset.om)) || "";
-    let unit = (btn.dataset && btn.dataset.unit) || "";
-    let label = "";
-
-    const um = txt.match(/\[([^\]]+)\]/);
-    if (!unit && um) unit = um[1].trim();
-
-    if (!key) {
-      for (const [k, lbl, u] of VAR_MAP) {
-        const normLbl = lbl.replace(/[()]/g, "").replace(/\s+/g, " ");
-        const normLow = low.replace(/[()]/g, "").replace(/\s+/g, " ");
-        if (normLow.includes(normLbl) || normLow.includes(k.toLowerCase().replace(/_/g, " "))) {
-          key = k;
-          label = lbl;
-          if (!unit) unit = u;
-          break;
-        }
-      }
-    }
-
-    if (!key && txt.includes("[")) {
-      label = txt.split("[")[0].trim();
-      key = label.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
-    }
-
-    if (key) {
-      activeVar.key = key;
-      activeVar.label = label || cleanLabel(key, txt);
-      if (unit) activeVar.unit = unit;
-      fetchSelectedVarAtCoord(activeVar.lat, activeVar.lon, false);
-    }
-  }, true);
-
-  function hookClickOnMap() {
-    const mp = window.map || window._map;
-    if (mp && typeof mp.on === "function" && !mp.__ewForceVarHook) {
-      mp.__ewForceVarHook = true;
-      mp.on("click", function (ev) {
-        if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
-          fetchSelectedVarAtCoord(ev.latlng.lat, ev.latlng.lng, true);
-        }
-      });
-    }
-  }
-
-  setInterval(hookClickOnMap, 500);
-  setTimeout(() => {
-    hookClickOnMap();
-    fetchSelectedVarAtCoord(activeVar.lat, activeVar.lon, true);
-  }, 300);
-})();
-</script>
-<!-- EW_FORCE_SELECTED_VAR_ON_CLICK_END -->
-
-<!-- EW_FIX_POPUP_VAR_PLACE_START -->
-<script>
-(function () {
-  const VAR_LOOKUP = [
-    ["wind_gusts_10m", "wind gusts 10m", "km/h"],
-    ["wind_speed_10m", "wind speed 10m", "km/h"],
-    ["wind_speed_80m", "wind speed 80m", "km/h"],
-    ["wind_speed_100m", "wind speed 100m", "km/h"],
-    ["wind_speed_120m", "wind speed 120m", "km/h"],
-    ["wind_direction_10m", "wind direction 10m", "°"],
-    ["temperature_2m", "temperature 2m", "°C"],
-    ["apparent_temperature", "apparent temperature", "°C"],
-    ["precipitation", "precipitation", "mm"],
-    ["rain", "rain", "mm"],
-    ["pressure_msl", "pressure msl", "hPa"],
-    ["relative_humidity_2m", "relative humidity 2m", "%"]
-  ];
-
-  const state = {
-    key: "wind_gusts_10m",
-    label: "wind gusts 10m",
-    unit: "km/h",
-    value: NaN,
-    min: NaN,
-    max: NaN,
-    lat: 40.2942,
-    lon: 27.9272,
-    il: "",
-    ilce: "",
-    mahalle: "",
-    placeLine: ""
-  };
-
-  let seq = 0;
-  const geoCache = new Map();
-  const dataCache = new Map();
-
-  function cleanVarLabel(key, raw) {
-    if (key) {
-      return String(key)
-        .replace(/_(\d+)hPa$/, " ($1 hPa)")
-        .replace(/_(\d+)m$/, " ($1 m)")
-        .replace(/_/g, " ")
-        .trim();
-    }
-    return String(raw || "variable").replace(/\[[^\]]+\]/g, "").trim();
-  }
-
-  function fmt(v, u) {
-    if (!Number.isFinite(v)) return "-";
-    if (u === "m³/m³") return v.toFixed(3);
-    if (u === "m/s") return v.toFixed(2);
-    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
-    return v.toFixed(2);
-  }
-
-  function buildPopupHtml() {
-    const coordStr = `${state.lat.toFixed(4)}°N, ${state.lon.toFixed(4)}°E`;
-    const locStr = state.placeLine || `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
-    const valStr = Number.isFinite(state.value)
-      ? `${fmt(state.value, state.unit)} ${state.unit}`.trim()
-      : `- ${state.unit}`.trim();
-    return `<div><b>${locStr}</b><br/>${coordStr}<br/><b>${state.label}:</b> ${valStr}</div>`;
-  }
-
-  function syncOpenPopupsAndPanels() {
-    const valStr = Number.isFinite(state.value)
-      ? `${fmt(state.value, state.unit)} ${state.unit}`.trim()
-      : `- ${state.unit}`.trim();
-    const coordStr = `${state.lat.toFixed(4)}°N, ${state.lon.toFixed(4)}°E`;
-    const popupHtml = buildPopupHtml();
-
-    // Haritadaki açık popup içeriklerini güncelle
-    document.querySelectorAll(".leaflet-popup-content").forEach(el => {
-      el.innerHTML = popupHtml;
-    });
-
-    // Sağ paneli güncelle
-    const right = document.getElementById("ew-ui-right") || document.getElementById("ew-dual-panel");
-    if (right) {
-      right.innerHTML = `
-        <div style="font-size:11px;font-weight:700;color:#7dd3fc;">KOORDİNAT: ${coordStr}</div>
-        <div style="font-size:12px;font-weight:700;margin-top:4px;">${state.placeLine || "-"}</div>
-        <div style="font-size:14px;font-weight:800;margin-top:6px;">${state.label} [${state.unit}]: ${valStr}</div>
-      `;
-    }
-
-    // CBAR'ı güncelle
-    const cbar = document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar");
-    if (cbar) {
-      const minStr = Number.isFinite(state.min) ? `${fmt(state.min, state.unit)} ${state.unit}`.trim() : "-";
-      const maxStr = Number.isFinite(state.max) ? `${fmt(state.max, state.unit)} ${state.unit}`.trim() : "-";
-      cbar.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;">
-          <span style="color:#e0f2fe;">${state.label} · Birim: ${state.unit}</span>
-          <span style="color:#ffffff;background:rgba(2,132,199,0.42);border:1px solid rgba(125,211,252,0.5);border-radius:6px;padding:2px 9px;">${valStr}</span>
-        </div>
-        <div style="height:11px;width:100%;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,#313695,#4575b4,#74add1,#abd9e9,#fee090,#fdae61,#f46d43,#d73027);"></div>
-        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#cbd5e1;">
-          <span>Nokta: ${coordStr}</span>
-          <span>Aralık: ${minStr} .. ${maxStr}</span>
-        </div>
-      `;
-    }
-  }
-
-  async function refreshLocationAndVariable(lat, lon) {
-    const mySeq = ++seq;
-    state.lat = Number(lat);
-    state.lon = Number(lon);
-    state.value = NaN;
-    syncOpenPopupsAndPanels();
-
-    const gKey = `${state.lat.toFixed(4)},${state.lon.toFixed(4)}`;
-    if (geoCache.has(gKey)) {
-      state.placeLine = geoCache.get(gKey);
-      syncOpenPopupsAndPanels();
-    } else {
-      try {
-        const gUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(state.lat)}&lon=${encodeURIComponent(state.lon)}&zoom=17&addressdetails=1&accept-language=tr`;
-        const gr = await fetch(gUrl, { headers: { Accept: "application/json" } });
-        if (gr.ok && mySeq === seq) {
-          const gj = await gr.json();
-          const a = gj.address || {};
-          const il = a.province || a.state || a.city || "Konum";
-          const ilce = a.town || a.county || a.city_district || a.district || "";
-          const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.road || "-";
-          const line = `${[il, ilce].filter(Boolean).join(" / ")} · Mahalle: ${mah}`;
-          geoCache.set(gKey, line);
-          state.placeLine = line;
-          syncOpenPopupsAndPanels();
-        }
-      } catch (_) {}
-    }
-
-    const dKey = `${state.lat.toFixed(3)},${state.lon.toFixed(3)}:${state.key}`;
-    if (dataCache.has(dKey)) {
-      const hit = dataCache.get(dKey);
-      state.value = hit.value;
-      state.min = hit.min;
-      state.max = hit.max;
-      state.unit = hit.unit || state.unit;
-      syncOpenPopupsAndPanels();
-      return;
-    }
-
-    try {
-      const eUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${state.lat.toFixed(4)}&longitude=${state.lon.toFixed(4)}&hourly=${encodeURIComponent(state.key)}&timezone=auto&forecast_days=7`;
-      const er = await fetch(eUrl);
-      if (!er.ok || mySeq !== seq) return;
-      const ej = await er.json();
-      const raw = (ej && ej.hourly && Array.isArray(ej.hourly[state.key])) ? ej.hourly[state.key] : [];
-      const times = (ej && ej.hourly && Array.isArray(ej.hourly.time)) ? ej.hourly.time : [];
-      const unit = (ej && ej.hourly_units && ej.hourly_units[state.key]) ? ej.hourly_units[state.key] : state.unit;
-      const nums = raw.map(Number).filter(Number.isFinite);
-      if (nums.length) {
-        let idx = 0, best = Infinity, nowMs = Date.now();
-        times.forEach((t, i) => {
-          const d = Math.abs(Date.parse(t) - nowMs);
-          if (Number.isFinite(d) && d < best) { best = d; idx = i; }
-        });
-        const pack = {
-          value: nums[Math.min(nums.length - 1, idx)],
-          min: Math.min(...nums),
-          max: Math.max(...nums),
-          unit
-        };
-        dataCache.set(dKey, pack);
-        state.value = pack.value;
-        state.min = pack.min;
-        state.max = pack.max;
-        state.unit = pack.unit;
-      }
-      syncOpenPopupsAndPanels();
-    } catch (_) {}
-  }
-
-  document.addEventListener("click", function (ev) {
-    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
-    if (!btn) return;
-    const raw = (btn.textContent || "").trim();
-    const low = raw.toLowerCase();
-
-    let key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey || btn.dataset.om)) || "";
-    let unit = (btn.dataset && btn.dataset.unit) || "";
-    let label = "";
-
-    const um = raw.match(/\[([^\]]+)\]/);
-    if (!unit && um) unit = um[1].trim();
-
-    if (!key) {
-      for (const [k, lbl, u] of VAR_LOOKUP) {
-        if (low.includes(lbl) || low.includes(k.toLowerCase().replace(/_/g, " ")) || (low.includes("gust") && k === "wind_gusts_10m")) {
-          key = k;
-          label = lbl;
-          if (!unit) unit = u;
-          break;
-        }
-      }
-    }
-
-    if (!key && raw.includes("[")) {
-      label = raw.split("[")[0].trim();
-      key = label.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
-    }
-
-    if (key) {
-      state.key = key;
-      state.label = label || cleanVarLabel(key, raw);
-      if (unit) state.unit = unit;
-      refreshLocationAndVariable(state.lat, state.lon);
-    }
-  }, true);
-
-  function hookLeaflet() {
-    const mp = window.map || window._map;
-    if (mp && typeof mp.on === "function" && !mp.__ewPopupFixBound) {
-      mp.__ewPopupFixBound = true;
-      mp.on("click", function (ev) {
-        if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
-          refreshLocationAndVariable(ev.latlng.lat, ev.latlng.lng);
-        }
-      });
-      mp.on("popupopen", function () {
-        setTimeout(syncOpenPopupsAndPanels, 20);
-      });
-    }
-  }
-
-  setInterval(() => {
-    hookLeaflet();
-    syncOpenPopupsAndPanels();
-  }, 400);
-
-  setTimeout(() => {
-    hookLeaflet();
-    refreshLocationAndVariable(state.lat, state.lon);
-  }, 250);
-})();
-</script>
-<!-- EW_FIX_POPUP_VAR_PLACE_END -->
 
 
 
@@ -5985,12 +5535,15 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </script>
 <!-- EW_POINT_BASED_COLORING_END -->
 
+
+
 <!-- EW_PIN_COORD_LOCK_START -->
 <script>
 (function () {
   const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
-  let pinned = { lat: 41.0082, lon: 28.9784, val: NaN, unit: "°C", name: "temperature 2m" };
+  const pinned = { lat: 41.0082, lon: 28.9784, val: NaN, unit: "°C", name: "temperature 2m" };
   let lockedLayer = null;
+  let updatingDom = false;
 
   function getMap() {
     if (window.map && typeof window.map.addLayer === "function") return window.map;
@@ -6006,16 +5559,27 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   }
 
   function syncCoordTexts() {
-    const cStr = `${pinned.lat.toFixed(4)}°N, ${pinned.lon.toFixed(4)}°E`;
-    const cbar = document.getElementById("ew-static-cbar");
-    if (cbar) {
-      const subSpans = cbar.querySelectorAll(".ew-sc-sub span");
-      if (subSpans.length >= 1) subSpans[0].textContent = cStr;
-    }
-    const rp = document.getElementById("ew-ui-right");
-    if (rp) {
-      const divs = rp.querySelectorAll("div");
-      if (divs.length >= 1) divs[0].textContent = `KOORDİNAT: ${cStr}`;
+    if (updatingDom) return;
+    updatingDom = true;
+    try {
+      const cStr = `${pinned.lat.toFixed(4)}°N, ${pinned.lon.toFixed(4)}°E`;
+      const cbar = document.getElementById("ew-static-cbar");
+      if (cbar) {
+        const subSpans = cbar.querySelectorAll(".ew-sc-sub span");
+        if (subSpans.length >= 1 && subSpans[0].textContent !== cStr) {
+          subSpans[0].textContent = cStr;
+        }
+      }
+      const rp = document.getElementById("ew-ui-right");
+      if (rp) {
+        const divs = rp.querySelectorAll("div");
+        const target = `KOORDİNAT: ${cStr}`;
+        if (divs.length >= 1 && divs[0].textContent !== target) {
+          divs[0].textContent = target;
+        }
+      }
+    } finally {
+      updatingDom = false;
     }
   }
 
@@ -6033,26 +5597,25 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     const baseVal = Number.isFinite(pinned.val) ? pinned.val : 15;
     const offsets = [
       [0, 0],
-      [0.35, 0], [-0.35, 0], [0, 0.45], [0, -0.45],
-      [0.35, 0.45], [0.35, -0.45], [-0.35, 0.45], [-0.35, -0.45],
-      [0.75, 0], [-0.75, 0], [0, 0.9], [0, -0.9]
+      [0.25, 0], [-0.25, 0], [0, 0.35], [0, -0.35],
+      [0.25, 0.35], [0.25, -0.35], [-0.25, 0.35], [-0.25, -0.35]
     ];
 
     offsets.forEach(([dLat, dLon], idx) => {
       const lat = pinned.lat + dLat;
       const lon = pinned.lon + dLon;
       const dist = Math.hypot(dLat, dLon);
-      const val = baseVal + (0.5 - Math.min(1, dist)) * Math.max(Math.abs(baseVal) * 0.3, 3);
+      const val = baseVal + (0.4 - Math.min(1, dist)) * Math.max(Math.abs(baseVal) * 0.25, 2.5);
       const col = colorFromVal(val, baseVal);
 
-      window.L.circleMarker([lat, lon], {
-        radius: idx === 0 ? 9 : 7,
-        stroke: true,
-        color: idx === 0 ? "#ffffff" : col,
-        weight: idx === 0 ? 2.5 : 1,
-        opacity: idx === 0 ? 1 : 0.55,
+      window.L.circle([lat, lon], {
+        radius: idx === 0 ? 7500 : 12000,
+        stroke: idx === 0,
+        color: "#ffffff",
+        weight: idx === 0 ? 2 : 0,
+        opacity: idx === 0 ? 0.95 : 0,
         fillColor: col,
-        fillOpacity: idx === 0 ? 0.95 : 0.55,
+        fillOpacity: idx === 0 ? 0.9 : 0.48,
         interactive: false
       }).addTo(lockedLayer);
     });
@@ -6069,16 +5632,19 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
         pinned.lat = Number(ev.latlng.lat);
         pinned.lon = Number(ev.latlng.lng);
-        syncCoordTexts();
         drawPinnedPoints();
       }
     });
   }
 
-  const obs = new MutationObserver(function () {
+  function watchCbarValue() {
     const cbar = document.getElementById("ew-static-cbar");
-    if (cbar && cbar.textContent) {
-      const mVal = cbar.textContent.match(/(-?\d+(?:\.\d+)?)\s*(°C|km\/h|mm|cm|hPa|m\/s|J\/kg|m³\/m³|%)/i);
+    if (!cbar || cbar.__ewValObserved) return;
+    cbar.__ewValObserved = true;
+
+    const obs = new MutationObserver(function () {
+      if (updatingDom) return;
+      const mVal = (cbar.textContent || "").match(/(-?\d+(?:\.\d+)?)\s*(°C|km\/h|mm|cm|hPa|m\/s|J\/kg|m³\/m³|%)/i);
       if (mVal) {
         const nextVal = Number(mVal[1]);
         if (Number.isFinite(nextVal) && nextVal !== pinned.val) {
@@ -6086,22 +5652,21 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
           drawPinnedPoints();
         }
       }
-    }
-    syncCoordTexts();
-  });
+      syncCoordTexts();
+    });
+    obs.observe(cbar, { childList: true, subtree: true, characterData: true });
+  }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
       bindPinClick();
+      watchCbarValue();
       drawPinnedPoints();
-      const cbar = document.getElementById("ew-static-cbar");
-      if (cbar) obs.observe(cbar, { childList: true, subtree: true, characterData: true });
     });
   } else {
     bindPinClick();
+    watchCbarValue();
     drawPinnedPoints();
-    const cbar = document.getElementById("ew-static-cbar");
-    if (cbar) obs.observe(cbar, { childList: true, subtree: true, characterData: true });
   }
 })();
 </script>
