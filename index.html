@@ -1887,16 +1887,17 @@
 </style>
 <script id="ew-point-instant-summary-script">
 (function() {
-  let selectedPoint = { lat: 40.8120, lon: 29.3774 };
-  let hoverPoint = null;
-  let hourOffset = 0; // -1: 1 saat önce (ECMWF Canlı), 0: Şu an (ECMWF Canlı), +1: 1 saat sonra (ECMWF Yakın)
+  // Tek ortak nokta durumu: sayfadaki tüm konum etiketleri, harita ve kutu bu tek noktayı gösterir
+  let activePoint = { lat: 40.8120, lon: 29.3774 };
   let activeLocation = {
     il: "Kocaeli",
     ilce: "Gebze",
     mahalle: "Cumhuriyet Mahallesi"
   };
-  let clickEpoch = 0;
+  let hourOffset = 0; // -1: 1 saat önce (ECMWF Canlı), 0: Şu an (ECMWF Canlı), +1: 1 saat sonra (ECMWF Yakın)
+  let queryEpoch = 0;
   let activeAbortController = null;
+  let hoverDebounceTimer = null;
   const geoCache = new Map();
   const seriesCache = new Map();
 
@@ -1962,7 +1963,7 @@
   function getModeMeta(offset) {
     if (offset > 0) {
       return {
-        tag: "ECMWF Yakın (Tahmin / Gerçek Değil)",
+        tag: "ECMWF Yakın (+1s · Gerçek Değil)",
         isLive: false,
         badgeClass: "ew-pi-badge-approx",
         valClass: "ew-pi-approx",
@@ -2033,9 +2034,14 @@
     return null;
   }
 
-  function syncExistingLocationLabels() {
+  // Sayfadaki tüm Koordinat / İl / İlçe / Mahalle satırlarını tek bir noktaya eşitler (çift konum birleşmesini önler)
+  function syncAllLocationTextEverywhere() {
     purgeCbarsAndErrorText();
-    const coordStr = `${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}`;
+    const coordStr = `${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}`;
+    const ilStr = activeLocation.il || "Bölge";
+    const ilceStr = activeLocation.ilce || "Merkez";
+    const mahalleStr = activeLocation.mahalle || "-";
+
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
@@ -2044,11 +2050,11 @@
       if (/^\s*Koordinat\s*:/i.test(txt)) {
         node.nodeValue = `Koordinat: ${coordStr}`;
       } else if (/^\s*İl\s*:/i.test(txt)) {
-        node.nodeValue = `İl: ${activeLocation.il || "Bölge"}`;
+        node.nodeValue = `İl: ${ilStr}`;
       } else if (/^\s*İlçe\s*:/i.test(txt)) {
-        node.nodeValue = `İlçe: ${activeLocation.ilce || "Merkez"}`;
+        node.nodeValue = `İlçe: ${ilceStr}`;
       } else if (/^\s*Mahalle\s*\/\s*Semt\s*:/i.test(txt)) {
-        node.nodeValue = `Mahalle / Semt: ${activeLocation.mahalle || "-"}`;
+        node.nodeValue = `Mahalle / Semt: ${mahalleStr}`;
       }
     }
   }
@@ -2078,7 +2084,7 @@
       return resolved;
     } catch (_) {
       return {
-        il: "Seçilen Nokta",
+        il: "Aktif Nokta",
         ilce: `${lat.toFixed(4)}`,
         mahalle: `${lon.toFixed(4)}`
       };
@@ -2155,7 +2161,7 @@
 
   function renderInstantBox(weather, isFetching) {
     purgeCbarsAndErrorText();
-    syncExistingLocationLabels();
+    syncAllLocationTextEverywhere();
 
     let box = document.getElementById("ew-point-instant-box");
     if (!box) {
@@ -2190,10 +2196,7 @@
       ? `<span class="ew-pi-val ${mode.valClass}">${val}</span>`
       : `<span class="ew-pi-val ${mode.valClass}">${isFetching ? "Güncelleniyor..." : "-"}</span>`;
 
-    const coordStr = `${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}`;
-    const hoverLine = hoverPoint
-      ? `<div><strong>İmleç Koordinatı:</strong> <span class="ew-pi-live">${hoverPoint.lat.toFixed(4)}, ${hoverPoint.lon.toFixed(4)}</span></div>`
-      : "";
+    const coordStr = `${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}`;
 
     box.innerHTML =
       `<div class="ew-pi-header"><span>${mode.tag} · ${w.timeLabel}</span><span class="${mode.badgeClass}">${mode.isLive ? "Canlı" : "Yakın Değer"}</span></div>` +
@@ -2203,9 +2206,8 @@
         `<button type="button" class="ew-pi-step-btn ${hourOffset === 1 ? "active" : ""}" data-step="1">+1</button>` +
       `</div>` +
       `<div class="ew-pi-loc">` +
-        `<div><strong>Seçilen Koordinat:</strong> <span class="ew-pi-live">${coordStr}</span></div>` +
-        hoverLine +
-        `<div><strong>Konum:</strong> <span class="ew-pi-live">${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</span></div>` +
+        `<div><strong>Koordinat:</strong> <span class="${mode.valClass}">${coordStr}</span></div>` +
+        `<div><strong>Konum:</strong> <span class="${mode.valClass}">${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</span></div>` +
       `</div>` +
       `<div class="ew-pi-grid">` +
         `<span class="ew-pi-lbl">2m Sıcaklığı:</span>${fmtVal(w.tempStr)}` +
@@ -2259,7 +2261,7 @@
     window._ewPointInstantLayer.clearLayers();
 
     const mode = getModeMeta(hourOffset);
-    L.circleMarker([selectedPoint.lat, selectedPoint.lon], {
+    L.circleMarker([activePoint.lat, activePoint.lon], {
       radius: 8,
       color: "#ffffff",
       weight: 2.5,
@@ -2270,13 +2272,13 @@
 
     const g = v => v ? `<strong style="color:${mode.colorHex};">${v}</strong>` : `<strong style="color:${mode.colorHex};">...</strong>`;
     const htmlBadge =
-      `<div><strong>${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}</strong> · <strong style="color:${mode.colorHex};">${mode.tag}</strong></div>` +
-      `<div><strong>${activeLocation.il} / ${activeLocation.ilce}</strong></div>` +
+      `<div><strong>${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}</strong> · <strong style="color:${mode.colorHex};">${mode.tag}</strong></div>` +
+      `<div><strong>${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</strong></div>` +
       `<div>2m Sıcaklık: ${g(weather && weather.tempStr)} · Nem: ${g(weather && weather.humidityStr)} · Bulut: ${g(weather && weather.cloudCoverStr)}</div>` +
       `<div>Rüzgar: ${g(weather && weather.windSpeedStr)} · ${g(weather && weather.windDirStr)}</div>` +
       `<div>Yağış: ${g(weather && weather.precipAmountStr)} (${g(weather && weather.precipTypeStr)})</div>`;
 
-    L.marker([selectedPoint.lat, selectedPoint.lon], {
+    L.marker([activePoint.lat, activePoint.lon], {
       icon: L.divIcon({
         className: "ew-map-point-badge",
         html: htmlBadge,
@@ -2287,36 +2289,38 @@
     }).addTo(window._ewPointInstantLayer);
   }
 
-  async function refreshSelectedPoint(lat, lon) {
+  async function applyUnifiedPoint(lat, lon) {
     if (activeAbortController) {
       try { activeAbortController.abort(); } catch (_) {}
     }
     activeAbortController = new AbortController();
     const signal = activeAbortController.signal;
 
-    const myEpoch = ++clickEpoch;
-    selectedPoint = { lat, lon };
+    const myEpoch = ++queryEpoch;
+    activePoint = { lat, lon };
     activeLocation = {
       il: "Konum...",
-      ilce: `${lat.toFixed(2)}`,
-      mahalle: `${lon.toFixed(2)}`
+      ilce: `${lat.toFixed(4)}`,
+      mahalle: `${lon.toFixed(4)}`
     };
 
+    syncAllLocationTextEverywhere();
     renderInstantBox(null, true);
     const mapObj = resolveLeafletMap();
     if (mapObj) updateMapPinAndPopup(mapObj, null);
 
     resolveReverseLocation(lat, lon, signal).then(loc => {
-      if (myEpoch !== clickEpoch) return;
+      if (myEpoch !== queryEpoch) return;
       activeLocation = loc;
-      syncExistingLocationLabels();
+      syncAllLocationTextEverywhere();
       renderInstantBox(null, true);
       if (mapObj) updateMapPinAndPopup(mapObj, null);
     });
 
     const weather = await fetchEcmwfForOffset(lat, lon, hourOffset, signal);
-    if (myEpoch !== clickEpoch) return;
+    if (myEpoch !== queryEpoch) return;
 
+    syncAllLocationTextEverywhere();
     renderInstantBox(weather, false);
     if (mapObj) updateMapPinAndPopup(mapObj, weather);
   }
@@ -2324,11 +2328,12 @@
   async function setHourOffset(nextOffset) {
     const clamped = Math.max(-1, Math.min(1, Number(nextOffset) || 0));
     hourOffset = clamped;
-    const myEpoch = ++clickEpoch;
+    const myEpoch = ++queryEpoch;
+    syncAllLocationTextEverywhere();
     renderInstantBox(null, true);
 
-    const weather = await fetchEcmwfForOffset(selectedPoint.lat, selectedPoint.lon, hourOffset, null);
-    if (myEpoch !== clickEpoch) return;
+    const weather = await fetchEcmwfForOffset(activePoint.lat, activePoint.lon, hourOffset, null);
+    if (myEpoch !== queryEpoch) return;
 
     renderInstantBox(weather, false);
     const mapObj = resolveLeafletMap();
@@ -2341,14 +2346,17 @@
       mapObj._ewInstantClickBound = true;
       mapObj.on("click", function(ev) {
         if (!ev || !ev.latlng) return;
-        refreshSelectedPoint(ev.latlng.lat, ev.latlng.lng);
+        if (hoverDebounceTimer) clearTimeout(hoverDebounceTimer);
+        applyUnifiedPoint(ev.latlng.lat, ev.latlng.lng);
       });
       mapObj.on("mousemove", function(ev) {
         if (!ev || !ev.latlng) return;
-        hoverPoint = { lat: ev.latlng.lat, lon: ev.latlng.lng };
-      });
-      mapObj.on("mouseout", function() {
-        hoverPoint = null;
+        const lat = ev.latlng.lat;
+        const lon = ev.latlng.lng;
+        if (hoverDebounceTimer) clearTimeout(hoverDebounceTimer);
+        hoverDebounceTimer = setTimeout(() => {
+          applyUnifiedPoint(lat, lon);
+        }, 180);
       });
     }
   }
@@ -2356,7 +2364,7 @@
   function init() {
     purgeCbarsAndErrorText();
     bindMapClickAndHover();
-    refreshSelectedPoint(selectedPoint.lat, selectedPoint.lon);
+    applyUnifiedPoint(activePoint.lat, activePoint.lon);
   }
 
   if (document.readyState === "loading") {
@@ -2367,7 +2375,7 @@
 
   setInterval(() => {
     purgeCbarsAndErrorText();
-    syncExistingLocationLabels();
+    syncAllLocationTextEverywhere();
     bindMapClickAndHover();
   }, 1000);
 })();
