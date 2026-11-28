@@ -1722,8 +1722,8 @@
 })();
 </script>
 
-<!-- ew-4e4e484-only-1h-start -->
-<style id="ew-4e4e484-only-1h-style">
+<!-- ew-4e4e484-coord-instant-start -->
+<style id="ew-4e4e484-coord-instant-style">
   #ew-range-player-box, #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale), .ew-inline-hour-btn { display: none !important; }
   .ew-top-cbar-warn { display: none !important; }
   #ew-player-cbar-wrap { display: block !important; opacity: 1 !important; visibility: visible !important; position: fixed !important; top: 12px !important; left: 50% !important; right: auto !important; transform: translateX(-50%) !important; width: min(560px, calc(100vw - 320px)) !important; min-width: 320px !important; z-index: 1600 !important; padding: 8px 12px !important; border-radius: 10px !important; background: rgba(15, 23, 42, 0.94) !important; border: 1px solid rgba(148, 163, 184, 0.45) !important; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45) !important; }
@@ -1738,7 +1738,7 @@
   .ew-ecmwf-play-btn { padding: 5px 10px; border-radius: 6px; border: 1px solid #38bdf8; background: #0284c7; color: #ffffff; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
   .ew-ecmwf-play-btn.playing { background: #dc2626; border-color: #f87171; }
 </style>
-<script id="ew-4e4e484-only-1h-script">
+<script id="ew-4e4e484-coord-instant-script">
 (function() {
   const VAR_RANGES = {
     temperature_2m: { min: -10, max: 38, unit: "°C", palette: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"] },
@@ -1761,11 +1761,33 @@
   };
   const toInputVal = ms => { const d = new Date(ms), pad = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`; };
   const nowHourMs = Math.floor(Date.now() / 3600000) * 3600000;
-  const pState = { startMs: nowHourMs - 12 * 3600000, endMs: nowHourMs + 12 * 3600000, stepIdx: 12, playing: false, timer: null, lat: 41.0082, lng: 28.9784 };
+  const pState = { startMs: nowHourMs - 12 * 3600000, endMs: nowHourMs + 12 * 3600000, stepIdx: 12, playing: false, timer: null, lat: 41.0082, lng: 28.9784, lastVar: "", lastCoordKey: "" };
   function extractUnitFromText(txt) { const m = (txt || "").match(/\(([^()]+)\)\s*$/); return m ? m[1].trim() : ""; }
+  function parseCoordPairFromText(txt) {
+    if (!txt) return null;
+    const m = txt.match(/(-?\d+(?:\.\d+)?)\s*[,;/]\s*(-?\d+(?:\.\d+)?)/);
+    if (!m) return null;
+    const lat = Number(m[1]), lng = Number(m[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+    return { lat, lng };
+  }
   function readSelectedCoords() {
-    if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") { pState.lat = window.coords.lat; pState.lng = window.coords.lng; }
-    else if (window.map && typeof window.map.getCenter === "function") { const c = window.map.getCenter(); if (c && typeof c.lat === "number" && typeof c.lng === "number") { pState.lat = c.lat; pState.lng = c.lng; } }
+    let nextLat = pState.lat, nextLng = pState.lng;
+    if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") {
+      nextLat = window.coords.lat; nextLng = window.coords.lng;
+    } else if (window.selectedCoords && typeof window.selectedCoords.lat === "number" && typeof window.selectedCoords.lng === "number") {
+      nextLat = window.selectedCoords.lat; nextLng = window.selectedCoords.lng;
+    } else if (window.map && typeof window.map.getCenter === "function") {
+      const c = window.map.getCenter();
+      if (c && typeof c.lat === "number" && typeof c.lng === "number") { nextLat = c.lat; nextLng = c.lng; }
+    }
+    const coordEl = document.getElementById("coord-display") || document.getElementById("selected-coord") || document.querySelector("[data-coord]");
+    const parsed = parseCoordPairFromText(coordEl ? (coordEl.textContent || coordEl.getAttribute("data-coord") || "") : "");
+    if (parsed && !(window.coords && typeof window.coords.lat === "number")) { nextLat = parsed.lat; nextLng = parsed.lng; }
+    if (nextLat !== pState.lat || nextLng !== pState.lng) {
+      pState.lat = nextLat; pState.lng = nextLng;
+      if (window.coords && typeof window.coords === "object") { window.coords.lat = nextLat; window.coords.lng = nextLng; }
+    }
     return { lat: pState.lat, lng: pState.lng };
   }
   function getVarDef() {
@@ -1818,10 +1840,21 @@
     }
     return null;
   }
-  function bindMapClickSync() {
-    if (window.map && !window.map._ewOnly1hBound) {
-      window.map._ewOnly1hBound = true;
-      window.map.on("click", e => { if (e && e.latlng) { pState.lat = e.latlng.lat; pState.lng = e.latlng.lng; renderAll(); } });
+  function bindInstantListeners() {
+    if (window.map && !window.map._ewCoordInstantBound) {
+      window.map._ewCoordInstantBound = true;
+      const onCoordEvent = e => {
+        if (e && e.latlng) { pState.lat = e.latlng.lat; pState.lng = e.latlng.lng; }
+        else if (typeof window.map.getCenter === "function") { const c = window.map.getCenter(); if (c) { pState.lat = c.lat; pState.lng = c.lng; } }
+        renderAll();
+      };
+      window.map.on("click", onCoordEvent);
+      window.map.on("moveend", onCoordEvent);
+    }
+    const varSelect = document.getElementById("var-select");
+    if (varSelect && !varSelect._ewCoordVarBound) {
+      varSelect._ewCoordVarBound = true;
+      varSelect.addEventListener("change", () => setTimeout(renderAll, 10));
     }
   }
   function renderEcmwfRangePlayer(v) {
@@ -1878,19 +1911,24 @@
   function renderAll() {
     const leftPlayer = document.getElementById("ew-range-player-box");
     if (leftPlayer) leftPlayer.style.setProperty("display", "none", "important");
-    bindMapClickSync();
-    const varSelect = document.getElementById("var-select");
-    if (varSelect && !varSelect._ewOnly1hVarBound) { varSelect._ewOnly1hVarBound = true; varSelect.addEventListener("change", () => setTimeout(renderAll, 20)); }
+    bindInstantListeners();
     removeMultiHourButtons();
+    const { lat, lng } = readSelectedCoords();
     const v = getVarDef();
+    const coordKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+    const changed = (pState.lastVar !== v.om) || (pState.lastCoordKey !== coordKey);
     renderTopCbar(v);
     renderEcmwfRangePlayer(v);
-    paintMap(v);
+    if (changed || !window._ewRangeMapLayer) {
+      pState.lastVar = v.om;
+      pState.lastCoordKey = coordKey;
+      paintMap(v);
+    }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", renderAll); else renderAll();
-  setInterval(renderAll, 800);
+  setInterval(renderAll, 250);
 })();
 </script>
-<!-- ew-4e4e484-only-1h-end -->
+<!-- ew-4e4e484-coord-instant-end -->
 </body>
 </html>
