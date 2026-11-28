@@ -1995,34 +1995,26 @@
   }
 
   function findEcmwfPanelHost() {
-    const candidates = Array.from(document.querySelectorAll("aside, section, div, panel"))
+    const varSelect = document.getElementById("var-select");
+    if (varSelect) {
+      let cur = varSelect.parentElement;
+      for (let i = 0; i < 6 && cur && cur.tagName !== "BODY"; i++, cur = cur.parentElement) {
+        const txt = (cur.innerText || "").toUpperCase();
+        if (txt.includes("ECMWF") || txt.includes("KOORDİNAT") || txt.includes("KOORDINAT")) {
+          return cur;
+        }
+      }
+    }
+    const candidates = Array.from(document.querySelectorAll("aside, section, div"))
       .filter(el => {
         if (el.id === "ew-ecmwf-range-player" || el.id === "ew-player-cbar-wrap") return false;
         const r = el.getBoundingClientRect();
         if (r.width < 220 || r.height < 120) return false;
         const txt = (el.innerText || "").toUpperCase();
-        return txt.includes("ECMWF") || txt.includes("KOORDİNAT") || txt.includes("KOORDINAT");
+        return txt.includes("ECMWF") && (txt.includes("KOORDİNAT") || txt.includes("KOORDINAT") || txt.includes("DEĞİŞKEN") || txt.includes("DEGISKEN"));
       });
-
-    if (candidates.length > 0) {
-      candidates.sort((a, b) => {
-        const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-        const areaA = ra.width * ra.height, areaB = rb.width * rb.height;
-        const rightScoreA = ra.left >= window.innerWidth * 0.45 ? 1 : 0;
-        const rightScoreB = rb.left >= window.innerWidth * 0.45 ? 1 : 0;
-        if (rightScoreA !== rightScoreB) return rightScoreB - rightScoreA;
-        return areaA - areaB;
-      });
-      return candidates[0];
-    }
-
-    const selEl = document.getElementById("var-select") || document.querySelector("select");
-    if (!selEl) return null;
-    for (let i = 0, cur = selEl.parentElement; i < 6 && cur; i++, cur = cur.parentElement) {
-      const r = cur.getBoundingClientRect();
-      if (r.width >= 220 && r.height >= 140 && cur.tagName !== "BODY") return cur;
-    }
-    return null;
+    candidates.sort((a, b) => a.getBoundingClientRect().width * a.getBoundingClientRect().height - b.getBoundingClientRect().width * b.getBoundingClientRect().height);
+    return candidates[0] || null;
   }
 
   function bindInstantListeners() {
