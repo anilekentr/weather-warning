@@ -1799,7 +1799,7 @@
     display: flex !important;
     flex-direction: column !important;
     gap: 5px !important;
-    max-height: 185px !important;
+    max-height: 195px !important;
     overflow-y: auto !important;
   }
   .ew-real-var-chip {
@@ -1934,14 +1934,14 @@
     font-size: 12px;
   }
   .ew-map-point-badge {
-    background: rgba(9, 13, 22, 0.95) !important;
+    background: rgba(9, 13, 22, 0.96) !important;
     color: #f8fafc !important;
-    border: 1px solid rgba(255, 255, 255, 0.42) !important;
-    border-radius: 6px !important;
-    padding: 5px 8px !important;
+    border: 1px solid rgba(255, 255, 255, 0.45) !important;
+    border-radius: 7px !important;
+    padding: 5px 9px !important;
     font-size: 11px !important;
     font-weight: 700 !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.75) !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.8) !important;
     white-space: nowrap !important;
     line-height: 1.35 !important;
   }
@@ -2013,6 +2013,7 @@
     ilce: "Zeytinburnu",
     mahalle: "Yenidoğan Mahallesi"
   };
+  let clickEpoch = 0;
   let latestRequestToken = 0;
   let cbarVisible = true;
   let playerTimer = null;
@@ -2074,7 +2075,7 @@
       };
     }
 
-    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
     if (geoCache.has(key)) {
       return geoCache.get(key);
     }
@@ -2251,7 +2252,7 @@
   }
 
   async function fetchEcmwfSeriesArray(lat, lon, code) {
-    const cacheKey = `${code}|${lat.toFixed(3)}|${lon.toFixed(3)}`;
+    const cacheKey = `${code}|${lat.toFixed(4)}|${lon.toFixed(4)}`;
     if (seriesCache.has(cacheKey)) {
       return seriesCache.get(cacheKey);
     }
@@ -2281,13 +2282,17 @@
     }
   }
 
-  // Tıklanan nokta için TÜM değişkenleri canlı/yaklaşık olarak anında güncelle
-  async function auditAllVariablesForClickedPoint(catalog) {
+  // Tıklanan nokta için tüm değişken değerlerini o noktaya göre anında güncelle (önceki noktanın canlı değerlerini sıfırla)
+  async function auditAllVariablesForClickedPoint(catalog, myEpoch) {
+    const epochAtStart = typeof myEpoch === "number" ? myEpoch : clickEpoch;
     const hourIdx = getActiveHourIndex();
     const ptSnapshot = { lat: selectedPoint.lat, lon: selectedPoint.lon };
     const locSnapshot = { ...activeLocation };
 
-    // Önce tıklanan nokta için her değişkende yaklaşık değeri anında güncelle
+    auditCompleted = false;
+    liveValueByVar.clear();
+    approxValueByVar.clear();
+
     catalog.forEach(v => {
       const approxVal = fallbackPointValue(v, ptSnapshot.lat, ptSnapshot.lon, hourIdx);
       approxValueByVar.set(v.code, {
@@ -2300,32 +2305,40 @@
       });
     });
 
-    await Promise.all(
+    renderRealOnlyFilterList(catalog);
+
+    const results = await Promise.all(
       catalog.map(async v => {
         const r = await fetchEcmwfSeriesArray(ptSnapshot.lat, ptSnapshot.lon, v.code);
-        if (r && r.ok && Array.isArray(r.arr)) {
-          const idx = Math.min(r.arr.length - 1, Math.max(0, hourIdx));
-          const candidateVal = (typeof r.arr[idx] === "number" && Number.isFinite(r.arr[idx]))
-            ? r.arr[idx]
-            : r.arr.find(x => typeof x === "number" && Number.isFinite(x));
-          if (typeof candidateVal === "number" && Number.isFinite(candidateVal)) {
-            const finalUnit = r.apiUnit || v.unit;
-            v.unit = finalUnit;
-            liveValueByVar.set(v.code, {
-              val: candidateVal,
-              unit: finalUnit,
-              hourIdx: idx,
-              lat: ptSnapshot.lat,
-              lon: ptSnapshot.lon,
-              loc: locSnapshot
-            });
-            approxValueByVar.delete(v.code);
-            return;
-          }
-        }
-        liveValueByVar.delete(v.code);
+        return { v, r };
       })
     );
+
+    if (epochAtStart !== clickEpoch) {
+      return;
+    }
+
+    results.forEach(({ v, r }) => {
+      if (r && r.ok && Array.isArray(r.arr)) {
+        const idx = Math.min(r.arr.length - 1, Math.max(0, hourIdx));
+        const candidateVal = (typeof r.arr[idx] === "number" && Number.isFinite(r.arr[idx]))
+          ? r.arr[idx]
+          : r.arr.find(x => typeof x === "number" && Number.isFinite(x));
+        if (typeof candidateVal === "number" && Number.isFinite(candidateVal)) {
+          const finalUnit = r.apiUnit || v.unit;
+          v.unit = finalUnit;
+          liveValueByVar.set(v.code, {
+            val: candidateVal,
+            unit: finalUnit,
+            hourIdx: idx,
+            lat: ptSnapshot.lat,
+            lon: ptSnapshot.lon,
+            loc: locSnapshot
+          });
+          approxValueByVar.delete(v.code);
+        }
+      }
+    });
 
     auditCompleted = true;
     renderRealOnlyFilterList(catalog);
@@ -2342,7 +2355,7 @@
       sec.id = "ew-ecmwf-filter-section";
       sec.innerHTML =
         "<input id='ew-ecmwf-filter-input' type='text' placeholder='ECMWF Canlı değişken ara...' autocomplete='off' />" +
-        "<div class='ew-ecmwf-real-heading'><span>ECMWF Canlı</span><span id='ew-ecmwf-real-count'>Kontrol ediliyor...</span></div>" +
+        "<div class='ew-ecmwf-real-heading'><span>ECMWF Canlı</span><span id='ew-ecmwf-real-count'>Güncelleniyor...</span></div>" +
         "<div id='ew-ecmwf-real-vars-list'></div>";
       const varSelect = document.getElementById("var-select");
       if (varSelect && varSelect.parentElement === panel) {
@@ -2376,7 +2389,7 @@
       });
 
     if (countEl) {
-      countEl.textContent = auditCompleted ? `${liveItems.length} Canlı` : "Kontrol ediliyor...";
+      countEl.textContent = auditCompleted ? `${liveItems.length} Canlı (${formatCoordPlain(selectedPoint.lat, selectedPoint.lon)})` : "Güncelleniyor...";
     }
 
     listEl.innerHTML = "";
@@ -2728,7 +2741,6 @@
     badgeMarker.addTo(window._ewPointLabelLayer);
   }
 
-  // Her hücreyi/noktayı kendi değerine göre doğrudan CBAR renk paleti üzerinden renklendir
   function applyStepToCbarAndMap(item, hourIdx, state) {
     if (item.code !== activeVarCode) return;
 
@@ -2828,8 +2840,10 @@
   async function updatePlayerCbarAndMap(item, explicitHourIdx) {
     const reqToken = ++latestRequestToken;
     const hourIdx = typeof explicitHourIdx === "number" ? explicitHourIdx : getActiveHourIndex();
+    const ptSnapshot = { lat: selectedPoint.lat, lon: selectedPoint.lon };
+    const locSnapshot = { ...activeLocation };
 
-    const fallbackPt = fallbackPointValue(item, selectedPoint.lat, selectedPoint.lon, hourIdx);
+    const fallbackPt = fallbackPointValue(item, ptSnapshot.lat, ptSnapshot.lon, hourIdx);
     const fallbackGrid = GRID_POINTS.map(g => fallbackPointValue(item, g.lat, g.lon, hourIdx));
     const fallbackGlobal = GLOBAL_POINTS.map(g => fallbackPointValue(item, g.lat, g.lon, hourIdx));
     const initAll = [fallbackPt, ...fallbackGrid, ...fallbackGlobal];
@@ -2838,9 +2852,9 @@
       val: fallbackPt,
       unit: item.unit,
       hourIdx,
-      lat: selectedPoint.lat,
-      lon: selectedPoint.lon,
-      loc: { ...activeLocation }
+      lat: ptSnapshot.lat,
+      lon: ptSnapshot.lon,
+      loc: locSnapshot
     });
 
     applyStepToCbarAndMap(item, hourIdx, {
@@ -2854,7 +2868,7 @@
     });
 
     const [ptSeries, gridSeries, globalSeries] = await Promise.all([
-      fetchEcmwfSeriesArray(selectedPoint.lat, selectedPoint.lon, item.code),
+      fetchEcmwfSeriesArray(ptSnapshot.lat, ptSnapshot.lon, item.code),
       Promise.all(GRID_POINTS.map(g => fetchEcmwfSeriesArray(g.lat, g.lon, item.code))),
       Promise.all(GLOBAL_POINTS.map(g => fetchEcmwfSeriesArray(g.lat, g.lon, item.code)))
     ]);
@@ -2876,9 +2890,9 @@
         val: ptValRaw,
         unit: item.unit,
         hourIdx,
-        lat: selectedPoint.lat,
-        lon: selectedPoint.lon,
-        loc: { ...activeLocation }
+        lat: ptSnapshot.lat,
+        lon: ptSnapshot.lon,
+        loc: locSnapshot
       });
       approxValueByVar.delete(item.code);
     } else {
@@ -2887,9 +2901,9 @@
         val: fallbackPt,
         unit: item.unit,
         hourIdx,
-        lat: selectedPoint.lat,
-        lon: selectedPoint.lon,
-        loc: { ...activeLocation }
+        lat: ptSnapshot.lat,
+        lon: ptSnapshot.lon,
+        loc: locSnapshot
       });
     }
     const pointVal = isLivePoint ? ptValRaw : fallbackPt;
@@ -2950,19 +2964,32 @@
       mapObj._ewPointClickBound = true;
       mapObj.on("click", async function (ev) {
         if (!ev || !ev.latlng) return;
+        const myEpoch = ++clickEpoch;
         selectedPoint = {
           lat: ev.latlng.lat,
           lon: ev.latlng.lng
         };
+        activeLocation = {
+          il: "Konum Alınıyor...",
+          ilce: "",
+          mahalle: ""
+        };
+
         const catalog = collectAllCandidateVars();
         const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
 
-        // Tıklanan noktayı anında göster ve tüm değişken değerlerini o noktaya göre güncelle
-        activeLocation = await resolveReverseLocation(selectedPoint.lat, selectedPoint.lon);
         if (item) {
-          await updatePlayerCbarAndMap(item, getActiveHourIndex());
+          updatePlayerCbarAndMap(item, getActiveHourIndex());
         }
-        await auditAllVariablesForClickedPoint(catalog);
+        auditAllVariablesForClickedPoint(catalog, myEpoch);
+
+        const resolvedLoc = await resolveReverseLocation(selectedPoint.lat, selectedPoint.lon);
+        if (myEpoch !== clickEpoch) return;
+        activeLocation = resolvedLoc;
+        if (item) {
+          updatePlayerCbarAndMap(item, getActiveHourIndex());
+        }
+        renderRealOnlyFilterList(catalog);
       });
     }
 
@@ -2997,14 +3024,14 @@
       cleanWaitingTextFromCbarAndDom();
       const cat = collectAllCandidateVars();
       setActiveVar(activeVarCode, "host");
-      auditAllVariablesForClickedPoint(cat);
+      auditAllVariablesForClickedPoint(cat, clickEpoch);
       bindMapAndTimelineListeners();
     });
   } else {
     cleanWaitingTextFromCbarAndDom();
     const cat = collectAllCandidateVars();
     setActiveVar(activeVarCode, "host");
-    auditAllVariablesForClickedPoint(cat);
+    auditAllVariablesForClickedPoint(cat, clickEpoch);
     bindMapAndTimelineListeners();
   }
   setInterval(tick, 1200);
