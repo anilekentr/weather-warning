@@ -5791,5 +5791,55 @@
 </script>
 <!-- EW_SPATIAL_CBAR_MAP_COLOR_END -->
 
+<!-- EW_CBAR_FINAL_LOCK_START -->
+<script>
+(function () {
+  const CAT_SKIP = new Set([
+    "sıcaklık", "basınç", "rüzgar", "yağış",
+    "nem & bulut & toprak", "nem / bulut / toprak",
+    "temperature", "pressure", "wind", "precipitation"
+  ]);
+
+  let locked = {
+    name: "temperature 2m",
+    unit: "°C"
+  };
+
+  function pickCbar() {
+    return document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar") || document.getElementById("ew-ui-cbar");
+  }
+
+  function applyNameAndUnitToCbar() {
+    const bar = pickCbar();
+    if (!bar) return;
+    const topSpan = bar.querySelector("div > span:first-child");
+    if (topSpan) {
+      topSpan.textContent = `${locked.name} · Birim: ${locked.unit}`;
+    }
+  }
+
+  function captureButton(ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (!btn) return;
+    const raw = (btn.textContent || "").trim();
+    const low = raw.toLowerCase();
+    if (!raw || CAT_SKIP.has(low)) return;
+
+    const uMatch = raw.match(/\[([^\]]+)\]/);
+    const unit = (btn.dataset && btn.dataset.unit) || (uMatch ? uMatch[1].trim() : locked.unit);
+    const name = raw.replace(/\[[^\]]+\]/g, "").trim() || locked.name;
+
+    locked = { name, unit };
+    applyNameAndUnitToCbar();
+  }
+
+  document.addEventListener("pointerdown", captureButton, true);
+  document.addEventListener("click", captureButton, true);
+
+  setInterval(applyNameAndUnitToCbar, 200);
+})();
+</script>
+<!-- EW_CBAR_FINAL_LOCK_END -->
+
 </body>
 </html>
