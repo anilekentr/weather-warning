@@ -2483,42 +2483,40 @@
 <!-- ew-point-instant-summary-end -->
 <!-- ew-ecmwf-player-engine-start -->
 <style id="ew-ecmwf-player-engine-style">
-  #ew-cbar, #ew-player-cbar, #ew-player-cbar-wrap,
-  #ew-player-cbar-title, #ew-player-cbar-scale,
-  #ew-player-cbar-toggle-btn, #ew-point-marker,
-  #ew-ecmwf-panel, #ew-vars-list, #ew-ecmwf-filter-section,
-  #ew-ecmwf-step-144-box, #ew-ecmwf-real-data-box,
-  #ew-ecmwf-top-location-bar, #ew-ecmwf-panel-status,
-  #ew-player-below-cbar-row, #ew-player-sync-row,
-  #ew-player-controls-row, #ew-range-player-box,
-  [data-ew-legacy-panel="1"] {
+  body > :not(#ew-unified-ecmwf-panel):not(.leaflet-container):not(script):not(style):not(link) {
     display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
+  }
+
+  .leaflet-container {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 1 !important;
   }
 
   #ew-unified-ecmwf-panel {
     position: fixed !important;
     top: 12px !important;
     right: 12px !important;
-    width: 368px !important;
+    width: 340px !important;
     max-width: calc(100vw - 24px) !important;
     max-height: calc(100vh - 24px) !important;
     overflow-y: auto !important;
     z-index: 10050 !important;
     padding: 12px !important;
     border-radius: 12px !important;
-    background: rgba(9, 15, 28, 0.97) !important;
+    background: rgba(9, 15, 28, 0.96) !important;
     color: #f8fafc !important;
-    border: 1px solid rgba(74, 222, 128, 0.5) !important;
-    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.72) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7) !important;
     box-sizing: border-box !important;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     font-size: 12px !important;
     line-height: 1.4 !important;
   }
 
-  .ew-u-top {
+  .ew-u-head {
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
@@ -2532,249 +2530,15 @@
     font-weight: 800 !important;
     color: #f8fafc !important;
   }
-  .ew-u-sub {
+  .ew-u-time {
     font-size: 10.5px !important;
     color: #94a3b8 !important;
   }
-  .ew-u-badge-live {
-    padding: 2px 8px !important;
-    border-radius: 999px !important;
-    font-size: 10px !important;
+  .ew-u-coord {
+    font-size: 10.5px !important;
     font-weight: 700 !important;
-    background: rgba(34, 197, 94, 0.2) !important;
-    color: #4ade80 !important;
-    border: 1px solid rgba(74, 222, 128, 0.5) !important;
-    white-space: nowrap !important;
-  }
-  .ew-u-badge-approx {
-    padding: 2px 8px !important;
-    border-radius: 999px !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    background: rgba(245, 158, 11, 0.2) !important;
-    color: #fbbf24 !important;
-    border: 1px solid rgba(251, 191, 36, 0.5) !important;
-    white-space: nowrap !important;
-  }
-  .ew-u-badge-play {
-    padding: 2px 8px !important;
-    border-radius: 999px !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    background: rgba(56, 189, 248, 0.2) !important;
     color: #38bdf8 !important;
-    border: 1px solid rgba(56, 189, 248, 0.55) !important;
     white-space: nowrap !important;
-  }
-
-  .ew-u-loc-card, .ew-u-core-card, .ew-u-player-card, .ew-u-picker-card {
-    padding: 8px 10px !important;
-    border-radius: 9px !important;
-    background: rgba(15, 23, 42, 0.94) !important;
-    border: 1px solid rgba(148, 163, 184, 0.24) !important;
-    margin-bottom: 8px !important;
-  }
-  .ew-u-loc-line {
-    display: flex !important;
-    justify-content: space-between !important;
-    gap: 8px !important;
-    margin-bottom: 2px !important;
-    font-size: 11px !important;
-  }
-  .ew-u-loc-line:last-child {
-    margin-bottom: 0 !important;
-  }
-  .ew-u-muted {
-    color: #94a3b8 !important;
-  }
-
-  .ew-u-picker-row {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 6px !important;
-    margin-bottom: 6px !important;
-  }
-  .ew-u-select, .ew-u-coord-inp {
-    width: 100% !important;
-    box-sizing: border-box !important;
-    padding: 5px 6px !important;
-    border-radius: 6px !important;
-    background: rgba(9, 13, 22, 0.96) !important;
-    color: #f8fafc !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    font-size: 10.5px !important;
-  }
-  .ew-u-coord-bar {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr auto !important;
-    gap: 5px !important;
-    align-items: center !important;
-  }
-  .ew-u-go-btn {
-    padding: 5px 9px !important;
-    border-radius: 6px !important;
-    border: 1px solid #38bdf8 !important;
-    background: rgba(2, 132, 199, 0.28) !important;
-    color: #7dd3fc !important;
-    font-weight: 800 !important;
-    font-size: 10.5px !important;
-    cursor: pointer !important;
-    white-space: nowrap !important;
-  }
-
-  .ew-u-play-toolbar {
-    display: flex !important;
-    gap: 6px !important;
-    margin-bottom: 8px !important;
-  }
-  .ew-u-play-btn {
-    flex: 1.4 !important;
-    padding: 7px 10px !important;
-    border-radius: 8px !important;
-    border: 1px solid #4ade80 !important;
-    background: rgba(22, 163, 74, 0.25) !important;
-    color: #4ade80 !important;
-    font-weight: 800 !important;
-    font-size: 11.5px !important;
-    cursor: pointer !important;
-  }
-  .ew-u-play-btn.playing {
-    border-color: #f87171 !important;
-    background: rgba(220, 38, 38, 0.25) !important;
-    color: #fca5a5 !important;
-  }
-  .ew-u-reset-btn {
-    padding: 7px 10px !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(148, 163, 184, 0.4) !important;
-    background: rgba(30, 41, 59, 0.95) !important;
-    color: #f8fafc !important;
-    font-weight: 700 !important;
-    font-size: 11px !important;
-    cursor: pointer !important;
-  }
-
-  .ew-u-date-row {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 6px !important;
-    margin-bottom: 7px !important;
-  }
-  .ew-u-field-lbl {
-    display: block !important;
-    font-size: 10px !important;
-    color: #94a3b8 !important;
-    margin-bottom: 2px !important;
-  }
-  .ew-u-date-inp {
-    width: 100% !important;
-    box-sizing: border-box !important;
-    padding: 5px 6px !important;
-    border-radius: 6px !important;
-    background: rgba(9, 13, 22, 0.96) !important;
-    color: #f8fafc !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    font-size: 10px !important;
-  }
-
-  .ew-u-step-label {
-    font-size: 10px !important;
-    color: #cbd5e1 !important;
-    margin-bottom: 4px !important;
-    font-weight: 700 !important;
-  }
-  .ew-u-offsets-wrap {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 4px !important;
-    margin-bottom: 7px !important;
-  }
-  .ew-u-off-chip {
-    padding: 3px 6px !important;
-    border-radius: 5px !important;
-    background: rgba(30, 41, 59, 0.92) !important;
-    color: #cbd5e1 !important;
-    border: 1px solid rgba(148, 163, 184, 0.28) !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    cursor: pointer !important;
-  }
-  .ew-u-off-chip.active {
-    background: rgba(56, 189, 248, 0.22) !important;
-    border-color: #38bdf8 !important;
-    color: #7dd3fc !important;
-  }
-
-  .ew-u-scrubber {
-    width: 100% !important;
-    margin: 4px 0 6px 0 !important;
-    cursor: pointer !important;
-  }
-  .ew-u-stats-box {
-    padding: 7px 8px !important;
-    border-radius: 7px !important;
-    background: rgba(9, 13, 22, 0.85) !important;
-    border: 1px solid rgba(125, 211, 252, 0.25) !important;
-    font-size: 10.5px !important;
-  }
-  .ew-u-stat-line {
-    display: flex !important;
-    justify-content: space-between !important;
-    gap: 6px !important;
-    margin-bottom: 3px !important;
-  }
-  .ew-u-stat-line:last-child {
-    margin-bottom: 0 !important;
-  }
-
-  .ew-u-cbar-box {
-    padding: 8px 10px !important;
-    border-radius: 9px !important;
-    background: rgba(15, 23, 42, 0.92) !important;
-    border: 1px solid rgba(148, 163, 184, 0.25) !important;
-    margin-bottom: 8px !important;
-  }
-  .ew-u-cbar-title {
-    display: flex !important;
-    justify-content: space-between !important;
-    font-size: 10.5px !important;
-    font-weight: 700 !important;
-    color: #e2e8f0 !important;
-    margin-bottom: 5px !important;
-  }
-  .ew-u-cbar-grad {
-    height: 11px !important;
-    border-radius: 6px !important;
-    background: linear-gradient(90deg, #3b82f6, #22c55e, #eab308, #f97316, #ef4444) !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    margin-bottom: 4px !important;
-  }
-  .ew-u-cbar-ticks {
-    display: flex !important;
-    justify-content: space-between !important;
-    font-size: 10px !important;
-    color: #cbd5e1 !important;
-    font-weight: 700 !important;
-  }
-
-  .ew-u-core-grid {
-    display: grid !important;
-    grid-template-columns: 1fr auto !important;
-    gap: 4px 10px !important;
-    font-size: 11px !important;
-  }
-  .ew-u-lbl {
-    color: #cbd5e1 !important;
-  }
-  .ew-u-val-live {
-    color: #4ade80 !important;
-    font-weight: 700 !important;
-    text-align: right !important;
-  }
-  .ew-u-val-approx {
-    color: #fbbf24 !important;
-    font-weight: 700 !important;
-    text-align: right !important;
   }
 
   .ew-u-search {
@@ -2788,23 +2552,16 @@
     font-size: 11px !important;
     margin-bottom: 8px !important;
   }
-  .ew-u-vars-head {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    font-size: 10.5px !important;
-    font-weight: 700 !important;
-    color: #86efac !important;
-    margin-bottom: 6px !important;
-  }
-  .ew-u-vars-list {
+
+  .ew-u-list {
     display: flex !important;
     flex-direction: column !important;
     gap: 4px !important;
-    max-height: 210px !important;
+    max-height: calc(100vh - 130px) !important;
     overflow-y: auto !important;
   }
-  .ew-u-var-btn {
+
+  .ew-u-item {
     width: 100% !important;
     box-sizing: border-box !important;
     display: flex !important;
@@ -2815,52 +2572,44 @@
     border-radius: 7px !important;
     background: rgba(30, 41, 59, 0.92) !important;
     color: #f1f5f9 !important;
-    border: 1px solid rgba(148, 163, 184, 0.25) !important;
+    border: 1px solid rgba(148, 163, 184, 0.22) !important;
     font-size: 10.5px !important;
     cursor: pointer !important;
     text-align: left !important;
   }
-  .ew-u-var-btn.selected {
-    background: rgba(22, 163, 74, 0.22) !important;
-    border-color: #4ade80 !important;
+  .ew-u-item.active {
+    background: rgba(2, 132, 199, 0.25) !important;
+    border-color: #38bdf8 !important;
   }
-  .ew-u-var-name {
+  .ew-u-name {
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
   }
+  .ew-u-muted {
+    color: #94a3b8 !important;
+  }
+  .ew-u-val {
+    font-weight: 700 !important;
+    color: #4ade80 !important;
+    white-space: nowrap !important;
+  }
+
   .ew-map-point-badge {
-    background: rgba(9, 15, 28, 0.97) !important;
+    background: rgba(9, 15, 28, 0.96) !important;
     color: #f8fafc !important;
-    border: 1px solid rgba(74, 222, 128, 0.55) !important;
+    border: 1px solid rgba(56, 189, 248, 0.6) !important;
     border-radius: 8px !important;
     padding: 6px 9px !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.88) !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.85) !important;
     white-space: nowrap !important;
     line-height: 1.35 !important;
   }
 </style>
 <script id="ew-ecmwf-player-engine-script">
 (function() {
-  const PROVINCE_PRESETS = [
-    { il: "Kocaeli", ilce: "Gebze", mahalle: "Cumhuriyet Mahallesi", lat: 40.8120, lon: 29.3774 },
-    { il: "İstanbul", ilce: "Fatih", mahalle: "Eminönü / Merkez", lat: 41.0082, lon: 28.9784 },
-    { il: "İstanbul", ilce: "Kadıköy", mahalle: "Caferağa", lat: 40.9909, lon: 29.0289 },
-    { il: "İstanbul", ilce: "Büyükçekmece", mahalle: "Sahil / Marmara", lat: 41.0209, lon: 28.5858 },
-    { il: "Bursa", ilce: "Osmangazi", mahalle: "Merkez", lat: 40.1885, lon: 29.0610 },
-    { il: "Sakarya", ilce: "Adapazarı", mahalle: "Merkez", lat: 40.7569, lon: 30.3781 },
-    { il: "Tekirdağ", ilce: "Süleymanpaşa", mahalle: "Sahil", lat: 40.9780, lon: 27.5110 },
-    { il: "Balıkesir", ilce: "Karesi", mahalle: "Merkez", lat: 39.6484, lon: 27.8826 },
-    { il: "Çanakkale", ilce: "Merkez", mahalle: "Boğaz Hattı", lat: 40.1553, lon: 26.4142 },
-    { il: "Yalova", ilce: "Merkez", mahalle: "Sahil", lat: 40.6500, lon: 29.2667 },
-    { il: "Edirne", ilce: "Merkez", mahalle: "Merkez", lat: 41.6771, lon: 26.5557 },
-    { il: "Kırklareli", ilce: "Merkez", mahalle: "Merkez", lat: 41.7333, lon: 27.2167 },
-    { il: "İzmir", ilce: "Konak", mahalle: "Alsancak", lat: 38.4237, lon: 27.1428 },
-    { il: "Ankara", ilce: "Çankaya", mahalle: "Kızılay", lat: 39.9334, lon: 32.8597 }
-  ];
-
   const ALL_ECMWF_VARS = [
     ["temperature_2m", "2m Sıcaklığı", "°C"],
     ["relative_humidity_2m", "Bağıl Nem", "%"],
@@ -2898,32 +2647,15 @@
     ["et0_fao_evapotranspiration", "Referans ET0", "mm"]
   ];
 
-  const STEP_HOUR_OPTIONS = [1, 3, 6, 12, 18, 24, 72, 120, 144, 168];
-
-  let activePoint = { lat: 40.8120, lon: 29.3774 };
-  let activeLocation = {
-    il: "Kocaeli",
-    ilce: "Gebze",
-    mahalle: "Cumhuriyet Mahallesi"
-  };
+  let activePoint = { lat: 41.0082, lon: 28.9784 };
   let activeVarCode = "temperature_2m";
-  let stepHours = 1;
-  let isPlaying = false;
-  let playTimer = null;
-  let playCursorIdx = 0;
-
-  let rangeStartIso = null;
-  let rangeEndIso = null;
   let searchFilter = "";
   let queryEpoch = 0;
   let activeAbortController = null;
-  let hoverTimer = null;
   let lastPayload = null;
-
-  const geoCache = new Map();
   const seriesCache = new Map();
 
-  function degOnlyAndTrDir(deg) {
+  function degToCompassTr(deg) {
     if (typeof deg !== "number" || !Number.isFinite(deg)) return null;
     const norm = ((deg % 360) + 360) % 360;
     const dirs = [
@@ -2933,53 +2665,7 @@
       "Batı", "Batı-Kuzeybatı", "Kuzeybatı", "Kuzey-Kuzeybatı"
     ];
     const idx = Math.round(norm / 22.5) % 16;
-    const roundedDeg = Math.round(norm);
-    return {
-      deg: roundedDeg,
-      trDir: dirs[idx],
-      text: `${roundedDeg}° · ${dirs[idx]}`
-    };
-  }
-
-  function degToCompassTr(deg) {
-    const info = degOnlyAndTrDir(deg);
-    return info ? `${info.deg}° (${info.trDir})` : null;
-  }
-
-  function classifyPrecipType(precip, rain, snowfall, weatherCode) {
-    const p = typeof precip === "number" && Number.isFinite(precip) ? precip : 0;
-    const r = typeof rain === "number" && Number.isFinite(rain) ? rain : 0;
-    const s = typeof snowfall === "number" && Number.isFinite(snowfall) ? snowfall : 0;
-    const wc = typeof weatherCode === "number" && Number.isFinite(weatherCode) ? weatherCode : -1;
-
-    if (wc === 96 || wc === 99) return "Dolu";
-    if (s > 0 || [71, 73, 75, 77, 85, 86].includes(wc)) {
-      if (r > 0 && s > 0) return "Karla Karışık Yağmur";
-      return "Kar";
-    }
-    if (p > 0 || r > 0 || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95].includes(wc)) {
-      return "Yağmur";
-    }
-    return "Yağış Yok";
-  }
-
-  function formatPrecipWithUnit(precipType, precip, rain, snowfall, units) {
-    const p = typeof precip === "number" && Number.isFinite(precip) ? precip : null;
-    const r = typeof rain === "number" && Number.isFinite(rain) ? rain : null;
-    const s = typeof snowfall === "number" && Number.isFinite(snowfall) ? snowfall : null;
-
-    if (precipType === "Kar") {
-      const snowUnit = (units && units.snowfall) ? units.snowfall : "cm";
-      const val = s !== null && s > 0 ? s : p;
-      return val !== null ? `${val.toFixed(1)} ${snowUnit}` : null;
-    }
-    if (precipType === "Yağmur") {
-      const rainUnit = (units && units.rain) ? units.rain : ((units && units.precipitation) ? units.precipitation : "mm");
-      const val = r !== null && r > 0 ? r : p;
-      return val !== null ? `${val.toFixed(1)} ${rainUnit}` : null;
-    }
-    const precipUnit = (units && units.precipitation) ? units.precipitation : "mm";
-    return p !== null ? `${p.toFixed(1)} ${precipUnit}` : null;
+    return `${Math.round(norm)}° (${dirs[idx]})`;
   }
 
   function formatNumberWithUnit(numVal, unitStr) {
@@ -2993,24 +2679,6 @@
     return isoStr.replace("T", " ").slice(0, 16);
   }
 
-  function toDateTimeLocalValue(isoStr) {
-    if (!isoStr || typeof isoStr !== "string") return "";
-    return isoStr.slice(0, 16);
-  }
-
-  function snapHoursToStepMultiple(hoursVal, stepVal, minAllowed, maxAllowed) {
-    const st = Math.max(1, Number(stepVal) || 1);
-    const lowFloor = Math.max(24, Math.ceil(minAllowed / st) * st);
-    const highCeil = Math.max(lowFloor, Math.floor(maxAllowed / st) * st);
-
-    const lowerMult = Math.max(lowFloor, Math.floor(hoursVal / st) * st);
-    const upperMult = Math.min(highCeil, Math.ceil(hoursVal / st) * st);
-
-    if (upperMult > maxAllowed) return lowerMult;
-    if (lowerMult < lowFloor) return upperMult;
-    return (hoursVal - lowerMult) <= (upperMult - hoursVal) ? lowerMult : upperMult;
-  }
-
   function getCurrentIstanbulIsoPrefix() {
     const now = new Date();
     const tr = new Date(now.getTime() + 3 * 3600 * 1000);
@@ -3018,130 +2686,33 @@
     return `${tr.getUTCFullYear()}-${pad(tr.getUTCMonth() + 1)}-${pad(tr.getUTCDate())}T${pad(tr.getUTCHours())}:00`;
   }
 
-  function getModeInfo(timeIso, playing) {
-    const nowIso = getCurrentIstanbulIsoPrefix();
-    const isFuture = typeof timeIso === "string" && timeIso > nowIso;
-    if (playing) {
-      return {
-        label: `Oynat (${stepHours}s Adım · Geçmişten İleri)`,
-        badge: "Oynatılıyor",
-        isLive: !isFuture,
-        badgeClass: "ew-u-badge-play",
-        valClass: isFuture ? "ew-u-val-approx" : "ew-u-val-live",
-        accent: "#38bdf8"
-      };
-    }
-    if (isFuture) {
-      return {
-        label: "ECMWF Yakın (Tahmin / Gerçek Değil)",
-        badge: "Yakın Değer",
-        isLive: false,
-        badgeClass: "ew-u-badge-approx",
-        valClass: "ew-u-val-approx",
-        accent: "#fbbf24"
-      };
-    }
-    return {
-      label: "ECMWF Canlı",
-      badge: "Canlı",
-      isLive: true,
-      badgeClass: "ew-u-badge-live",
-      valClass: "ew-u-val-live",
-      accent: "#4ade80"
-    };
-  }
-
-  function colorFromDynamicMinMax(val, minV, maxV, paletteStops) {
-    const stops = paletteStops || ["#2563eb", "#06b6d4", "#22c55e", "#eab308", "#f97316", "#ef4444"];
-    if (typeof val !== "number" || !Number.isFinite(val)) return stops[2];
-    const span = Math.max(1e-6, maxV - minV);
-    const t = Math.max(0, Math.min(1, (val - minV) / span));
-    const idx = Math.min(stops.length - 1, Math.floor(t * stops.length));
-    return stops[idx];
-  }
-
-  function getPaletteForVar(code) {
-    if (/temp|apparent|dew/i.test(code)) return ["#1d4ed8", "#0ea5e9", "#22c55e", "#eab308", "#f97316", "#dc2626"];
-    if (/precip|rain|snow|cloud|humidity/i.test(code)) return ["#0f172a", "#0284c7", "#38bdf8", "#2dd4bf", "#818cf8", "#a855f7"];
-    if (/wind|gust/i.test(code)) return ["#06b6d4", "#10b981", "#84cc16", "#eab308", "#f97316", "#ef4444"];
-    if (/pressure|geopotential/i.test(code)) return ["#1e3a8a", "#2563eb", "#14b8a6", "#eab308", "#f97316", "#991b1b"];
-    return ["#3b82f6", "#22c55e", "#eab308", "#f97316", "#ef4444"];
-  }
-
-  // Diğer tüm panelleri ve CBAR kalıntılarını gizle; yalnızca #ew-unified-ecmwf-panel açık kalsın
-  function hideAllCompetingPanels() {
-    const keepPanel = document.getElementById("ew-unified-ecmwf-panel");
-
-    document.querySelectorAll('[id*="cbar" i], [class*="cbar" i]').forEach(el => {
-      if (keepPanel && (el === keepPanel || keepPanel.contains(el))) return;
-      el.setAttribute("data-ew-legacy-panel", "1");
-      el.style.setProperty("display", "none", "important");
-    });
-
-    const allFixedOrPanels = document.querySelectorAll("aside, section, .panel, [class*='panel' i], [id*='panel' i]");
-    allFixedOrPanels.forEach(el => {
-      if (!keepPanel || el === keepPanel || keepPanel.contains(el) || el.contains(keepPanel)) return;
-      const style = window.getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-      const isFloating = (style.position === "fixed" || style.position === "absolute") && rect.width >= 180 && rect.height >= 90;
-      const isLeafletControl = el.classList && (el.classList.contains("leaflet-control-container") || el.closest(".leaflet-control-container"));
-      if (isFloating && !isLeafletControl) {
-        el.setAttribute("data-ew-legacy-panel", "1");
-        el.style.setProperty("display", "none", "important");
-      }
-    });
-
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
-    const hideList = [];
-    let node;
-    while ((node = walker.nextNode())) {
-      if (keepPanel && (node === keepPanel || keepPanel.contains(node))) continue;
-      const txt = (node.textContent || "").trim();
-      if (node.children.length === 0 && /^Ağ veya API hatası$/i.test(txt)) {
-        hideList.push(node);
+  function findNowIndex(times) {
+    if (!Array.isArray(times) || !times.length) return 0;
+    const prefix = getCurrentIstanbulIsoPrefix();
+    const exactIdx = times.indexOf(prefix);
+    if (exactIdx >= 0) return exactIdx;
+    const nowMs = Date.now();
+    let bestIdx = 0;
+    let bestDiff = Infinity;
+    for (let i = 0; i < times.length; i++) {
+      const tMs = Date.parse(times[i]);
+      if (Number.isFinite(tMs)) {
+        const diff = Math.abs(tMs - nowMs);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestIdx = i;
+        }
       }
     }
-    hideList.forEach(el => el.style.setProperty("display", "none", "important"));
+    return bestIdx;
   }
 
-  async function resolveReverseLocation(lat, lon, signal) {
-    const preset = PROVINCE_PRESETS.find(
-      p => Math.abs(p.lat - lat) < 0.002 && Math.abs(p.lon - lon) < 0.002
-    );
-    if (preset) {
-      return { il: preset.il, ilce: preset.ilce, mahalle: preset.mahalle };
-    }
-    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    if (geoCache.has(key)) return geoCache.get(key);
-
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1`;
-      const res = await fetch(url, { headers: { "Accept-Language": "tr" }, signal });
-      if (!res.ok) throw new Error("geo");
-      const data = await res.json();
-      const addr = (data && data.address) || {};
-      const resolved = {
-        il: addr.province || addr.state || addr.city || addr.region || "Bölge",
-        ilce: addr.town || addr.district || addr.county || addr.city_district || "Merkez",
-        mahalle: addr.neighbourhood || addr.suburb || addr.quarter || addr.village || addr.hamlet || `${lat.toFixed(4)}, ${lon.toFixed(4)}`
-      };
-      geoCache.set(key, resolved);
-      return resolved;
-    } catch (_) {
-      return {
-        il: "Seçili Koordinat",
-        ilce: `${lat.toFixed(4)}`,
-        mahalle: `${lon.toFixed(4)}`
-      };
-    }
-  }
-
-  async function fetchEcmwfFullSeries(lat, lon, signal) {
+  async function fetchEcmwfNow(lat, lon, signal) {
     const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
     if (seriesCache.has(cacheKey)) return seriesCache.get(cacheKey);
 
     const varCodes = ALL_ECMWF_VARS.map(v => v[0]).join(",");
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(varCodes)}&past_days=15&forecast_days=15&timezone=Europe%2FIstanbul&_t=${Date.now()}`;
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(varCodes)}&past_days=1&forecast_days=1&timezone=Europe%2FIstanbul&_t=${Date.now()}`;
     try {
       const res = await fetch(url, { cache: "no-store", signal });
       if (!res.ok) return null;
@@ -3156,248 +2727,34 @@
     }
   }
 
-  function findCurrentHourIndex(times) {
-    if (!Array.isArray(times) || !times.length) return 0;
-    const prefix = getCurrentIstanbulIsoPrefix();
-    const exactIdx = times.indexOf(prefix);
-    if (exactIdx >= 0) return exactIdx;
-    const hourPart = prefix.slice(11, 16);
-    const hourOnly = times.findIndex(t => typeof t === "string" && t.endsWith(`T${hourPart}`));
-    return hourOnly >= 0 ? hourOnly : Math.floor(times.length / 2);
-  }
-
-  function buildSteppedIndices(times, startCandidateIso, endCandidateIso, chosenStepHours) {
-    if (!Array.isArray(times) || !times.length) return { indices: [], startIso: null, endIso: null, effectiveSpanHours: 24 };
-    const firstIso = times[0];
-    const lastIso = times[times.length - 1];
-    const firstMs = Date.parse(firstIso);
-    const lastMs = Date.parse(lastIso);
-    const totalAvailableHours = Math.max(24, Math.floor((lastMs - firstMs) / (3600 * 1000)));
-    const st = Math.max(1, Number(chosenStepHours) || 1);
-
-    let sMs = startCandidateIso && !Number.isNaN(Date.parse(startCandidateIso)) ? Date.parse(startCandidateIso) : firstMs;
-    let eMs = endCandidateIso && !Number.isNaN(Date.parse(endCandidateIso)) ? Date.parse(endCandidateIso) : lastMs;
-
-    sMs = Math.max(firstMs, Math.min(lastMs, sMs));
-    eMs = Math.max(firstMs, Math.min(lastMs, eMs));
-
-    const rawSpanHours = Math.max(24, Math.round((eMs - sMs) / (3600 * 1000)));
-    const snappedSpanHours = snapHoursToStepMultiple(rawSpanHours, st, 24, totalAvailableHours);
-
-    eMs = Math.min(lastMs, sMs + snappedSpanHours * 3600 * 1000);
-    if ((eMs - sMs) < snappedSpanHours * 3600 * 1000) {
-      sMs = Math.max(firstMs, eMs - snappedSpanHours * 3600 * 1000);
-    }
-
-    const startIdx = Math.max(0, times.findIndex(t => Date.parse(t) >= sMs));
-    let endIdx = times.length - 1;
-    for (let i = times.length - 1; i >= 0; i--) {
-      if (Date.parse(times[i]) <= eMs) {
-        endIdx = i;
-        break;
-      }
-    }
-    if (endIdx < startIdx) endIdx = Math.min(times.length - 1, startIdx + Math.max(24, st));
-
-    const stepped = [];
-    for (let i = startIdx; i <= endIdx; i += st) {
-      stepped.push(i);
-    }
-    if (stepped.length < 2 && endIdx > startIdx) {
-      stepped.push(endIdx);
-    }
-
-    return {
-      indices: stepped,
-      startIso: times[startIdx],
-      endIso: times[endIdx],
-      effectiveSpanHours: snappedSpanHours
-    };
-  }
-
-  function ensureRangeAndSteps(times) {
-    if (!Array.isArray(times) || !times.length) {
-      return { indices: [], startIso: null, endIso: null, effectiveSpanHours: 24 };
-    }
-    const res = buildSteppedIndices(times, rangeStartIso, rangeEndIso, stepHours);
-    rangeStartIso = res.startIso;
-    rangeEndIso = res.endIso;
-    return res;
-  }
-
-  function computeRangeStatsForVar(data, varCode, indices) {
+  function buildNowPayload(data) {
     const h = data.hourly;
     const units = data.hourly_units || {};
-    const meta = ALL_ECMWF_VARS.find(v => v[0] === varCode) || [varCode, varCode, ""];
-    const unitStr = units[varCode] || meta[2] || "";
-    const arr = Array.isArray(h[varCode]) ? h[varCode] : null;
-    const isWindDir = /wind_direction/i.test(varCode);
-
-    let minVal = Infinity;
-    let minTime = "-";
-    let maxVal = -Infinity;
-    let maxTime = "-";
-    let sumVal = 0;
-    let sumSin = 0;
-    let sumCos = 0;
-    let countVal = 0;
-
-    if (arr) {
-      for (const idx of indices) {
-        const v = arr[idx];
-        if (typeof v === "number" && Number.isFinite(v)) {
-          if (v < minVal) {
-            minVal = v;
-            minTime = formatHourPretty(h.time[idx]);
-          }
-          if (v > maxVal) {
-            maxVal = v;
-            maxTime = formatHourPretty(h.time[idx]);
-          }
-          sumVal += v;
-          const rad = (v * Math.PI) / 180;
-          sumSin += Math.sin(rad);
-          sumCos += Math.cos(rad);
-          countVal += 1;
-        }
-      }
-    }
-
-    const hasMin = Number.isFinite(minVal);
-    const hasMax = Number.isFinite(maxVal);
-
-    if (isWindDir) {
-      const minInfo = hasMin ? degOnlyAndTrDir(minVal) : null;
-      const maxInfo = hasMax ? degOnlyAndTrDir(maxVal) : null;
-      let avgInfo = null;
-      let avgDegRaw = null;
-      if (countVal > 0) {
-        const meanAngle = (Math.atan2(sumSin / countVal, sumCos / countVal) * 180) / Math.PI;
-        avgDegRaw = ((meanAngle % 360) + 360) % 360;
-        avgInfo = degOnlyAndTrDir(avgDegRaw);
-      }
-
-      return {
-        unitStr: "°",
-        minVal: hasMin ? minInfo.deg : null,
-        minTime,
-        maxVal: hasMax ? maxInfo.deg : null,
-        maxTime,
-        avgVal: avgDegRaw,
-        minStr: minInfo ? `${minInfo.text} (${minTime})` : "-",
-        avgStr: avgInfo ? `${avgInfo.text}` : "-",
-        maxStr: maxInfo ? `${maxInfo.text} (${maxTime})` : "-"
-      };
-    }
-
-    const avgVal = countVal > 0 ? (sumVal / countVal) : null;
-
-    return {
-      unitStr,
-      minVal: hasMin ? minVal : null,
-      minTime,
-      maxVal: hasMax ? maxVal : null,
-      maxTime,
-      avgVal,
-      minStr: hasMin ? `${formatNumberWithUnit(minVal, unitStr)} (${minTime})` : "-",
-      avgStr: avgVal !== null ? `${formatNumberWithUnit(avgVal, unitStr)}` : "-",
-      maxStr: hasMax ? `${formatNumberWithUnit(maxVal, unitStr)} (${maxTime})` : "-"
-    };
-  }
-
-  function buildPayloadAtIndex(data, idx) {
-    const h = data.hourly;
-    const units = data.hourly_units || {};
-    const safeIdx = Math.max(0, Math.min(h.time.length - 1, idx));
-
-    const temp = Array.isArray(h.temperature_2m) ? h.temperature_2m[safeIdx] : null;
-    const hum = Array.isArray(h.relative_humidity_2m) ? h.relative_humidity_2m[safeIdx] : null;
-    const precip = Array.isArray(h.precipitation) ? h.precipitation[safeIdx] : null;
-    const rain = Array.isArray(h.rain) ? h.rain[safeIdx] : null;
-    const snowfall = Array.isArray(h.snowfall) ? h.snowfall[safeIdx] : null;
-    const wcode = Array.isArray(h.weather_code) ? h.weather_code[safeIdx] : null;
-    const cloud = Array.isArray(h.cloud_cover) ? h.cloud_cover[safeIdx] : null;
-    const wspd = Array.isArray(h.wind_speed_10m) ? h.wind_speed_10m[safeIdx] : null;
-    const wdir = Array.isArray(h.wind_direction_10m) ? h.wind_direction_10m[safeIdx] : null;
-
-    const precipTypeStr = (precip !== null || rain !== null || snowfall !== null || wcode !== null)
-      ? classifyPrecipType(precip, rain, snowfall, wcode)
-      : null;
-    const precipAmountStr = precipTypeStr
-      ? formatPrecipWithUnit(precipTypeStr, precip, rain, snowfall, units)
-      : null;
-
-    const steppedInfo = ensureRangeAndSteps(h.time);
-    const sliceIndices = steppedInfo.indices;
-    const activeStats = computeRangeStatsForVar(data, activeVarCode, sliceIndices);
+    const idx = findNowIndex(h.time);
 
     const entries = [];
     for (const [code, trName, fallbackUnit] of ALL_ECMWF_VARS) {
       const arr = Array.isArray(h[code]) ? h[code] : null;
-      const rawVal = arr ? arr[safeIdx] : null;
+      const rawVal = arr ? arr[idx] : null;
       if (typeof rawVal !== "number" || !Number.isFinite(rawVal)) continue;
 
-      const st = computeRangeStatsForVar(data, code, sliceIndices);
-      let formattedVal = "";
-      if (code === "wind_direction_10m" || code === "wind_direction_80m" || code === "wind_direction_120m") {
-        formattedVal = degToCompassTr(rawVal) || `${Math.round(rawVal)}°`;
-      } else if (code === "precipitation" || code === "rain" || code === "snowfall") {
-        formattedVal = formatPrecipWithUnit(precipTypeStr, precip, rain, snowfall, units) || formatNumberWithUnit(rawVal, units[code] || fallbackUnit);
-      } else {
-        formattedVal = formatNumberWithUnit(rawVal, units[code] || fallbackUnit);
-      }
+      const unitStr = units[code] || fallbackUnit || "";
+      const formattedVal = /wind_direction/i.test(code)
+        ? (degToCompassTr(rawVal) || `${Math.round(rawVal)}°`)
+        : formatNumberWithUnit(rawVal, unitStr);
 
       entries.push({
         code,
         trName,
-        rawVal,
-        formattedVal,
-        minVal: st.minVal !== null ? st.minVal : rawVal,
-        maxVal: st.maxVal !== null ? st.maxVal : rawVal,
-        palette: getPaletteForVar(code)
+        formattedVal
       });
     }
 
     const activeEntry = entries.find(e => e.code === activeVarCode) || entries[0] || null;
-    const cbarMin = activeStats.minVal !== null ? activeStats.minVal : (activeEntry ? activeEntry.minVal : 0);
-    const cbarMax = activeStats.maxVal !== null ? activeStats.maxVal : (activeEntry ? activeEntry.maxVal : 1);
-    const cbarUnit = activeStats.unitStr || "";
-
-    let nearestPos = sliceIndices.indexOf(safeIdx);
-    if (nearestPos < 0 && sliceIndices.length) {
-      nearestPos = 0;
-      let bestDiff = Math.abs(sliceIndices[0] - safeIdx);
-      for (let i = 1; i < sliceIndices.length; i++) {
-        const d = Math.abs(sliceIndices[i] - safeIdx);
-        if (d < bestDiff) {
-          bestDiff = d;
-          nearestPos = i;
-        }
-      }
-    }
-
     return {
-      timeLabel: formatHourPretty(h.time[safeIdx]),
-      rawTimeIso: h.time[safeIdx],
-      minAvailableIso: h.time[0],
-      maxAvailableIso: h.time[h.time.length - 1],
-      sliceIndices,
-      effectiveSpanHours: steppedInfo.effectiveSpanHours,
-      currentSlicePos: Math.max(0, nearestPos),
-      tempStr: typeof temp === "number" ? formatNumberWithUnit(temp, units.temperature_2m || "°C") : null,
-      windSpeedStr: typeof wspd === "number" ? formatNumberWithUnit(wspd, units.wind_speed_10m || "km/h") : null,
-      windDirStr: degToCompassTr(wdir),
-      precipAmountStr,
-      precipTypeStr,
-      humidityStr: typeof hum === "number" ? `${Math.round(hum)} ${units.relative_humidity_2m || "%"}` : null,
-      cloudCoverStr: typeof cloud === "number" ? `${Math.round(cloud)} ${units.cloud_cover || "%"}` : null,
+      timeLabel: formatHourPretty(h.time[idx]),
       entries,
-      activeEntry,
-      activeStats,
-      cbarMin,
-      cbarMax,
-      cbarUnit,
-      palette: getPaletteForVar(activeVarCode)
+      activeEntry
     };
   }
 
@@ -3408,266 +2765,60 @@
       panel.id = "ew-unified-ecmwf-panel";
       document.body.appendChild(panel);
     }
-    panel.style.setProperty("display", "block", "important");
-    panel.style.setProperty("visibility", "visible", "important");
     return panel;
   }
 
   function renderPanel(payload, isFetching) {
     const panel = ensurePanel();
-    hideAllCompetingPanels();
-
-    const curIso = payload ? payload.rawTimeIso : null;
-    const mode = getModeInfo(curIso, isPlaying);
     const coordStr = `${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}`;
-
-    const timeLabel = payload ? payload.timeLabel : "-";
-    const tempStr = payload && payload.tempStr ? payload.tempStr : (isFetching ? "Yükleniyor..." : "-");
-    const windSpeedStr = payload && payload.windSpeedStr ? payload.windSpeedStr : (isFetching ? "Yükleniyor..." : "-");
-    const windDirStr = payload && payload.windDirStr ? payload.windDirStr : (isFetching ? "Yükleniyor..." : "-");
-    const precipAmountStr = payload && payload.precipAmountStr ? payload.precipAmountStr : (isFetching ? "Yükleniyor..." : "-");
-    const precipTypeStr = payload && payload.precipTypeStr ? payload.precipTypeStr : (isFetching ? "Yükleniyor..." : "-");
-    const humidityStr = payload && payload.humidityStr ? payload.humidityStr : (isFetching ? "Yükleniyor..." : "-");
-    const cloudCoverStr = payload && payload.cloudCoverStr ? payload.cloudCoverStr : (isFetching ? "Yükleniyor..." : "-");
-
-    const minDtAttr = payload ? toDateTimeLocalValue(payload.minAvailableIso) : "";
-    const maxDtAttr = payload ? toDateTimeLocalValue(payload.maxAvailableIso) : "";
-    const startVal = rangeStartIso ? toDateTimeLocalValue(rangeStartIso) : minDtAttr;
-    const endVal = rangeEndIso ? toDateTimeLocalValue(rangeEndIso) : maxDtAttr;
-
-    const spanHours = payload ? payload.effectiveSpanHours : 24;
-    const sliceLen = payload && payload.sliceIndices ? payload.sliceIndices.length : 1;
-    const slicePos = payload ? payload.currentSlicePos : 0;
-
-    const stats = payload && payload.activeStats ? payload.activeStats : {
-      minStr: "-", avgStr: "-", maxStr: "-"
-    };
-
-    const cbarMinStr = payload ? formatNumberWithUnit(payload.cbarMin, payload.cbarUnit) : "-";
-    const cbarMaxStr = payload ? formatNumberWithUnit(payload.cbarMax, payload.cbarUnit) : "-";
-    const cbarMidStr = payload ? formatNumberWithUnit((payload.cbarMin + payload.cbarMax) / 2, payload.cbarUnit) : "-";
-    const gradCss = payload && Array.isArray(payload.palette)
-      ? `linear-gradient(90deg, ${payload.palette.join(", ")})`
-      : "linear-gradient(90deg, #3b82f6, #22c55e, #eab308, #f97316, #ef4444)";
-
+    const timeStr = payload ? payload.timeLabel : getCurrentIstanbulIsoPrefix().replace("T", " ");
     const entries = payload && Array.isArray(payload.entries) ? payload.entries : [];
+
     const filtered = entries.filter(item => {
       if (!searchFilter) return true;
       return item.trName.toLowerCase().includes(searchFilter) || item.code.toLowerCase().includes(searchFilter);
     });
 
-    const varsHtml = filtered.length
+    const listHtml = filtered.length
       ? filtered.map(item => {
-          const isSel = item.code === activeVarCode;
-          const vColor = colorFromDynamicMinMax(item.rawVal, item.minVal, item.maxVal, item.palette);
-          return `<button type="button" class="ew-u-var-btn ${isSel ? "selected" : ""}" data-var-code="${item.code}">` +
-            `<span class="ew-u-var-name"><strong>${item.trName}</strong> <span class="ew-u-muted">[${item.code}]</span></span>` +
-            `<span style="color:${vColor};font-weight:700;white-space:nowrap;">${item.formattedVal}</span>` +
+          const isAct = item.code === activeVarCode;
+          return `<button type="button" class="ew-u-item ${isAct ? "active" : ""}" data-var-code="${item.code}">` +
+            `<span class="ew-u-name"><strong>${item.trName}</strong> <span class="ew-u-muted">[${item.code}]</span></span>` +
+            `<span class="ew-u-val">${item.formattedVal}</span>` +
           `</button>`;
         }).join("")
-      : `<div class="ew-u-muted" style="padding:6px 4px;">${isFetching ? "ECMWF değişkenleri yükleniyor..." : "Değişken bulunamadı."}</div>`;
-
-    const stepChipsHtml = STEP_HOUR_OPTIONS.map(st => {
-      const act = stepHours === st;
-      return `<button type="button" class="ew-u-off-chip ${act ? "active" : ""}" data-step-hours="${st}">${st}s</button>`;
-    }).join("");
-
-    const ilOptionsHtml = PROVINCE_PRESETS.map((p, idx) => {
-      const isMatch = p.il === activeLocation.il && Math.abs(p.lat - activePoint.lat) < 0.05 && Math.abs(p.lon - activePoint.lon) < 0.05;
-      return `<option value="${idx}" ${isMatch ? "selected" : ""}>${p.il} — ${p.ilce}</option>`;
-    }).join("");
+      : `<div class="ew-u-muted" style="padding:6px 4px;">${isFetching ? "ECMWF verileri yükleniyor..." : "Veri bulunamadı."}</div>`;
 
     panel.innerHTML =
-      `<div class="ew-u-top">` +
+      `<div class="ew-u-head">` +
         `<div>` +
-          `<div class="ew-u-title">Nokta ECMWF Paneli</div>` +
-          `<div class="ew-u-sub">${mode.label} · ${timeLabel}</div>` +
+          `<div class="ew-u-title">ECMWF Anlık Değerler</div>` +
+          `<div class="ew-u-time">${timeStr}</div>` +
         `</div>` +
-        `<span class="${mode.badgeClass}">${mode.badge}</span>` +
+        `<div class="ew-u-coord">${coordStr}</div>` +
       `</div>` +
-      `<div class="ew-u-picker-card">` +
-        `<div class="ew-u-picker-row">` +
-          `<div>` +
-            `<label class="ew-u-field-lbl" for="ew-u-il-select">İl / Nokta Seçimi</label>` +
-            `<select id="ew-u-il-select" class="ew-u-select">${ilOptionsHtml}</select>` +
-          `</div>` +
-          `<div>` +
-            `<label class="ew-u-field-lbl">Aktif Konum</label>` +
-            `<div style="font-size:10.5px;font-weight:700;color:#e2e8f0;padding-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${activeLocation.il} / ${activeLocation.ilce}</div>` +
-          `</div>` +
-        `</div>` +
-        `<div class="ew-u-coord-bar">` +
-          `<input id="ew-u-lat-inp" class="ew-u-coord-inp" type="number" step="0.0001" value="${activePoint.lat.toFixed(4)}" placeholder="Enlem" />` +
-          `<input id="ew-u-lon-inp" class="ew-u-coord-inp" type="number" step="0.0001" value="${activePoint.lon.toFixed(4)}" placeholder="Boylam" />` +
-          `<button type="button" id="ew-u-go-coord" class="ew-u-go-btn">Koordinata Git</button>` +
-        `</div>` +
-      `</div>` +
-      `<div class="ew-u-loc-card">` +
-        `<div class="ew-u-loc-line"><span class="ew-u-muted">Koordinat:</span><strong class="${mode.valClass}">${coordStr}</strong></div>` +
-        `<div class="ew-u-loc-line"><span class="ew-u-muted">İl / İlçe:</span><strong class="${mode.valClass}">${activeLocation.il} / ${activeLocation.ilce}</strong></div>` +
-        `<div class="ew-u-loc-line"><span class="ew-u-muted">Mahalle / Semt:</span><strong class="${mode.valClass}">${activeLocation.mahalle}</strong></div>` +
-      `</div>` +
-      `<div class="ew-u-player-card">` +
-        `<div class="ew-u-play-toolbar">` +
-          `<button type="button" id="ew-u-play-toggle" class="ew-u-play-btn ${isPlaying ? "playing" : ""}">${isPlaying ? "Durdur" : "Oynat"}</button>` +
-          `<button type="button" id="ew-u-now-btn" class="ew-u-reset-btn">Şu An</button>` +
-        `</div>` +
-        `<div class="ew-u-date-row">` +
-          `<div>` +
-            `<label class="ew-u-field-lbl" for="ew-u-start-dt">Başlangıç (Min 1 Gün)</label>` +
-            `<input id="ew-u-start-dt" class="ew-u-date-inp" type="datetime-local" min="${minDtAttr}" max="${maxDtAttr}" value="${startVal}" />` +
-          `</div>` +
-          `<div>` +
-            `<label class="ew-u-field-lbl" for="ew-u-end-dt">Bitiş (${spanHours}s · ${sliceLen} adım)</label>` +
-            `<input id="ew-u-end-dt" class="ew-u-date-inp" type="datetime-local" min="${minDtAttr}" max="${maxDtAttr}" value="${endVal}" />` +
-          `</div>` +
-        `</div>` +
-        `<div class="ew-u-step-label">İlerleme Adımı (${stepHours}s):</div>` +
-        `<div class="ew-u-offsets-wrap">${stepChipsHtml}</div>` +
-        `<input id="ew-u-scrubber" class="ew-u-scrubber" type="range" min="0" max="${Math.max(0, sliceLen - 1)}" value="${slicePos}" />` +
-        `<div class="ew-u-stats-box">` +
-          `<div class="ew-u-stat-line"><span class="ew-u-muted">Minimum:</span><strong class="${mode.valClass}">${stats.minStr}</strong></div>` +
-          `<div class="ew-u-stat-line"><span class="ew-u-muted">Ortalama:</span><strong class="${mode.valClass}">${stats.avgStr}</strong></div>` +
-          `<div class="ew-u-stat-line"><span class="ew-u-muted">Maksimum:</span><strong class="${mode.valClass}">${stats.maxStr}</strong></div>` +
-        `</div>` +
-      `</div>` +
-      `<div class="ew-u-cbar-box">` +
-        `<div class="ew-u-cbar-title"><span>ECMWF CBAR (Dinamik Min–Max)</span><span>${activeVarCode}</span></div>` +
-        `<div class="ew-u-cbar-grad" style="background:${gradCss};"></div>` +
-        `<div class="ew-u-cbar-ticks"><span>${cbarMinStr}</span><span>${cbarMidStr}</span><span>${cbarMaxStr}</span></div>` +
-      `</div>` +
-      `<div class="ew-u-core-card">` +
-        `<div class="ew-u-core-grid">` +
-          `<span class="ew-u-lbl">2m Sıcaklığı:</span><span class="${mode.valClass}">${tempStr}</span>` +
-          `<span class="ew-u-lbl">Rüzgar Hızı:</span><span class="${mode.valClass}">${windSpeedStr}</span>` +
-          `<span class="ew-u-lbl">Rüzgar Yönü:</span><span class="${mode.valClass}">${windDirStr}</span>` +
-          `<span class="ew-u-lbl">Yağış Miktarı:</span><span class="${mode.valClass}">${precipAmountStr}</span>` +
-          `<span class="ew-u-lbl">Yağış Tipi:</span><span class="${mode.valClass}">${precipTypeStr}</span>` +
-          `<span class="ew-u-lbl">Bağıl Nem:</span><span class="${mode.valClass}">${humidityStr}</span>` +
-          `<span class="ew-u-lbl">Toplam Bulutluluk:</span><span class="${mode.valClass}">${cloudCoverStr}</span>` +
-        `</div>` +
-      `</div>` +
-      `<input id="ew-u-search-input" class="ew-u-search" type="text" placeholder="ECMWF değişken ara..." value="${searchFilter.replace(/"/g, "&quot;")}" />` +
-      `<div class="ew-u-vars-head"><span>ECMWF Değişkenleri</span><span>${entries.length} adet</span></div>` +
-      `<div id="ew-u-vars-list" class="ew-u-vars-list">${varsHtml}</div>`;
-
-    const ilSelect = document.getElementById("ew-u-il-select");
-    if (ilSelect) {
-      ilSelect.addEventListener("change", () => {
-        const idx = Number(ilSelect.value);
-        const chosen = PROVINCE_PRESETS[idx];
-        if (!chosen) return;
-        activeLocation = { il: chosen.il, ilce: chosen.ilce, mahalle: chosen.mahalle };
-        const mapObj = resolveLeafletMap();
-        if (mapObj && typeof mapObj.setView === "function") {
-          mapObj.setView([chosen.lat, chosen.lon], Math.max(mapObj.getZoom ? mapObj.getZoom() : 9, 9));
-        }
-        refreshPoint(chosen.lat, chosen.lon);
-      });
-    }
-
-    const goCoordBtn = document.getElementById("ew-u-go-coord");
-    const latInp = document.getElementById("ew-u-lat-inp");
-    const lonInp = document.getElementById("ew-u-lon-inp");
-    if (goCoordBtn && latInp && lonInp) {
-      goCoordBtn.addEventListener("click", () => {
-        const nextLat = parseFloat(latInp.value);
-        const nextLon = parseFloat(lonInp.value);
-        if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
-        const mapObj = resolveLeafletMap();
-        if (mapObj && typeof mapObj.setView === "function") {
-          mapObj.setView([nextLat, nextLon], Math.max(mapObj.getZoom ? mapObj.getZoom() : 10, 10));
-        }
-        refreshPoint(nextLat, nextLon);
-      });
-    }
-
-    const playBtn = document.getElementById("ew-u-play-toggle");
-    if (playBtn) {
-      playBtn.addEventListener("click", () => {
-        if (isPlaying) stopPlayback();
-        else startPlayback();
-      });
-    }
-
-    const nowBtn = document.getElementById("ew-u-now-btn");
-    if (nowBtn) {
-      nowBtn.addEventListener("click", () => {
-        stopPlayback();
-        jumpToNow();
-      });
-    }
-
-    const startInp = document.getElementById("ew-u-start-dt");
-    const endInp = document.getElementById("ew-u-end-dt");
-    const onDateTimeChange = () => {
-      if (!lastPayload || !lastPayload.data || !lastPayload.data.hourly) return;
-      const times = lastPayload.data.hourly.time;
-      const builtStep = buildSteppedIndices(
-        times,
-        startInp && startInp.value ? startInp.value : rangeStartIso,
-        endInp && endInp.value ? endInp.value : rangeEndIso,
-        stepHours
-      );
-      rangeStartIso = builtStep.startIso;
-      rangeEndIso = builtStep.endIso;
-      playCursorIdx = 0;
-
-      const targetIdx = builtStep.indices[0] || 0;
-      const updated = buildPayloadAtIndex(lastPayload.data, targetIdx);
-      lastPayload = { ...updated, data: lastPayload.data };
-      renderPanel(lastPayload, false);
-      renderPointAndCbarOnMap(lastPayload);
-    };
-
-    if (startInp) startInp.addEventListener("change", onDateTimeChange);
-    if (endInp) endInp.addEventListener("change", onDateTimeChange);
-
-    panel.querySelectorAll("button[data-step-hours]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (!lastPayload || !lastPayload.data || !lastPayload.data.hourly) return;
-        stepHours = Number(btn.getAttribute("data-step-hours") || "1") || 1;
-        const times = lastPayload.data.hourly.time;
-        const builtStep = buildSteppedIndices(times, rangeStartIso, rangeEndIso, stepHours);
-        rangeStartIso = builtStep.startIso;
-        rangeEndIso = builtStep.endIso;
-        playCursorIdx = 0;
-
-        const targetIdx = builtStep.indices[0] || 0;
-        const updated = buildPayloadAtIndex(lastPayload.data, targetIdx);
-        lastPayload = { ...updated, data: lastPayload.data };
-        renderPanel(lastPayload, false);
-        renderPointAndCbarOnMap(lastPayload);
-      });
-    });
-
-    const scrubber = document.getElementById("ew-u-scrubber");
-    if (scrubber) {
-      scrubber.addEventListener("input", () => {
-        if (!lastPayload || !lastPayload.sliceIndices) return;
-        const pos = Math.max(0, Math.min(lastPayload.sliceIndices.length - 1, Number(scrubber.value) || 0));
-        playCursorIdx = pos;
-        const targetIdx = lastPayload.sliceIndices[pos];
-        const updated = buildPayloadAtIndex(lastPayload.data, targetIdx);
-        lastPayload = { ...updated, data: lastPayload.data };
-        renderPanel(lastPayload, false);
-        renderPointAndCbarOnMap(lastPayload);
-      });
-    }
+      `<input id="ew-u-search" class="ew-u-search" type="text" placeholder="ECMWF değişken ara..." value="${searchFilter.replace(/"/g, "&quot;")}" />` +
+      `<div class="ew-u-list">${listHtml}</div>`;
 
     panel.querySelectorAll("button[data-var-code]").forEach(btn => {
       btn.addEventListener("click", () => {
         const code = btn.getAttribute("data-var-code");
-        if (code) setActiveVariable(code);
+        if (!code) return;
+        activeVarCode = code;
+        if (lastPayload && lastPayload.data) {
+          lastPayload = { ...buildNowPayload(lastPayload.data), data: lastPayload.data };
+          renderPanel(lastPayload, false);
+          renderPointMarker(lastPayload);
+        }
       });
     });
 
-    const inp = document.getElementById("ew-u-search-input");
+    const inp = document.getElementById("ew-u-search");
     if (inp) {
       inp.addEventListener("input", () => {
         searchFilter = inp.value.trim().toLowerCase();
         renderPanel(lastPayload, isFetching);
-        const reInp = document.getElementById("ew-u-search-input");
+        const reInp = document.getElementById("ew-u-search");
         if (reInp) {
           reInp.focus();
           reInp.setSelectionRange(reInp.value.length, reInp.value.length);
@@ -3700,114 +2851,42 @@
     return null;
   }
 
-  function renderPointAndCbarOnMap(payload) {
+  function renderPointMarker(payload) {
     const mapObj = resolveLeafletMap();
     if (!window.L || !mapObj) return;
 
-    if (!window._ewUnifiedPointLayer) {
-      window._ewUnifiedPointLayer = L.layerGroup().addTo(mapObj);
-    } else if (!mapObj.hasLayer(window._ewUnifiedPointLayer)) {
-      window._ewUnifiedPointLayer.addTo(mapObj);
+    if (!window._ewPurePointLayer) {
+      window._ewPurePointLayer = L.layerGroup().addTo(mapObj);
+    } else if (!mapObj.hasLayer(window._ewPurePointLayer)) {
+      window._ewPurePointLayer.addTo(mapObj);
     }
-    window._ewUnifiedPointLayer.clearLayers();
+    window._ewPurePointLayer.clearLayers();
 
-    const mode = getModeInfo(payload ? payload.rawTimeIso : null, isPlaying);
     const act = payload && payload.activeEntry ? payload.activeEntry : null;
-    const pinColor = act
-      ? colorFromDynamicMinMax(act.rawVal, payload.cbarMin, payload.cbarMax, payload.palette)
-      : mode.accent;
-
-    L.circleMarker([activePoint.lat, activePoint.lon], {
-      radius: 18,
-      color: pinColor,
-      weight: 2.5,
-      fillColor: pinColor,
-      fillOpacity: 0.25,
-      interactive: false
-    }).addTo(window._ewUnifiedPointLayer);
+    const lineVal = act ? `${act.trName}: ${act.formattedVal}` : "ECMWF";
+    const lineTime = payload ? payload.timeLabel : "";
 
     L.circleMarker([activePoint.lat, activePoint.lon], {
       radius: 9,
       color: "#ffffff",
       weight: 2.5,
-      fillColor: pinColor,
+      fillColor: "#38bdf8",
       fillOpacity: 1,
       interactive: false
-    }).addTo(window._ewUnifiedPointLayer);
-
-    const activeLabel = act ? `${act.trName}: ${act.formattedVal}` : "ECMWF";
-    const rangeSummary = payload && payload.activeStats
-      ? `Min ${payload.activeStats.minStr} · Ort ${payload.activeStats.avgStr} · Max ${payload.activeStats.maxStr}`
-      : "";
-
-    const htmlBadge =
-      `<div style="border-left:3px solid ${pinColor};padding-left:6px;">` +
-        `<div><strong>${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}</strong> · <span style="color:${mode.accent};">${mode.badge}</span></div>` +
-        `<div>${activeLocation.il} / ${activeLocation.ilce} · <span style="color:#cbd5e1;">${payload ? payload.timeLabel : ""}</span></div>` +
-        `<div style="color:${pinColor};font-weight:700;">${activeLabel}</div>` +
-        (rangeSummary ? `<div style="font-size:10px;color:#e2e8f0;">${rangeSummary}</div>` : "") +
-      `</div>`;
+    }).addTo(window._ewPurePointLayer);
 
     L.marker([activePoint.lat, activePoint.lon], {
       icon: L.divIcon({
         className: "ew-map-point-badge",
-        html: htmlBadge,
+        html: `<div><strong>${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}</strong> · <span style="color:#94a3b8;">${lineTime}</span></div><div style="color:#4ade80;font-weight:700;">${lineVal}</div>`,
         iconSize: null,
-        iconAnchor: [0, 26]
+        iconAnchor: [0, 22]
       }),
       interactive: false
-    }).addTo(window._ewUnifiedPointLayer);
+    }).addTo(window._ewPurePointLayer);
   }
 
-  function stopPlayback() {
-    isPlaying = false;
-    if (playTimer) {
-      clearInterval(playTimer);
-      playTimer = null;
-    }
-  }
-
-  function startPlayback() {
-    if (!lastPayload || !lastPayload.data || !lastPayload.data.hourly) return;
-    stopPlayback();
-    isPlaying = true;
-    const times = lastPayload.data.hourly.time;
-    const stepped = ensureRangeAndSteps(times);
-    rangeStartIso = stepped.startIso;
-    rangeEndIso = stepped.endIso;
-    const slice = stepped.indices;
-    if (!slice.length) return;
-    if (playCursorIdx < 0 || playCursorIdx >= slice.length) playCursorIdx = 0;
-
-    renderPanel(lastPayload, false);
-    renderPointAndCbarOnMap(lastPayload);
-
-    playTimer = setInterval(() => {
-      if (!isPlaying || !lastPayload || !lastPayload.data || !lastPayload.data.hourly) {
-        stopPlayback();
-        return;
-      }
-      const curSlice = ensureRangeAndSteps(lastPayload.data.hourly.time).indices;
-      if (!curSlice.length) {
-        stopPlayback();
-        return;
-      }
-      const targetIdx = curSlice[playCursorIdx % curSlice.length];
-      const stepPayload = buildPayloadAtIndex(lastPayload.data, targetIdx);
-      lastPayload = { ...stepPayload, data: lastPayload.data };
-      renderPanel(lastPayload, false);
-      renderPointAndCbarOnMap(lastPayload);
-
-      playCursorIdx += 1;
-      if (playCursorIdx >= curSlice.length) {
-        stopPlayback();
-        renderPanel(lastPayload, false);
-      }
-    }, 1250);
-  }
-
-  async function refreshPoint(lat, lon) {
-    stopPlayback();
+  async function selectPoint(lat, lon) {
     if (activeAbortController) {
       try { activeAbortController.abort(); } catch (_) {}
     }
@@ -3816,87 +2895,47 @@
 
     const myEpoch = ++queryEpoch;
     activePoint = { lat, lon };
-    activeLocation = {
-      il: "Konum...",
-      ilce: `${lat.toFixed(4)}`,
-      mahalle: `${lon.toFixed(4)}`
-    };
-
     renderPanel(lastPayload, true);
-    renderPointAndCbarOnMap(lastPayload);
+    renderPointMarker(lastPayload);
 
-    resolveReverseLocation(lat, lon, signal).then(loc => {
-      if (myEpoch !== queryEpoch) return;
-      activeLocation = loc;
-      renderPanel(lastPayload, true);
-      renderPointAndCbarOnMap(lastPayload);
-    });
-
-    const data = await fetchEcmwfFullSeries(lat, lon, signal);
+    const data = await fetchEcmwfNow(lat, lon, signal);
     if (myEpoch !== queryEpoch || !data) return;
 
-    const targetIdx = findCurrentHourIndex(data.hourly.time);
-    const built = buildPayloadAtIndex(data, targetIdx);
-    lastPayload = { ...built, data };
-
+    lastPayload = { ...buildNowPayload(data), data };
     renderPanel(lastPayload, false);
-    renderPointAndCbarOnMap(lastPayload);
+    renderPointMarker(lastPayload);
   }
 
-  async function jumpToNow() {
-    stopPlayback();
-    if (lastPayload && lastPayload.data && lastPayload.data.hourly) {
-      const targetIdx = findCurrentHourIndex(lastPayload.data.hourly.time);
-      const built = buildPayloadAtIndex(lastPayload.data, targetIdx);
-      playCursorIdx = built.currentSlicePos;
-      lastPayload = { ...built, data: lastPayload.data };
-      renderPanel(lastPayload, false);
-      renderPointAndCbarOnMap(lastPayload);
-      return;
-    }
-    await refreshPoint(activePoint.lat, activePoint.lon);
-  }
-
-  async function setActiveVariable(code) {
-    activeVarCode = code;
-    if (lastPayload && lastPayload.data && lastPayload.data.hourly) {
-      const curIdx = Math.max(0, lastPayload.data.hourly.time.indexOf(lastPayload.rawTimeIso));
-      const built = buildPayloadAtIndex(lastPayload.data, curIdx);
-      lastPayload = { ...built, data: lastPayload.data };
-      renderPanel(lastPayload, false);
-      renderPointAndCbarOnMap(lastPayload);
-      return;
-    }
-    await refreshPoint(activePoint.lat, activePoint.lon);
-  }
-
-  function bindMapInteractions() {
+  function bindMapInput() {
     const mapObj = resolveLeafletMap();
-    if (mapObj && !mapObj._ewUnifiedBound) {
-      mapObj._ewUnifiedBound = true;
+    if (mapObj && !mapObj._ewPureBound) {
+      mapObj._ewPureBound = true;
       mapObj.on("click", function(ev) {
         if (!ev || !ev.latlng) return;
-        if (hoverTimer) clearTimeout(hoverTimer);
-        refreshPoint(ev.latlng.lat, ev.latlng.lng);
+        selectPoint(ev.latlng.lat, ev.latlng.lng);
       });
-      mapObj.on("mousemove", function(ev) {
-        if (!ev || !ev.latlng) return;
-        if (isPlaying) return;
-        const lat = ev.latlng.lat;
-        const lon = ev.latlng.lng;
-        if (hoverTimer) clearTimeout(hoverTimer);
-        hoverTimer = setTimeout(() => {
-          refreshPoint(lat, lon);
-        }, 220);
-      });
+    }
+    const container = mapObj && mapObj._container ? mapObj._container : document.querySelector(".leaflet-container");
+    if (container && !container._ewPureTouchBound) {
+      container._ewPureTouchBound = true;
+      container.addEventListener("touchend", function(ev) {
+        if (!mapObj || typeof mapObj.containerPointToLatLng !== "function") return;
+        const touch = (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]);
+        if (!touch) return;
+        const rect = container.getBoundingClientRect();
+        const pt = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
+        const latlng = mapObj.containerPointToLatLng(pt);
+        if (latlng && Number.isFinite(latlng.lat) && Number.isFinite(latlng.lng)) {
+          selectPoint(latlng.lat, latlng.lng);
+        }
+      }, { passive: true });
     }
   }
 
   function boot() {
     ensurePanel();
-    hideAllCompetingPanels();
-    bindMapInteractions();
-    refreshPoint(activePoint.lat, activePoint.lon);
+    bindMapInput();
+    selectPoint(activePoint.lat, activePoint.lon);
   }
 
   if (document.readyState === "loading") {
@@ -3905,10 +2944,7 @@
     boot();
   }
 
-  setInterval(() => {
-    hideAllCompetingPanels();
-    bindMapInteractions();
-  }, 1200);
+  setInterval(bindMapInput, 1200);
 })();
 </script>
 <!-- ew-ecmwf-player-engine-end -->
