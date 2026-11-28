@@ -2483,23 +2483,11 @@
 <!-- ew-point-instant-summary-end -->
 <!-- ew-ecmwf-player-engine-start -->
 <style id="ew-ecmwf-player-engine-style">
-  body > :not(#ew-unified-ecmwf-panel):not(.leaflet-container):not(script):not(style):not(link) {
-    display: none !important;
-  }
-
-  .leaflet-container {
-    position: fixed !important;
-    inset: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    z-index: 1 !important;
-  }
-
   #ew-unified-ecmwf-panel {
     position: fixed !important;
     top: 12px !important;
     right: 12px !important;
-    width: 340px !important;
+    width: 352px !important;
     max-width: calc(100vw - 24px) !important;
     max-height: calc(100vh - 24px) !important;
     overflow-y: auto !important;
@@ -2508,8 +2496,8 @@
     border-radius: 12px !important;
     background: rgba(9, 15, 28, 0.96) !important;
     color: #f8fafc !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7) !important;
+    border: 1px solid rgba(56, 189, 248, 0.45) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.72) !important;
     box-sizing: border-box !important;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     font-size: 12px !important;
@@ -2541,6 +2529,24 @@
     white-space: nowrap !important;
   }
 
+  .ew-u-loc-box {
+    padding: 7px 9px !important;
+    border-radius: 8px !important;
+    background: rgba(15, 23, 42, 0.94) !important;
+    border: 1px solid rgba(148, 163, 184, 0.24) !important;
+    margin-bottom: 8px !important;
+    font-size: 11px !important;
+  }
+  .ew-u-loc-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    margin-bottom: 2px !important;
+  }
+  .ew-u-loc-row:last-child {
+    margin-bottom: 0 !important;
+  }
+
   .ew-u-search {
     width: 100% !important;
     box-sizing: border-box !important;
@@ -2557,7 +2563,7 @@
     display: flex !important;
     flex-direction: column !important;
     gap: 4px !important;
-    max-height: calc(100vh - 130px) !important;
+    max-height: calc(100vh - 210px) !important;
     overflow-y: auto !important;
   }
 
@@ -2648,11 +2654,14 @@
   ];
 
   let activePoint = { lat: 41.0082, lon: 28.9784 };
+  let activeLocation = { il: "İstanbul", ilce: "Fatih", mahalle: "Merkez" };
   let activeVarCode = "temperature_2m";
   let searchFilter = "";
   let queryEpoch = 0;
   let activeAbortController = null;
   let lastPayload = null;
+
+  const geoCache = new Map();
   const seriesCache = new Map();
 
   function degToCompassTr(deg) {
@@ -2707,9 +2716,37 @@
     return bestIdx;
   }
 
-  async function fetchEcmwfNow(lat, lon, signal) {
-    const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    if (seriesCache.has(cacheKey)) return seriesCache.get(cacheKey);
+  // Koordinata göre İl / İlçe / Mahalle bilgisini çözümle
+  async function resolveIlIlceMahalle(lat, lon, signal) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (geoCache.has(key)) return geoCache.get(key);
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1`;
+      const res = await fetch(url, { headers: { "Accept-Language": "tr" }, signal });
+      if (!res.ok) throw new Error("geo");
+      const data = await res.json();
+      const addr = (data && data.address) || {};
+      const info = {
+        il: addr.province || addr.state || addr.city || addr.region || "Bölge",
+        ilce: addr.town || addr.district || addr.county || addr.city_district || "Merkez",
+        mahalle: addr.neighbourhood || addr.suburb || addr.quarter || addr.village || addr.hamlet || addr.road || "Merkez"
+      };
+      geoCache.set(key, info);
+      return info;
+    } catch (_) {
+      return {
+        il: "Koordinat Bölgesi",
+        ilce: `${lat.toFixed(4)}`,
+        mahalle: `${lon.toFixed(4)}`
+      };
+    }
+  }
+
+  // Seçilen koordinat için tüm ECMWF değişkenlerini çek
+  async function fetchEcmwfForCoord(lat, lon, signal) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (seriesCache.has(key)) return seriesCache.get(key);
 
     const varCodes = ALL_ECMWF_VARS.map(v => v[0]).join(",");
     const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(varCodes)}&past_days=1&forecast_days=1&timezone=Europe%2FIstanbul&_t=${Date.now()}`;
@@ -2718,7 +2755,7 @@
       if (!res.ok) return null;
       const data = await res.json();
       if (data && data.hourly && Array.isArray(data.hourly.time)) {
-        seriesCache.set(cacheKey, data);
+        seriesCache.set(key, data);
         return data;
       }
       return null;
@@ -2727,7 +2764,7 @@
     }
   }
 
-  function buildNowPayload(data) {
+  function buildPayload(data) {
     const h = data.hourly;
     const units = data.hourly_units || {};
     const idx = findNowIndex(h.time);
@@ -2787,15 +2824,19 @@
             `<span class="ew-u-val">${item.formattedVal}</span>` +
           `</button>`;
         }).join("")
-      : `<div class="ew-u-muted" style="padding:6px 4px;">${isFetching ? "ECMWF verileri yükleniyor..." : "Veri bulunamadı."}</div>`;
+      : `<div class="ew-u-muted" style="padding:6px 4px;">${isFetching ? "ECMWF değişkenleri güncelleniyor..." : "Değişken bulunamadı."}</div>`;
 
     panel.innerHTML =
       `<div class="ew-u-head">` +
         `<div>` +
-          `<div class="ew-u-title">ECMWF Anlık Değerler</div>` +
+          `<div class="ew-u-title">ECMWF Nokta Verileri</div>` +
           `<div class="ew-u-time">${timeStr}</div>` +
         `</div>` +
         `<div class="ew-u-coord">${coordStr}</div>` +
+      `</div>` +
+      `<div class="ew-u-loc-box">` +
+        `<div class="ew-u-loc-row"><span class="ew-u-muted">İl / İlçe:</span><strong>${activeLocation.il} / ${activeLocation.ilce}</strong></div>` +
+        `<div class="ew-u-loc-row"><span class="ew-u-muted">Mahalle:</span><strong>${activeLocation.mahalle}</strong></div>` +
       `</div>` +
       `<input id="ew-u-search" class="ew-u-search" type="text" placeholder="ECMWF değişken ara..." value="${searchFilter.replace(/"/g, "&quot;")}" />` +
       `<div class="ew-u-list">${listHtml}</div>`;
@@ -2806,7 +2847,7 @@
         if (!code) return;
         activeVarCode = code;
         if (lastPayload && lastPayload.data) {
-          lastPayload = { ...buildNowPayload(lastPayload.data), data: lastPayload.data };
+          lastPayload = { ...buildPayload(lastPayload.data), data: lastPayload.data };
           renderPanel(lastPayload, false);
           renderPointMarker(lastPayload);
         }
@@ -2855,16 +2896,15 @@
     const mapObj = resolveLeafletMap();
     if (!window.L || !mapObj) return;
 
-    if (!window._ewPurePointLayer) {
-      window._ewPurePointLayer = L.layerGroup().addTo(mapObj);
-    } else if (!mapObj.hasLayer(window._ewPurePointLayer)) {
-      window._ewPurePointLayer.addTo(mapObj);
+    if (!window._ewCoordPointLayer) {
+      window._ewCoordPointLayer = L.layerGroup().addTo(mapObj);
+    } else if (!mapObj.hasLayer(window._ewCoordPointLayer)) {
+      window._ewCoordPointLayer.addTo(mapObj);
     }
-    window._ewPurePointLayer.clearLayers();
+    window._ewCoordPointLayer.clearLayers();
 
     const act = payload && payload.activeEntry ? payload.activeEntry : null;
     const lineVal = act ? `${act.trName}: ${act.formattedVal}` : "ECMWF";
-    const lineTime = payload ? payload.timeLabel : "";
 
     L.circleMarker([activePoint.lat, activePoint.lon], {
       radius: 9,
@@ -2873,20 +2913,20 @@
       fillColor: "#38bdf8",
       fillOpacity: 1,
       interactive: false
-    }).addTo(window._ewPurePointLayer);
+    }).addTo(window._ewCoordPointLayer);
 
     L.marker([activePoint.lat, activePoint.lon], {
       icon: L.divIcon({
         className: "ew-map-point-badge",
-        html: `<div><strong>${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}</strong> · <span style="color:#94a3b8;">${lineTime}</span></div><div style="color:#4ade80;font-weight:700;">${lineVal}</div>`,
+        html: `<div><strong>${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}</strong></div><div>${activeLocation.il} / ${activeLocation.ilce} · ${activeLocation.mahalle}</div><div style="color:#4ade80;font-weight:700;">${lineVal}</div>`,
         iconSize: null,
         iconAnchor: [0, 22]
       }),
       interactive: false
-    }).addTo(window._ewPurePointLayer);
+    }).addTo(window._ewCoordPointLayer);
   }
 
-  async function selectPoint(lat, lon) {
+  async function selectCoord(lat, lon) {
     if (activeAbortController) {
       try { activeAbortController.abort(); } catch (_) {}
     }
@@ -2895,29 +2935,38 @@
 
     const myEpoch = ++queryEpoch;
     activePoint = { lat, lon };
+    activeLocation = { il: "Konum...", ilce: "...", mahalle: "..." };
+
     renderPanel(lastPayload, true);
     renderPointMarker(lastPayload);
 
-    const data = await fetchEcmwfNow(lat, lon, signal);
+    resolveIlIlceMahalle(lat, lon, signal).then(loc => {
+      if (myEpoch !== queryEpoch) return;
+      activeLocation = loc;
+      renderPanel(lastPayload, true);
+      renderPointMarker(lastPayload);
+    });
+
+    const data = await fetchEcmwfForCoord(lat, lon, signal);
     if (myEpoch !== queryEpoch || !data) return;
 
-    lastPayload = { ...buildNowPayload(data), data };
+    lastPayload = { ...buildPayload(data), data };
     renderPanel(lastPayload, false);
     renderPointMarker(lastPayload);
   }
 
-  function bindMapInput() {
+  function bindMapCoordEvents() {
     const mapObj = resolveLeafletMap();
-    if (mapObj && !mapObj._ewPureBound) {
-      mapObj._ewPureBound = true;
+    if (mapObj && !mapObj._ewCoordBound) {
+      mapObj._ewCoordBound = true;
       mapObj.on("click", function(ev) {
         if (!ev || !ev.latlng) return;
-        selectPoint(ev.latlng.lat, ev.latlng.lng);
+        selectCoord(ev.latlng.lat, ev.latlng.lng);
       });
     }
     const container = mapObj && mapObj._container ? mapObj._container : document.querySelector(".leaflet-container");
-    if (container && !container._ewPureTouchBound) {
-      container._ewPureTouchBound = true;
+    if (container && !container._ewCoordTouchBound) {
+      container._ewCoordTouchBound = true;
       container.addEventListener("touchend", function(ev) {
         if (!mapObj || typeof mapObj.containerPointToLatLng !== "function") return;
         const touch = (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]);
@@ -2926,7 +2975,7 @@
         const pt = L.point(touch.clientX - rect.left, touch.clientY - rect.top);
         const latlng = mapObj.containerPointToLatLng(pt);
         if (latlng && Number.isFinite(latlng.lat) && Number.isFinite(latlng.lng)) {
-          selectPoint(latlng.lat, latlng.lng);
+          selectCoord(latlng.lat, latlng.lng);
         }
       }, { passive: true });
     }
@@ -2934,8 +2983,8 @@
 
   function boot() {
     ensurePanel();
-    bindMapInput();
-    selectPoint(activePoint.lat, activePoint.lon);
+    bindMapCoordEvents();
+    selectCoord(activePoint.lat, activePoint.lon);
   }
 
   if (document.readyState === "loading") {
@@ -2944,7 +2993,7 @@
     boot();
   }
 
-  setInterval(bindMapInput, 1200);
+  setInterval(bindMapCoordEvents, 1200);
 })();
 </script>
 <!-- ew-ecmwf-player-engine-end -->
