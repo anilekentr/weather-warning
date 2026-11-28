@@ -1724,36 +1724,8 @@
 
 <!-- ew-twin-ecmwf-start -->
 <style id="ew-twin-ecmwf-style">
-  #ew-cbar, #ew-ecmwf-live-note, #ew-point-single-value, #ew-ecmwf-panel-status {
+  #ew-cbar, #ew-ecmwf-live-note, #ew-point-single-value, #ew-ecmwf-panel-status, #ew-ecmwf-top-location-bar {
     display: none !important;
-  }
-  #ew-ecmwf-top-location-bar {
-    margin-top: 8px !important;
-    padding: 8px 10px !important;
-    border-radius: 10px !important;
-    background: rgba(15, 23, 42, 0.96) !important;
-    color: #f8fafc !important;
-    border: 1px solid rgba(125, 211, 252, 0.45) !important;
-    box-sizing: border-box !important;
-    font-size: 11px !important;
-    line-height: 1.4 !important;
-  }
-  .ew-top-loc-line {
-    font-size: 11px !important;
-    color: #e2e8f0 !important;
-  }
-  .ew-top-loc-coord {
-    font-weight: 700 !important;
-    color: #7dd3fc !important;
-    font-size: 11px !important;
-  }
-  .ew-top-loc-time {
-    margin-top: 4px !important;
-    padding-top: 4px !important;
-    border-top: 1px solid rgba(148, 163, 184, 0.25) !important;
-    color: #93c5fd !important;
-    font-weight: 600 !important;
-    font-size: 10.5px !important;
   }
   #ew-ecmwf-step-144-box {
     margin-top: 8px !important;
@@ -2069,7 +2041,7 @@
     ilce: "Zeytinburnu",
     mahalle: "Yenidoğan Mahallesi"
   };
-  let offsetHours = 0; // -144 .. +144 (0 = şu an)
+  let offsetHours = 0;
   let clickEpoch = 0;
   let latestRequestToken = 0;
   let cbarVisible = true;
@@ -2123,7 +2095,6 @@
     const now = new Date();
     const baseHourUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 0, 0);
     const target = new Date(baseHourUtc + h * 3600 * 1000);
-    // Istanbul +03:00 saat dilimiyle biçimlendir
     const trDate = new Date(target.getTime() + 3 * 3600 * 1000);
     const pad = n => String(n).padStart(2, "0");
     const isoStr = `${trDate.getUTCFullYear()}-${pad(trDate.getUTCMonth() + 1)}-${pad(trDate.getUTCDate())} ${pad(trDate.getUTCHours())}:00`;
@@ -2171,6 +2142,11 @@
   }
 
   function cleanWaitingTextFromCbarAndDom() {
+    const extraBar = document.getElementById("ew-ecmwf-top-location-bar");
+    if (extraBar && extraBar.parentElement) {
+      extraBar.remove();
+    }
+
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const nodes = [];
     let n;
@@ -2201,39 +2177,38 @@
     return null;
   }
 
-  // Birebir aynı konum ve zaman bloğu
-  function renderTopLocationHeader() {
+  // Mevcut tek konum satırlarını yerinde güncelle (ikinci kutu eklemeden)
+  function updateExistingSingleLocationInPanel() {
+    cleanWaitingTextFromCbarAndDom();
     const panel = findEcmwfPanelContainer();
     if (!panel) return;
 
-    let topBar = document.getElementById("ew-ecmwf-top-location-bar");
-    if (!topBar) {
-      topBar = document.createElement("div");
-      topBar.id = "ew-ecmwf-top-location-bar";
-      topBar.innerHTML =
-        "<div id='ew-top-loc-coord' class='ew-top-loc-coord'>-</div>" +
-        "<div id='ew-top-loc-il' class='ew-top-loc-line'>-</div>" +
-        "<div id='ew-top-loc-ilce' class='ew-top-loc-line'>-</div>" +
-        "<div id='ew-top-loc-mahalle' class='ew-top-loc-line'>-</div>" +
-        "<div id='ew-top-loc-time' class='ew-top-loc-time'>-</div>";
-      panel.insertBefore(topBar, panel.firstChild);
+    const coordStr = formatCoordPlain(selectedPoint.lat, selectedPoint.lon);
+    const ilStr = activeLocation.il || "Bölge";
+    const ilceStr = activeLocation.ilce || "Merkez";
+    const mahalleStr = activeLocation.mahalle || "-";
+    const timeStr = formatTargetTimeText(offsetHours);
+
+    const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const txt = node.nodeValue || "";
+      if (/^\s*Koordinat\s*:/i.test(txt)) {
+        node.nodeValue = `Koordinat: ${coordStr}`;
+      } else if (/^\s*İl\s*:/i.test(txt)) {
+        node.nodeValue = `İl: ${ilStr}`;
+      } else if (/^\s*İlçe\s*:/i.test(txt)) {
+        node.nodeValue = `İlçe: ${ilceStr}`;
+      } else if (/^\s*Mahalle\s*\/\s*Semt\s*:/i.test(txt)) {
+        node.nodeValue = `Mahalle / Semt: ${mahalleStr}`;
+      } else if (/^\s*Seçili Zaman\s*:/i.test(txt)) {
+        node.nodeValue = timeStr;
+      }
     }
-
-    const coordEl = document.getElementById("ew-top-loc-coord");
-    const ilEl = document.getElementById("ew-top-loc-il");
-    const ilceEl = document.getElementById("ew-top-loc-ilce");
-    const mahalleEl = document.getElementById("ew-top-loc-mahalle");
-    const timeEl = document.getElementById("ew-top-loc-time");
-
-    if (coordEl) coordEl.textContent = `Koordinat: ${formatCoordPlain(selectedPoint.lat, selectedPoint.lon)}`;
-    if (ilEl) ilEl.textContent = `İl: ${activeLocation.il || "Bölge"}`;
-    if (ilceEl) ilceEl.textContent = `İlçe: ${activeLocation.ilce || "Merkez"}`;
-    if (mahalleEl) mahalleEl.textContent = `Mahalle / Semt: ${activeLocation.mahalle || "-"}`;
-    if (timeEl) timeEl.textContent = formatTargetTimeText(offsetHours);
   }
 
-  // -144s .. +144s adım butonları (-3, -1, +1, +3 + 0) ve kaydırıcı
   function render144HourStepControls() {
+    updateExistingSingleLocationInPanel();
     const panel = findEcmwfPanelContainer();
     if (!panel) return;
 
@@ -2252,11 +2227,11 @@
         "</div>" +
         "<input id='ew-step-144-range' type='range' min='-144' max='144' step='1' value='0' />";
 
-      const topBar = document.getElementById("ew-ecmwf-top-location-bar");
-      if (topBar && topBar.parentElement === panel) {
-        topBar.insertAdjacentElement("afterend", box);
+      const varSelect = document.getElementById("var-select");
+      if (varSelect && varSelect.parentElement === panel) {
+        panel.insertBefore(box, varSelect);
       } else {
-        panel.insertBefore(box, panel.firstChild);
+        panel.appendChild(box);
       }
     }
 
@@ -2292,7 +2267,7 @@
     const clamped = Math.max(MIN_OFFSET_HOURS, Math.min(MAX_OFFSET_HOURS, Math.round(nextOffset)));
     if (clamped === offsetHours) return;
     offsetHours = clamped;
-    renderTopLocationHeader();
+    updateExistingSingleLocationInPanel();
     render144HourStepControls();
 
     const catalog = collectAllCandidateVars();
@@ -2406,7 +2381,6 @@
     return Array.from(map.values());
   }
 
-  // -144s .. +144s aralığı için saatlik veri çekimi (Open-Meteo ECMWF past_days=6 & forecast_days=6)
   async function fetchEcmwfSeries144h(lat, lon, code) {
     const cacheKey = `144h|${code}|${lat.toFixed(4)}|${lon.toFixed(4)}`;
     if (seriesCache.has(cacheKey)) {
@@ -2465,7 +2439,6 @@
       }
     }
 
-    // Seçili offset saatine (-144..+144) göre deterministik fiziksel türev değer
     const span = Math.max(1e-6, item.max - item.min);
     const latNorm = Math.cos((lat * Math.PI) / 180);
     const wave =
@@ -2477,13 +2450,12 @@
     return { val: item.min + clamped * span, isLive: false };
   }
 
-  // Seçili koordinat ve zaman adımı (-144..+144) için tüm değişkenlerin anlık değerlerini sırala
   async function auditAllVariablesForSelectedPoint(catalog, myEpoch) {
     const epochAtStart = typeof myEpoch === "number" ? myEpoch : clickEpoch;
     const hNow = offsetHours;
     const ptSnapshot = { lat: selectedPoint.lat, lon: selectedPoint.lon };
 
-    renderTopLocationHeader();
+    updateExistingSingleLocationInPanel();
     render144HourStepControls();
     auditCompleted = false;
     liveValueByVar.clear();
@@ -2523,7 +2495,7 @@
     const panel = findEcmwfPanelContainer();
     if (!panel) return;
 
-    renderTopLocationHeader();
+    updateExistingSingleLocationInPanel();
     render144HourStepControls();
 
     let sec = document.getElementById("ew-ecmwf-filter-section");
@@ -2625,7 +2597,7 @@
 
   function renderEcmwfPanelRealData(item, hOffset, state) {
     cleanWaitingTextFromCbarAndDom();
-    renderTopLocationHeader();
+    updateExistingSingleLocationInPanel();
     render144HourStepControls();
     const panel = findEcmwfPanelContainer();
     if (!panel) return;
@@ -2817,7 +2789,7 @@
   }
 
   function syncAllThreeBlocks(catalog) {
-    renderTopLocationHeader();
+    updateExistingSingleLocationInPanel();
     render144HourStepControls();
 
     const mainSel = document.getElementById("var-select");
@@ -3082,7 +3054,7 @@
           ilce: "",
           mahalle: ""
         };
-        renderTopLocationHeader();
+        updateExistingSingleLocationInPanel();
 
         const catalog = collectAllCandidateVars();
         const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
@@ -3095,7 +3067,7 @@
         const resolvedLoc = await resolveReverseLocation(selectedPoint.lat, selectedPoint.lon);
         if (myEpoch !== clickEpoch) return;
         activeLocation = resolvedLoc;
-        renderTopLocationHeader();
+        updateExistingSingleLocationInPanel();
         if (item) {
           updatePlayerCbarAndMap(item, offsetHours);
         }
@@ -3105,6 +3077,7 @@
 
   function tick() {
     cleanWaitingTextFromCbarAndDom();
+    updateExistingSingleLocationInPanel();
     const catalog = collectAllCandidateVars();
     const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
     if (!item) return;
@@ -3119,6 +3092,7 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       cleanWaitingTextFromCbarAndDom();
+      updateExistingSingleLocationInPanel();
       const cat = collectAllCandidateVars();
       setActiveVar(activeVarCode, "host");
       auditAllVariablesForSelectedPoint(cat, clickEpoch);
@@ -3126,6 +3100,7 @@
     });
   } else {
     cleanWaitingTextFromCbarAndDom();
+    updateExistingSingleLocationInPanel();
     const cat = collectAllCandidateVars();
     setActiveVar(activeVarCode, "host");
     auditAllVariablesForSelectedPoint(cat, clickEpoch);
