@@ -2481,5 +2481,1271 @@
 })();
 </script>
 <!-- ew-point-instant-summary-end -->
+<!-- ew-ecmwf-player-engine-start -->
+<style id="ew-ecmwf-player-engine-style">
+  #ew-cbar, #ew-player-cbar, #ew-player-cbar-wrap,
+  #ew-player-cbar-title, #ew-player-cbar-scale,
+  #ew-player-cbar-toggle-btn, #ew-point-marker,
+  #ew-ecmwf-panel, #ew-vars-list, #ew-ecmwf-filter-section,
+  #ew-ecmwf-step-144-box, #ew-ecmwf-real-data-box,
+  #ew-ecmwf-top-location-bar, #ew-ecmwf-panel-status,
+  #ew-player-below-cbar-row, #ew-player-sync-row,
+  #ew-player-controls-row, #ew-range-player-box {
+    display: none !important;
+  }
+
+  #ew-unified-ecmwf-panel {
+    position: fixed !important;
+    top: 14px !important;
+    right: 14px !important;
+    width: 360px !important;
+    max-width: calc(100vw - 28px) !important;
+    max-height: calc(100vh - 28px) !important;
+    overflow-y: auto !important;
+    z-index: 9999 !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+    background: rgba(9, 15, 28, 0.96) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(74, 222, 128, 0.45) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65) !important;
+    box-sizing: border-box !important;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  .ew-u-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 8px !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25) !important;
+  }
+  .ew-u-title {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    color: #f8fafc !important;
+  }
+  .ew-u-sub {
+    font-size: 10.5px !important;
+    color: #94a3b8 !important;
+  }
+  .ew-u-badge-live {
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    background: rgba(34, 197, 94, 0.2) !important;
+    color: #4ade80 !important;
+    border: 1px solid rgba(74, 222, 128, 0.5) !important;
+    white-space: nowrap !important;
+  }
+  .ew-u-badge-approx {
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    background: rgba(245, 158, 11, 0.2) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(251, 191, 36, 0.5) !important;
+    white-space: nowrap !important;
+  }
+  .ew-u-badge-play {
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    background: rgba(56, 189, 248, 0.2) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(56, 189, 248, 0.55) !important;
+    white-space: nowrap !important;
+  }
+
+  .ew-u-loc-card, .ew-u-core-card, .ew-u-player-card {
+    padding: 8px 10px !important;
+    border-radius: 9px !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.22) !important;
+    margin-bottom: 8px !important;
+  }
+  .ew-u-loc-line {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    margin-bottom: 2px !important;
+    font-size: 11px !important;
+  }
+  .ew-u-loc-line:last-child {
+    margin-bottom: 0 !important;
+  }
+  .ew-u-muted {
+    color: #94a3b8 !important;
+  }
+
+  .ew-u-play-toolbar {
+    display: flex !important;
+    gap: 6px !important;
+    margin-bottom: 8px !important;
+  }
+  .ew-u-play-btn {
+    flex: 1.4 !important;
+    padding: 7px 10px !important;
+    border-radius: 8px !important;
+    border: 1px solid #4ade80 !important;
+    background: rgba(22, 163, 74, 0.25) !important;
+    color: #4ade80 !important;
+    font-weight: 800 !important;
+    font-size: 11.5px !important;
+    cursor: pointer !important;
+  }
+  .ew-u-play-btn.playing {
+    border-color: #f87171 !important;
+    background: rgba(220, 38, 38, 0.25) !important;
+    color: #fca5a5 !important;
+  }
+  .ew-u-reset-btn {
+    padding: 7px 10px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(148, 163, 184, 0.4) !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+    color: #f8fafc !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    cursor: pointer !important;
+  }
+
+  .ew-u-date-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin-bottom: 7px !important;
+  }
+  .ew-u-field-lbl {
+    display: block !important;
+    font-size: 10px !important;
+    color: #94a3b8 !important;
+    margin-bottom: 2px !important;
+  }
+  .ew-u-date-inp {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 5px 6px !important;
+    border-radius: 6px !important;
+    background: rgba(9, 13, 22, 0.96) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    font-size: 10px !important;
+  }
+
+  .ew-u-step-label {
+    font-size: 10px !important;
+    color: #cbd5e1 !important;
+    margin-bottom: 4px !important;
+    font-weight: 700 !important;
+  }
+  .ew-u-offsets-wrap {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    margin-bottom: 7px !important;
+  }
+  .ew-u-off-chip {
+    padding: 3px 6px !important;
+    border-radius: 5px !important;
+    background: rgba(30, 41, 59, 0.92) !important;
+    color: #cbd5e1 !important;
+    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+  }
+  .ew-u-off-chip.active {
+    background: rgba(56, 189, 248, 0.22) !important;
+    border-color: #38bdf8 !important;
+    color: #7dd3fc !important;
+  }
+
+  .ew-u-scrubber {
+    width: 100% !important;
+    margin: 4px 0 6px 0 !important;
+    cursor: pointer !important;
+  }
+  .ew-u-stats-box {
+    padding: 7px 8px !important;
+    border-radius: 7px !important;
+    background: rgba(9, 13, 22, 0.85) !important;
+    border: 1px solid rgba(125, 211, 252, 0.25) !important;
+    font-size: 10.5px !important;
+  }
+  .ew-u-stat-line {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    margin-bottom: 3px !important;
+  }
+  .ew-u-stat-line:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  .ew-u-cbar-box {
+    padding: 8px 10px !important;
+    border-radius: 9px !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.25) !important;
+    margin-bottom: 8px !important;
+  }
+  .ew-u-cbar-title {
+    display: flex !important;
+    justify-content: space-between !important;
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    color: #e2e8f0 !important;
+    margin-bottom: 5px !important;
+  }
+  .ew-u-cbar-grad {
+    height: 11px !important;
+    border-radius: 6px !important;
+    background: linear-gradient(90deg, #3b82f6, #22c55e, #eab308, #f97316, #ef4444) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    margin-bottom: 4px !important;
+  }
+  .ew-u-cbar-ticks {
+    display: flex !important;
+    justify-content: space-between !important;
+    font-size: 10px !important;
+    color: #cbd5e1 !important;
+    font-weight: 700 !important;
+  }
+
+  .ew-u-core-grid {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    gap: 4px 10px !important;
+    font-size: 11px !important;
+  }
+  .ew-u-lbl {
+    color: #cbd5e1 !important;
+  }
+  .ew-u-val-live {
+    color: #4ade80 !important;
+    font-weight: 700 !important;
+    text-align: right !important;
+  }
+  .ew-u-val-approx {
+    color: #fbbf24 !important;
+    font-weight: 700 !important;
+    text-align: right !important;
+  }
+
+  .ew-u-search {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 7px 9px !important;
+    border-radius: 8px !important;
+    background: rgba(15, 23, 42, 0.98) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    font-size: 11px !important;
+    margin-bottom: 8px !important;
+  }
+  .ew-u-vars-head {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    color: #86efac !important;
+    margin-bottom: 6px !important;
+  }
+  .ew-u-vars-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    max-height: 220px !important;
+    overflow-y: auto !important;
+  }
+  .ew-u-var-btn {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 6px 8px !important;
+    border-radius: 7px !important;
+    background: rgba(30, 41, 59, 0.92) !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(148, 163, 184, 0.25) !important;
+    font-size: 10.5px !important;
+    cursor: pointer !important;
+    text-align: left !important;
+  }
+  .ew-u-var-btn.selected {
+    background: rgba(22, 163, 74, 0.22) !important;
+    border-color: #4ade80 !important;
+  }
+  .ew-u-var-name {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .ew-map-point-badge {
+    background: rgba(9, 15, 28, 0.96) !important;
+    color: #f8fafc !important;
+    border-radius: 8px !important;
+    padding: 6px 9px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.85) !important;
+    white-space: nowrap !important;
+    line-height: 1.35 !important;
+  }
+</style>
+<script id="ew-ecmwf-player-engine-script">
+(function() {
+  const ALL_ECMWF_VARS = [
+    ["temperature_2m", "2m Sıcaklığı", "°C"],
+    ["relative_humidity_2m", "Bağıl Nem", "%"],
+    ["dew_point_2m", "2m Çiy Noktası", "°C"],
+    ["apparent_temperature", "Hissedilen Sıcaklık", "°C"],
+    ["precipitation", "Toplam Yağış", "mm"],
+    ["rain", "Yağmur", "mm"],
+    ["snowfall", "Kar Yağışı", "cm"],
+    ["snow_depth", "Kar Kalınlığı", "m"],
+    ["weather_code", "Hava Durumu Kodu", "wmo"],
+    ["pressure_msl", "Deniz Seviyesi Basıncı", "hPa"],
+    ["surface_pressure", "Yüzey Basıncı", "hPa"],
+    ["cloud_cover", "Toplam Bulutluluk", "%"],
+    ["cloud_cover_low", "Alçak Bulutluluk", "%"],
+    ["cloud_cover_mid", "Orta Bulutluluk", "%"],
+    ["cloud_cover_high", "Yüksek Bulutluluk", "%"],
+    ["wind_speed_10m", "Rüzgar Hızı (10m)", "km/h"],
+    ["wind_direction_10m", "Rüzgar Yönü (10m)", "°"],
+    ["wind_gusts_10m", "Rüzgar Hamlesi (10m)", "km/h"],
+    ["wind_speed_80m", "Rüzgar Hızı (80m)", "km/h"],
+    ["wind_direction_80m", "Rüzgar Yönü (80m)", "°"],
+    ["wind_speed_120m", "Rüzgar Hızı (120m)", "km/h"],
+    ["wind_direction_120m", "Rüzgar Yönü (120m)", "°"],
+    ["temperature_80m", "80m Sıcaklık", "°C"],
+    ["temperature_120m", "120m Sıcaklık", "°C"],
+    ["temperature_850hPa", "850hPa Sıcaklık", "°C"],
+    ["geopotential_height_500hPa", "500hPa Jeopotansiyel Yükseklik", "gpm"],
+    ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²"],
+    ["direct_radiation", "Doğrudan Radyasyon", "W/m²"],
+    ["diffuse_radiation", "Yayılı Radyasyon", "W/m²"],
+    ["cape", "CAPE Kararsızlık", "J/kg"],
+    ["vapour_pressure_deficit", "Buhar Basıncı Açığı", "kPa"],
+    ["visibility", "Görüş Mesafesi", "m"],
+    ["evapotranspiration", "Evapotranspirasyon", "mm"],
+    ["et0_fao_evapotranspiration", "Referans ET0", "mm"]
+  ];
+
+  // Oynatıcının ilerleme adımı seçenekleri (saat)
+  const STEP_HOUR_OPTIONS = [1, 3, 6, 12, 18, 24, 72, 120, 144, 168];
+
+  let activePoint = { lat: 40.8120, lon: 29.3774 };
+  let activeLocation = {
+    il: "Kocaeli",
+    ilce: "Gebze",
+    mahalle: "Cumhuriyet Mahallesi"
+  };
+  let activeVarCode = "temperature_2m";
+  let stepHours = 1; // Seçilen adım: 1s, 3s, 6s, 12s, 18s, 24s, 72s, 120s, 144s, 168s
+  let isPlaying = false;
+  let playTimer = null;
+  let playCursorIdx = 0;
+
+  let rangeStartIso = null;
+  let rangeEndIso = null;
+  let searchFilter = "";
+  let queryEpoch = 0;
+  let activeAbortController = null;
+  let hoverTimer = null;
+  let lastPayload = null;
+
+  const geoCache = new Map();
+  const seriesCache = new Map();
+
+  function degToCompassTr(deg) {
+    if (typeof deg !== "number" || !Number.isFinite(deg)) return null;
+    const normalized = ((deg % 360) + 360) % 360;
+    const dirs = [
+      "Kuzey", "Kuzey-Kuzeydoğu", "Kuzeydoğu", "Doğu-Kuzeydoğu",
+      "Doğu", "Doğu-Güneydoğu", "Güneydoğu", "Güney-Güneydoğu",
+      "Güney", "Güney-Güneybatı", "Güneybatı", "Batı-Güneybatı",
+      "Batı", "Batı-Kuzeybatı", "Kuzeybatı", "Kuzey-Kuzeybatı"
+    ];
+    const idx = Math.round(normalized / 22.5) % 16;
+    return `${Math.round(normalized)}° (${dirs[idx]})`;
+  }
+
+  function classifyPrecipType(precip, rain, snowfall, weatherCode) {
+    const p = typeof precip === "number" && Number.isFinite(precip) ? precip : 0;
+    const r = typeof rain === "number" && Number.isFinite(rain) ? rain : 0;
+    const s = typeof snowfall === "number" && Number.isFinite(snowfall) ? snowfall : 0;
+    const wc = typeof weatherCode === "number" && Number.isFinite(weatherCode) ? weatherCode : -1;
+
+    if (wc === 96 || wc === 99) return "Dolu";
+    if (s > 0 || [71, 73, 75, 77, 85, 86].includes(wc)) {
+      if (r > 0 && s > 0) return "Karla Karışık Yağmur";
+      return "Kar";
+    }
+    if (p > 0 || r > 0 || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95].includes(wc)) {
+      return "Yağmur";
+    }
+    return "Yağış Yok";
+  }
+
+  function formatPrecipWithUnit(precipType, precip, rain, snowfall, units) {
+    const p = typeof precip === "number" && Number.isFinite(precip) ? precip : null;
+    const r = typeof rain === "number" && Number.isFinite(rain) ? rain : null;
+    const s = typeof snowfall === "number" && Number.isFinite(snowfall) ? snowfall : null;
+
+    if (precipType === "Kar") {
+      const snowUnit = (units && units.snowfall) ? units.snowfall : "cm";
+      const val = s !== null && s > 0 ? s : p;
+      return val !== null ? `${val.toFixed(1)} ${snowUnit}` : null;
+    }
+    if (precipType === "Yağmur") {
+      const rainUnit = (units && units.rain) ? units.rain : ((units && units.precipitation) ? units.precipitation : "mm");
+      const val = r !== null && r > 0 ? r : p;
+      return val !== null ? `${val.toFixed(1)} ${rainUnit}` : null;
+    }
+    const precipUnit = (units && units.precipitation) ? units.precipitation : "mm";
+    return p !== null ? `${p.toFixed(1)} ${precipUnit}` : null;
+  }
+
+  function formatNumberWithUnit(numVal, unitStr) {
+    if (typeof numVal !== "number" || !Number.isFinite(numVal)) return "-";
+    const nStr = Math.abs(numVal) < 1 ? numVal.toFixed(2) : numVal.toFixed(1);
+    return unitStr ? `${nStr} ${unitStr}` : nStr;
+  }
+
+  function formatHourPretty(isoStr) {
+    if (!isoStr || typeof isoStr !== "string") return "-";
+    return isoStr.replace("T", " ").slice(0, 16);
+  }
+
+  function toDateTimeLocalValue(isoStr) {
+    if (!isoStr || typeof isoStr !== "string") return "";
+    return isoStr.slice(0, 16);
+  }
+
+  // Adım büyüklüğüne tam bölünmeyen saat/aralık değerini en yakın uygun kat değere yuvarlar (ör. 25s -> 24s veya 27s)
+  function snapHoursToStepMultiple(hoursVal, stepVal, minAllowed, maxAllowed) {
+    const st = Math.max(1, Number(stepVal) || 1);
+    const lowFloor = Math.max(24, Math.ceil(minAllowed / st) * st);
+    const highCeil = Math.max(lowFloor, Math.floor(maxAllowed / st) * st);
+
+    const lowerMult = Math.max(lowFloor, Math.floor(hoursVal / st) * st);
+    const upperMult = Math.min(highCeil, Math.ceil(hoursVal / st) * st);
+
+    if (upperMult > maxAllowed) return lowerMult;
+    if (lowerMult < lowFloor) return upperMult;
+    return (hoursVal - lowerMult) <= (upperMult - hoursVal) ? lowerMult : upperMult;
+  }
+
+  function getModeInfo(timeIso, playing) {
+    const nowIso = getCurrentIstanbulIsoPrefix();
+    const isFuture = typeof timeIso === "string" && timeIso > nowIso;
+    if (playing) {
+      return {
+        label: `Oynat (${stepHours}s Adım · Geçmişten İleri)`,
+        badge: "Oynatılıyor",
+        isLive: !isFuture,
+        badgeClass: "ew-u-badge-play",
+        valClass: isFuture ? "ew-u-val-approx" : "ew-u-val-live",
+        accent: "#38bdf8"
+      };
+    }
+    if (isFuture) {
+      return {
+        label: "ECMWF Yakın (Tahmin / Gerçek Değil)",
+        badge: "Yakın Değer",
+        isLive: false,
+        badgeClass: "ew-u-badge-approx",
+        valClass: "ew-u-val-approx",
+        accent: "#fbbf24"
+      };
+    }
+    return {
+      label: "ECMWF Canlı",
+      badge: "Canlı",
+      isLive: true,
+      badgeClass: "ew-u-badge-live",
+      valClass: "ew-u-val-live",
+      accent: "#4ade80"
+    };
+  }
+
+  function getCurrentIstanbulIsoPrefix() {
+    const now = new Date();
+    const tr = new Date(now.getTime() + 3 * 3600 * 1000);
+    const pad = n => String(n).padStart(2, "0");
+    return `${tr.getUTCFullYear()}-${pad(tr.getUTCMonth() + 1)}-${pad(tr.getUTCDate())}T${pad(tr.getUTCHours())}:00`;
+  }
+
+  function colorFromDynamicMinMax(val, minV, maxV, paletteStops) {
+    const stops = paletteStops || ["#2563eb", "#06b6d4", "#22c55e", "#eab308", "#f97316", "#ef4444"];
+    if (typeof val !== "number" || !Number.isFinite(val)) return stops[2];
+    const span = Math.max(1e-6, maxV - minV);
+    const t = Math.max(0, Math.min(1, (val - minV) / span));
+    const idx = Math.min(stops.length - 1, Math.floor(t * stops.length));
+    return stops[idx];
+  }
+
+  function getPaletteForVar(code) {
+    if (/temp|apparent|dew/i.test(code)) return ["#1d4ed8", "#0ea5e9", "#22c55e", "#eab308", "#f97316", "#dc2626"];
+    if (/precip|rain|snow|cloud|humidity/i.test(code)) return ["#0f172a", "#0284c7", "#38bdf8", "#2dd4bf", "#818cf8", "#a855f7"];
+    if (/wind|gust/i.test(code)) return ["#06b6d4", "#10b981", "#84cc16", "#eab308", "#f97316", "#ef4444"];
+    if (/pressure|geopotential/i.test(code)) return ["#1e3a8a", "#2563eb", "#14b8a6", "#eab308", "#f97316", "#991b1b"];
+    return ["#3b82f6", "#22c55e", "#eab308", "#f97316", "#ef4444"];
+  }
+
+  function cleanupLegacyUi() {
+    document.querySelectorAll('[id*="cbar" i], [class*="cbar" i]').forEach(el => {
+      if (el.id && (el.id.startsWith("ew-unified") || el.id.startsWith("ew-ecmwf-player"))) return;
+      if (el.closest && el.closest("#ew-unified-ecmwf-panel")) return;
+      el.style.setProperty("display", "none", "important");
+    });
+
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+    const hideList = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.id && (node.id.startsWith("ew-unified") || node.id.startsWith("ew-ecmwf-player"))) continue;
+      if (node.closest && node.closest("#ew-unified-ecmwf-panel")) continue;
+      const txt = (node.textContent || "").trim();
+      if (node.children.length === 0 && /^Ağ veya API hatası$/i.test(txt)) {
+        hideList.push(node);
+      }
+    }
+    hideList.forEach(el => el.style.setProperty("display", "none", "important"));
+  }
+
+  async function resolveReverseLocation(lat, lon, signal) {
+    if (Math.abs(lat - 40.8120) < 0.0005 && Math.abs(lon - 29.3774) < 0.0005) {
+      return { il: "Kocaeli", ilce: "Gebze", mahalle: "Cumhuriyet Mahallesi" };
+    }
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (geoCache.has(key)) return geoCache.get(key);
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1`;
+      const res = await fetch(url, { headers: { "Accept-Language": "tr" }, signal });
+      if (!res.ok) throw new Error("geo");
+      const data = await res.json();
+      const addr = (data && data.address) || {};
+      const resolved = {
+        il: addr.province || addr.state || addr.city || addr.region || "Bölge",
+        ilce: addr.town || addr.district || addr.county || addr.city_district || "Merkez",
+        mahalle: addr.neighbourhood || addr.suburb || addr.quarter || addr.village || addr.hamlet || `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+      };
+      geoCache.set(key, resolved);
+      return resolved;
+    } catch (_) {
+      return {
+        il: "Seçili Nokta",
+        ilce: `${lat.toFixed(4)}`,
+        mahalle: `${lon.toFixed(4)}`
+      };
+    }
+  }
+
+  async function fetchEcmwfFullSeries(lat, lon, signal) {
+    const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (seriesCache.has(cacheKey)) return seriesCache.get(cacheKey);
+
+    const varCodes = ALL_ECMWF_VARS.map(v => v[0]).join(",");
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=${encodeURIComponent(varCodes)}&past_days=15&forecast_days=15&timezone=Europe%2FIstanbul&_t=${Date.now()}`;
+    try {
+      const res = await fetch(url, { cache: "no-store", signal });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && data.hourly && Array.isArray(data.hourly.time)) {
+        seriesCache.set(cacheKey, data);
+        return data;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function findCurrentHourIndex(times) {
+    if (!Array.isArray(times) || !times.length) return 0;
+    const prefix = getCurrentIstanbulIsoPrefix();
+    const exactIdx = times.indexOf(prefix);
+    if (exactIdx >= 0) return exactIdx;
+    const hourPart = prefix.slice(11, 16);
+    const hourOnly = times.findIndex(t => typeof t === "string" && t.endsWith(`T${hourPart}`));
+    return hourOnly >= 0 ? hourOnly : Math.floor(times.length / 2);
+  }
+
+  // Minimum 1 gün (24 saat) aralık + seçilen adım büyüklüğüne uygun ardışık saat adımları üretir
+  function buildSteppedIndices(times, startCandidateIso, endCandidateIso, chosenStepHours) {
+    if (!Array.isArray(times) || !times.length) return { indices: [], startIso: null, endIso: null, effectiveSpanHours: 24 };
+    const firstIso = times[0];
+    const lastIso = times[times.length - 1];
+    const firstMs = Date.parse(firstIso);
+    const lastMs = Date.parse(lastIso);
+    const totalAvailableHours = Math.max(24, Math.floor((lastMs - firstMs) / (3600 * 1000)));
+    const st = Math.max(1, Number(chosenStepHours) || 1);
+
+    let sMs = startCandidateIso && !Number.isNaN(Date.parse(startCandidateIso)) ? Date.parse(startCandidateIso) : firstMs;
+    let eMs = endCandidateIso && !Number.isNaN(Date.parse(endCandidateIso)) ? Date.parse(endCandidateIso) : lastMs;
+
+    sMs = Math.max(firstMs, Math.min(lastMs, sMs));
+    eMs = Math.max(firstMs, Math.min(lastMs, eMs));
+
+    let rawSpanHours = Math.max(24, Math.round((eMs - sMs) / (3600 * 1000)));
+    const snappedSpanHours = snapHoursToStepMultiple(rawSpanHours, st, 24, totalAvailableHours);
+
+    eMs = Math.min(lastMs, sMs + snappedSpanHours * 3600 * 1000);
+    if ((eMs - sMs) < snappedSpanHours * 3600 * 1000) {
+      sMs = Math.max(firstMs, eMs - snappedSpanHours * 3600 * 1000);
+    }
+
+    const startIdx = Math.max(0, times.findIndex(t => Date.parse(t) >= sMs));
+    let endIdx = times.length - 1;
+    for (let i = times.length - 1; i >= 0; i--) {
+      if (Date.parse(times[i]) <= eMs) {
+        endIdx = i;
+        break;
+      }
+    }
+    if (endIdx < startIdx) endIdx = Math.min(times.length - 1, startIdx + Math.max(24, st));
+
+    // Geçmişten geleceğe seçilen stepHours kadar ardışık adımlarla ilerleyen indeks dizisi
+    const stepped = [];
+    for (let i = startIdx; i <= endIdx; i += st) {
+      stepped.push(i);
+    }
+    if (stepped.length < 2 && endIdx > startIdx) {
+      stepped.push(endIdx);
+    }
+
+    return {
+      indices: stepped,
+      startIso: times[startIdx],
+      endIso: times[endIdx],
+      effectiveSpanHours: snappedSpanHours
+    };
+  }
+
+  function ensureRangeAndSteps(times) {
+    if (!Array.isArray(times) || !times.length) {
+      return { indices: [], startIso: null, endIso: null, effectiveSpanHours: 24 };
+    }
+    const res = buildSteppedIndices(times, rangeStartIso, rangeEndIso, stepHours);
+    rangeStartIso = res.startIso;
+    rangeEndIso = res.endIso;
+    return res;
+  }
+
+  function computeRangeStatsForVar(data, varCode, indices) {
+    const h = data.hourly;
+    const units = data.hourly_units || {};
+    const meta = ALL_ECMWF_VARS.find(v => v[0] === varCode) || [varCode, varCode, ""];
+    const unitStr = units[varCode] || meta[2] || "";
+    const arr = Array.isArray(h[varCode]) ? h[varCode] : null;
+
+    let minVal = Infinity;
+    let minTime = "-";
+    let maxVal = -Infinity;
+    let maxTime = "-";
+    let sumVal = 0;
+    let countVal = 0;
+
+    if (arr) {
+      for (const idx of indices) {
+        const v = arr[idx];
+        if (typeof v === "number" && Number.isFinite(v)) {
+          if (v < minVal) {
+            minVal = v;
+            minTime = formatHourPretty(h.time[idx]);
+          }
+          if (v > maxVal) {
+            maxVal = v;
+            maxTime = formatHourPretty(h.time[idx]);
+          }
+          sumVal += v;
+          countVal += 1;
+        }
+      }
+    }
+
+    const avgVal = countVal > 0 ? (sumVal / countVal) : null;
+    const hasMin = Number.isFinite(minVal);
+    const hasMax = Number.isFinite(maxVal);
+
+    return {
+      unitStr,
+      minVal: hasMin ? minVal : null,
+      minTime,
+      maxVal: hasMax ? maxVal : null,
+      maxTime,
+      avgVal,
+      minStr: hasMin ? `${formatNumberWithUnit(minVal, unitStr)} (${minTime})` : "-",
+      avgStr: avgVal !== null ? `${formatNumberWithUnit(avgVal, unitStr)}` : "-",
+      maxStr: hasMax ? `${formatNumberWithUnit(maxVal, unitStr)} (${maxTime})` : "-"
+    };
+  }
+
+  function buildPayloadAtIndex(data, idx) {
+    const h = data.hourly;
+    const units = data.hourly_units || {};
+    const safeIdx = Math.max(0, Math.min(h.time.length - 1, idx));
+
+    const temp = Array.isArray(h.temperature_2m) ? h.temperature_2m[safeIdx] : null;
+    const hum = Array.isArray(h.relative_humidity_2m) ? h.relative_humidity_2m[safeIdx] : null;
+    const precip = Array.isArray(h.precipitation) ? h.precipitation[safeIdx] : null;
+    const rain = Array.isArray(h.rain) ? h.rain[safeIdx] : null;
+    const snowfall = Array.isArray(h.snowfall) ? h.snowfall[safeIdx] : null;
+    const wcode = Array.isArray(h.weather_code) ? h.weather_code[safeIdx] : null;
+    const cloud = Array.isArray(h.cloud_cover) ? h.cloud_cover[safeIdx] : null;
+    const wspd = Array.isArray(h.wind_speed_10m) ? h.wind_speed_10m[safeIdx] : null;
+    const wdir = Array.isArray(h.wind_direction_10m) ? h.wind_direction_10m[safeIdx] : null;
+
+    const precipTypeStr = (precip !== null || rain !== null || snowfall !== null || wcode !== null)
+      ? classifyPrecipType(precip, rain, snowfall, wcode)
+      : null;
+    const precipAmountStr = precipTypeStr
+      ? formatPrecipWithUnit(precipTypeStr, precip, rain, snowfall, units)
+      : null;
+
+    const steppedInfo = ensureRangeAndSteps(h.time);
+    const sliceIndices = steppedInfo.indices;
+    const activeStats = computeRangeStatsForVar(data, activeVarCode, sliceIndices);
+
+    const entries = [];
+    for (const [code, trName, fallbackUnit] of ALL_ECMWF_VARS) {
+      const arr = Array.isArray(h[code]) ? h[code] : null;
+      const rawVal = arr ? arr[safeIdx] : null;
+      if (typeof rawVal !== "number" || !Number.isFinite(rawVal)) continue;
+
+      const st = computeRangeStatsForVar(data, code, sliceIndices);
+      let formattedVal = "";
+      if (code === "wind_direction_10m" || code === "wind_direction_80m" || code === "wind_direction_120m") {
+        formattedVal = degToCompassTr(rawVal) || `${Math.round(rawVal)}°`;
+      } else if (code === "precipitation" || code === "rain" || code === "snowfall") {
+        formattedVal = formatPrecipWithUnit(precipTypeStr, precip, rain, snowfall, units) || formatNumberWithUnit(rawVal, units[code] || fallbackUnit);
+      } else {
+        formattedVal = formatNumberWithUnit(rawVal, units[code] || fallbackUnit);
+      }
+
+      entries.push({
+        code,
+        trName,
+        rawVal,
+        formattedVal,
+        minVal: st.minVal !== null ? st.minVal : rawVal,
+        maxVal: st.maxVal !== null ? st.maxVal : rawVal,
+        palette: getPaletteForVar(code)
+      });
+    }
+
+    const activeEntry = entries.find(e => e.code === activeVarCode) || entries[0] || null;
+    const cbarMin = activeStats.minVal !== null ? activeStats.minVal : (activeEntry ? activeEntry.minVal : 0);
+    const cbarMax = activeStats.maxVal !== null ? activeStats.maxVal : (activeEntry ? activeEntry.maxVal : 1);
+    const cbarUnit = activeStats.unitStr || "";
+
+    let nearestPos = sliceIndices.indexOf(safeIdx);
+    if (nearestPos < 0 && sliceIndices.length) {
+      nearestPos = 0;
+      let bestDiff = Math.abs(sliceIndices[0] - safeIdx);
+      for (let i = 1; i < sliceIndices.length; i++) {
+        const d = Math.abs(sliceIndices[i] - safeIdx);
+        if (d < bestDiff) {
+          bestDiff = d;
+          nearestPos = i;
+        }
+      }
+    }
+
+    return {
+      timeLabel: formatHourPretty(h.time[safeIdx]),
+      rawTimeIso: h.time[safeIdx],
+      minAvailableIso: h.time[0],
+      maxAvailableIso: h.time[h.time.length - 1],
+      sliceIndices,
+      effectiveSpanHours: steppedInfo.effectiveSpanHours,
+      currentSlicePos: Math.max(0, nearestPos),
+      tempStr: typeof temp === "number" ? formatNumberWithUnit(temp, units.temperature_2m || "°C") : null,
+      windSpeedStr: typeof wspd === "number" ? formatNumberWithUnit(wspd, units.wind_speed_10m || "km/h") : null,
+      windDirStr: degToCompassTr(wdir),
+      precipAmountStr,
+      precipTypeStr,
+      humidityStr: typeof hum === "number" ? `${Math.round(hum)} ${units.relative_humidity_2m || "%"}` : null,
+      cloudCoverStr: typeof cloud === "number" ? `${Math.round(cloud)} ${units.cloud_cover || "%"}` : null,
+      entries,
+      activeEntry,
+      activeStats,
+      cbarMin,
+      cbarMax,
+      cbarUnit,
+      palette: getPaletteForVar(activeVarCode)
+    };
+  }
+
+  function ensurePanel() {
+    let panel = document.getElementById("ew-unified-ecmwf-panel");
+    if (!panel) {
+      panel = document.createElement("aside");
+      panel.id = "ew-unified-ecmwf-panel";
+      document.body.appendChild(panel);
+    }
+    return panel;
+  }
+
+  function renderPanel(payload, isFetching) {
+    cleanupLegacyUi();
+    const panel = ensurePanel();
+    const curIso = payload ? payload.rawTimeIso : null;
+    const mode = getModeInfo(curIso, isPlaying);
+    const coordStr = `${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}`;
+
+    const timeLabel = payload ? payload.timeLabel : "-";
+    const tempStr = payload && payload.tempStr ? payload.tempStr : (isFetching ? "Yükleniyor..." : "-");
+    const windSpeedStr = payload && payload.windSpeedStr ? payload.windSpeedStr : (isFetching ? "Yükleniyor..." : "-");
+    const windDirStr = payload && payload.windDirStr ? payload.windDirStr : (isFetching ? "Yükleniyor..." : "-");
+    const precipAmountStr = payload && payload.precipAmountStr ? payload.precipAmountStr : (isFetching ? "Yükleniyor..." : "-");
+    const precipTypeStr = payload && payload.precipTypeStr ? payload.precipTypeStr : (isFetching ? "Yükleniyor..." : "-");
+    const humidityStr = payload && payload.humidityStr ? payload.humidityStr : (isFetching ? "Yükleniyor..." : "-");
+    const cloudCoverStr = payload && payload.cloudCoverStr ? payload.cloudCoverStr : (isFetching ? "Yükleniyor..." : "-");
+
+    const minDtAttr = payload ? toDateTimeLocalValue(payload.minAvailableIso) : "";
+    const maxDtAttr = payload ? toDateTimeLocalValue(payload.maxAvailableIso) : "";
+    const startVal = rangeStartIso ? toDateTimeLocalValue(rangeStartIso) : minDtAttr;
+    const endVal = rangeEndIso ? toDateTimeLocalValue(rangeEndIso) : maxDtAttr;
+
+    const spanHours = payload ? payload.effectiveSpanHours : 24;
+    const sliceLen = payload && payload.sliceIndices ? payload.sliceIndices.length : 1;
+    const slicePos = payload ? payload.currentSlicePos : 0;
+
+    const stats = payload && payload.activeStats ? payload.activeStats : {
+      minStr: "-", avgStr: "-", maxStr: "-"
+    };
+
+    const cbarMinStr = payload ? formatNumberWithUnit(payload.cbarMin, payload.cbarUnit) : "-";
+    const cbarMaxStr = payload ? formatNumberWithUnit(payload.cbarMax, payload.cbarUnit) : "-";
+    const cbarMidStr = payload ? formatNumberWithUnit((payload.cbarMin + payload.cbarMax) / 2, payload.cbarUnit) : "-";
+    const gradCss = payload && Array.isArray(payload.palette)
+      ? `linear-gradient(90deg, ${payload.palette.join(", ")})`
+      : "linear-gradient(90deg, #3b82f6, #22c55e, #eab308, #f97316, #ef4444)";
+
+    const entries = payload && Array.isArray(payload.entries) ? payload.entries : [];
+    const filtered = entries.filter(item => {
+      if (!searchFilter) return true;
+      return item.trName.toLowerCase().includes(searchFilter) || item.code.toLowerCase().includes(searchFilter);
+    });
+
+    const varsHtml = filtered.length
+      ? filtered.map(item => {
+          const isSel = item.code === activeVarCode;
+          const vColor = colorFromDynamicMinMax(item.rawVal, item.minVal, item.maxVal, item.palette);
+          return `<button type="button" class="ew-u-var-btn ${isSel ? "selected" : ""}" data-var-code="${item.code}">` +
+            `<span class="ew-u-var-name"><strong>${item.trName}</strong> <span class="ew-u-muted">[${item.code}]</span></span>` +
+            `<span style="color:${vColor};font-weight:700;white-space:nowrap;">${item.formattedVal}</span>` +
+          `</button>`;
+        }).join("")
+      : `<div class="ew-u-muted" style="padding:6px 4px;">${isFetching ? "ECMWF değişkenleri yükleniyor..." : "Değişken bulunamadı."}</div>`;
+
+    const stepChipsHtml = STEP_HOUR_OPTIONS.map(st => {
+      const act = stepHours === st;
+      return `<button type="button" class="ew-u-off-chip ${act ? "active" : ""}" data-step-hours="${st}">${st}s</button>`;
+    }).join("");
+
+    panel.innerHTML =
+      `<div class="ew-u-top">` +
+        `<div>` +
+          `<div class="ew-u-title">Nokta ECMWF Paneli</div>` +
+          `<div class="ew-u-sub">${mode.label} · ${timeLabel}</div>` +
+        `</div>` +
+        `<span class="${mode.badgeClass}">${mode.badge}</span>` +
+      `</div>` +
+      `<div class="ew-u-loc-card">` +
+        `<div class="ew-u-loc-line"><span class="ew-u-muted">Koordinat:</span><strong class="${mode.valClass}">${coordStr}</strong></div>` +
+        `<div class="ew-u-loc-line"><span class="ew-u-muted">İl / İlçe:</span><strong class="${mode.valClass}">${activeLocation.il} / ${activeLocation.ilce}</strong></div>` +
+        `<div class="ew-u-loc-line"><span class="ew-u-muted">Mahalle / Semt:</span><strong class="${mode.valClass}">${activeLocation.mahalle}</strong></div>` +
+      `</div>` +
+      `<div class="ew-u-player-card">` +
+        `<div class="ew-u-play-toolbar">` +
+          `<button type="button" id="ew-u-play-toggle" class="ew-u-play-btn ${isPlaying ? "playing" : ""}">${isPlaying ? "Durdur" : "Oynat"}</button>` +
+          `<button type="button" id="ew-u-now-btn" class="ew-u-reset-btn">Şu An</button>` +
+        `</div>` +
+        `<div class="ew-u-date-row">` +
+          `<div>` +
+            `<label class="ew-u-field-lbl" for="ew-u-start-dt">Başlangıç (Min 1 Gün)</label>` +
+            `<input id="ew-u-start-dt" class="ew-u-date-inp" type="datetime-local" min="${minDtAttr}" max="${maxDtAttr}" value="${startVal}" />` +
+          `</div>` +
+          `<div>` +
+            `<label class="ew-u-field-lbl" for="ew-u-end-dt">Bitiş (${spanHours}s · ${sliceLen} adım)</label>` +
+            `<input id="ew-u-end-dt" class="ew-u-date-inp" type="datetime-local" min="${minDtAttr}" max="${maxDtAttr}" value="${endVal}" />` +
+          `</div>` +
+        `</div>` +
+        `<div class="ew-u-step-label">İlerleme Adımı (${stepHours}s · Bölünmeyen aralık tam kata yuvarlanır):</div>` +
+        `<div class="ew-u-offsets-wrap">${stepChipsHtml}</div>` +
+        `<input id="ew-u-scrubber" class="ew-u-scrubber" type="range" min="0" max="${Math.max(0, sliceLen - 1)}" value="${slicePos}" />` +
+        `<div class="ew-u-stats-box">` +
+          `<div class="ew-u-stat-line"><span class="ew-u-muted">Minimum:</span><strong class="${mode.valClass}">${stats.minStr}</strong></div>` +
+          `<div class="ew-u-stat-line"><span class="ew-u-muted">Ortalama:</span><strong class="${mode.valClass}">${stats.avgStr}</strong></div>` +
+          `<div class="ew-u-stat-line"><span class="ew-u-muted">Maksimum:</span><strong class="${mode.valClass}">${stats.maxStr}</strong></div>` +
+        `</div>` +
+      `</div>` +
+      `<div class="ew-u-cbar-box">` +
+        `<div class="ew-u-cbar-title"><span>ECMWF CBAR (Dinamik Min–Max)</span><span>${activeVarCode}</span></div>` +
+        `<div class="ew-u-cbar-grad" style="background:${gradCss};"></div>` +
+        `<div class="ew-u-cbar-ticks"><span>${cbarMinStr}</span><span>${cbarMidStr}</span><span>${cbarMaxStr}</span></div>` +
+      `</div>` +
+      `<div class="ew-u-core-card">` +
+        `<div class="ew-u-core-grid">` +
+          `<span class="ew-u-lbl">2m Sıcaklığı:</span><span class="${mode.valClass}">${tempStr}</span>` +
+          `<span class="ew-u-lbl">Rüzgar Hızı:</span><span class="${mode.valClass}">${windSpeedStr}</span>` +
+          `<span class="ew-u-lbl">Rüzgar Yönü:</span><span class="${mode.valClass}">${windDirStr}</span>` +
+          `<span class="ew-u-lbl">Yağış Miktarı:</span><span class="${mode.valClass}">${precipAmountStr}</span>` +
+          `<span class="ew-u-lbl">Yağış Tipi:</span><span class="${mode.valClass}">${precipTypeStr}</span>` +
+          `<span class="ew-u-lbl">Bağıl Nem:</span><span class="${mode.valClass}">${humidityStr}</span>` +
+          `<span class="ew-u-lbl">Toplam Bulutluluk:</span><span class="${mode.valClass}">${cloudCoverStr}</span>` +
+        `</div>` +
+      `</div>` +
+      `<input id="ew-u-search-input" class="ew-u-search" type="text" placeholder="ECMWF değişken ara..." value="${searchFilter.replace(/"/g, "&quot;")}" />` +
+      `<div class="ew-u-vars-head"><span>ECMWF Değişkenleri</span><span>${entries.length} adet</span></div>` +
+      `<div id="ew-u-vars-list" class="ew-u-vars-list">${varsHtml}</div>`;
+
+    const playBtn = document.getElementById("ew-u-play-toggle");
+    if (playBtn) {
+      playBtn.addEventListener("click", () => {
+        if (isPlaying) stopPlayback();
+        else startPlayback();
+      });
+    }
+
+    const nowBtn = document.getElementById("ew-u-now-btn");
+    if (nowBtn) {
+      nowBtn.addEventListener("click", () => {
+        stopPlayback();
+        jumpToNow();
+      });
+    }
+
+    const startInp = document.getElementById("ew-u-start-dt");
+    const endInp = document.getElementById("ew-u-end-dt");
+    const onDateTimeChange = () => {
+      if (!lastPayload || !lastPayload.data || !lastPayload.data.hourly) return;
+      const times = lastPayload.data.hourly.time;
+      const builtStep = buildSteppedIndices(
+        times,
+        startInp && startInp.value ? startInp.value : rangeStartIso,
+        endInp && endInp.value ? endInp.value : rangeEndIso,
+        stepHours
+      );
+      rangeStartIso = builtStep.startIso;
+      rangeEndIso = builtStep.endIso;
+      playCursorIdx = 0;
+
+      const targetIdx = builtStep.indices[0] || 0;
+      const updated = buildPayloadAtIndex(lastPayload.data, targetIdx);
+      lastPayload = { ...updated, data: lastPayload.data };
+      renderPanel(lastPayload, false);
+      renderPointAndCbarOnMap(lastPayload);
+    };
+
+    if (startInp) startInp.addEventListener("change", onDateTimeChange);
+    if (endInp) endInp.addEventListener("change", onDateTimeChange);
+
+    panel.querySelectorAll("button[data-step-hours]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (!lastPayload || !lastPayload.data || !lastPayload.data.hourly) return;
+        stepHours = Number(btn.getAttribute("data-step-hours") || "1") || 1;
+        const times = lastPayload.data.hourly.time;
+        const builtStep = buildSteppedIndices(times, rangeStartIso, rangeEndIso, stepHours);
+        rangeStartIso = builtStep.startIso;
+        rangeEndIso = builtStep.endIso;
+        playCursorIdx = 0;
+
+        const targetIdx = builtStep.indices[0] || 0;
+        const updated = buildPayloadAtIndex(lastPayload.data, targetIdx);
+        lastPayload = { ...updated, data: lastPayload.data };
+        renderPanel(lastPayload, false);
+        renderPointAndCbarOnMap(lastPayload);
+      });
+    });
+
+    const scrubber = document.getElementById("ew-u-scrubber");
+    if (scrubber) {
+      scrubber.addEventListener("input", () => {
+        if (!lastPayload || !lastPayload.sliceIndices) return;
+        const pos = Math.max(0, Math.min(lastPayload.sliceIndices.length - 1, Number(scrubber.value) || 0));
+        playCursorIdx = pos;
+        const targetIdx = lastPayload.sliceIndices[pos];
+        const updated = buildPayloadAtIndex(lastPayload.data, targetIdx);
+        lastPayload = { ...updated, data: lastPayload.data };
+        renderPanel(lastPayload, false);
+        renderPointAndCbarOnMap(lastPayload);
+      });
+    }
+
+    panel.querySelectorAll("button[data-var-code]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const code = btn.getAttribute("data-var-code");
+        if (code) setActiveVariable(code);
+      });
+    });
+
+    const inp = document.getElementById("ew-u-search-input");
+    if (inp) {
+      inp.addEventListener("input", () => {
+        searchFilter = inp.value.trim().toLowerCase();
+        renderPanel(lastPayload, isFetching);
+        const reInp = document.getElementById("ew-u-search-input");
+        if (reInp) {
+          reInp.focus();
+          reInp.setSelectionRange(reInp.value.length, reInp.value.length);
+        }
+      });
+    }
+  }
+
+  function resolveLeafletMap() {
+    if (window.map && typeof window.map.addLayer === "function") return window.map;
+    for (const k of Object.keys(window)) {
+      try {
+        const val = window[k];
+        if (val && typeof val === "object" && typeof val.addLayer === "function" && typeof val.on === "function" && val._container) {
+          window.map = val;
+          return val;
+        }
+      } catch (_) {}
+    }
+    if (window.L && window.L.Map) {
+      const mapEl = document.querySelector(".leaflet-container");
+      if (mapEl && mapEl._leaflet_id && window.L.Map._instances) {
+        const inst = window.L.Map._instances[mapEl._leaflet_id];
+        if (inst) {
+          window.map = inst;
+          return inst;
+        }
+      }
+    }
+    return null;
+  }
+
+  function renderPointAndCbarOnMap(payload) {
+    const mapObj = resolveLeafletMap();
+    if (!window.L || !mapObj) return;
+
+    if (!window._ewUnifiedPointLayer) {
+      window._ewUnifiedPointLayer = L.layerGroup().addTo(mapObj);
+    } else if (!mapObj.hasLayer(window._ewUnifiedPointLayer)) {
+      window._ewUnifiedPointLayer.addTo(mapObj);
+    }
+    window._ewUnifiedPointLayer.clearLayers();
+
+    const mode = getModeInfo(payload ? payload.rawTimeIso : null, isPlaying);
+    const act = payload && payload.activeEntry ? payload.activeEntry : null;
+    const pinColor = act
+      ? colorFromDynamicMinMax(act.rawVal, payload.cbarMin, payload.cbarMax, payload.palette)
+      : mode.accent;
+
+    L.circleMarker([activePoint.lat, activePoint.lon], {
+      radius: 17,
+      color: pinColor,
+      weight: 2,
+      fillColor: pinColor,
+      fillOpacity: 0.22,
+      interactive: false
+    }).addTo(window._ewUnifiedPointLayer);
+
+    L.circleMarker([activePoint.lat, activePoint.lon], {
+      radius: 8,
+      color: "#ffffff",
+      weight: 2.5,
+      fillColor: pinColor,
+      fillOpacity: 1,
+      interactive: false
+    }).addTo(window._ewUnifiedPointLayer);
+
+    const activeLabel = act ? `${act.trName}: ${act.formattedVal}` : "ECMWF";
+    const rangeSummary = payload && payload.activeStats
+      ? `Min ${payload.activeStats.minStr} · Ort ${payload.activeStats.avgStr} · Max ${payload.activeStats.maxStr}`
+      : "";
+
+    const htmlBadge =
+      `<div style="border-left:3px solid ${pinColor};padding-left:6px;">` +
+        `<div><strong>${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}</strong> · <span style="color:${mode.accent};">${mode.badge}</span></div>` +
+        `<div>${activeLocation.il} / ${activeLocation.ilce} · <span style="color:#cbd5e1;">${payload ? payload.timeLabel : ""}</span></div>` +
+        `<div style="color:${pinColor};font-weight:700;">${activeLabel}</div>` +
+        (rangeSummary ? `<div style="font-size:10px;color:#e2e8f0;">${rangeSummary}</div>` : "") +
+      `</div>`;
+
+    L.marker([activePoint.lat, activePoint.lon], {
+      icon: L.divIcon({
+        className: "ew-map-point-badge",
+        html: htmlBadge,
+        iconSize: null,
+        iconAnchor: [0, 26]
+      }),
+      interactive: false
+    }).addTo(window._ewUnifiedPointLayer);
+  }
+
+  function stopPlayback() {
+    isPlaying = false;
+    if (playTimer) {
+      clearInterval(playTimer);
+      playTimer = null;
+    }
+  }
+
+  // Geçmişten geleceğe seçilen saat adımıyla ardışık ve yavaş oynatma
+  function startPlayback() {
+    if (!lastPayload || !lastPayload.data || !lastPayload.data.hourly) return;
+    stopPlayback();
+    isPlaying = true;
+    const times = lastPayload.data.hourly.time;
+    const stepped = ensureRangeAndSteps(times);
+    rangeStartIso = stepped.startIso;
+    rangeEndIso = stepped.endIso;
+    const slice = stepped.indices;
+    if (!slice.length) return;
+    if (playCursorIdx < 0 || playCursorIdx >= slice.length) playCursorIdx = 0;
+
+    renderPanel(lastPayload, false);
+    renderPointAndCbarOnMap(lastPayload);
+
+    playTimer = setInterval(() => {
+      if (!isPlaying || !lastPayload || !lastPayload.data || !lastPayload.data.hourly) {
+        stopPlayback();
+        return;
+      }
+      const curSlice = ensureRangeAndSteps(lastPayload.data.hourly.time).indices;
+      if (!curSlice.length) {
+        stopPlayback();
+        return;
+      }
+      const targetIdx = curSlice[playCursorIdx % curSlice.length];
+      const stepPayload = buildPayloadAtIndex(lastPayload.data, targetIdx);
+      lastPayload = { ...stepPayload, data: lastPayload.data };
+      renderPanel(lastPayload, false);
+      renderPointAndCbarOnMap(lastPayload);
+
+      playCursorIdx += 1;
+      if (playCursorIdx >= curSlice.length) {
+        stopPlayback();
+        renderPanel(lastPayload, false);
+      }
+    }, 1250);
+  }
+
+  async function refreshPoint(lat, lon) {
+    stopPlayback();
+    if (activeAbortController) {
+      try { activeAbortController.abort(); } catch (_) {}
+    }
+    activeAbortController = new AbortController();
+    const signal = activeAbortController.signal;
+
+    const myEpoch = ++queryEpoch;
+    activePoint = { lat, lon };
+    activeLocation = {
+      il: "Konum...",
+      ilce: `${lat.toFixed(4)}`,
+      mahalle: `${lon.toFixed(4)}`
+    };
+
+    renderPanel(lastPayload, true);
+    renderPointAndCbarOnMap(lastPayload);
+
+    resolveReverseLocation(lat, lon, signal).then(loc => {
+      if (myEpoch !== queryEpoch) return;
+      activeLocation = loc;
+      renderPanel(lastPayload, true);
+      renderPointAndCbarOnMap(lastPayload);
+    });
+
+    const data = await fetchEcmwfFullSeries(lat, lon, signal);
+    if (myEpoch !== queryEpoch || !data) return;
+
+    const targetIdx = findCurrentHourIndex(data.hourly.time);
+    const built = buildPayloadAtIndex(data, targetIdx);
+    lastPayload = { ...built, data };
+
+    renderPanel(lastPayload, false);
+    renderPointAndCbarOnMap(lastPayload);
+  }
+
+  async function jumpToNow() {
+    stopPlayback();
+    if (lastPayload && lastPayload.data && lastPayload.data.hourly) {
+      const targetIdx = findCurrentHourIndex(lastPayload.data.hourly.time);
+      const built = buildPayloadAtIndex(lastPayload.data, targetIdx);
+      playCursorIdx = built.currentSlicePos;
+      lastPayload = { ...built, data: lastPayload.data };
+      renderPanel(lastPayload, false);
+      renderPointAndCbarOnMap(lastPayload);
+      return;
+    }
+    await refreshPoint(activePoint.lat, activePoint.lon);
+  }
+
+  async function setActiveVariable(code) {
+    activeVarCode = code;
+    if (lastPayload && lastPayload.data && lastPayload.data.hourly) {
+      const curIdx = Math.max(0, lastPayload.data.hourly.time.indexOf(lastPayload.rawTimeIso));
+      const built = buildPayloadAtIndex(lastPayload.data, curIdx);
+      lastPayload = { ...built, data: lastPayload.data };
+      renderPanel(lastPayload, false);
+      renderPointAndCbarOnMap(lastPayload);
+      return;
+    }
+    await refreshPoint(activePoint.lat, activePoint.lon);
+  }
+
+  function bindMapInteractions() {
+    const mapObj = resolveLeafletMap();
+    if (mapObj && !mapObj._ewUnifiedBound) {
+      mapObj._ewUnifiedBound = true;
+      mapObj.on("click", function(ev) {
+        if (!ev || !ev.latlng) return;
+        if (hoverTimer) clearTimeout(hoverTimer);
+        refreshPoint(ev.latlng.lat, ev.latlng.lng);
+      });
+      mapObj.on("mousemove", function(ev) {
+        if (!ev || !ev.latlng) return;
+        if (isPlaying) return;
+        const lat = ev.latlng.lat;
+        const lon = ev.latlng.lng;
+        if (hoverTimer) clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(() => {
+          refreshPoint(lat, lon);
+        }, 220);
+      });
+    }
+  }
+
+  function boot() {
+    ensurePanel();
+    cleanupLegacyUi();
+    bindMapInteractions();
+    refreshPoint(activePoint.lat, activePoint.lon);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+
+  setInterval(() => {
+    cleanupLegacyUi();
+    bindMapInteractions();
+  }, 1200);
+})();
+</script>
+<!-- ew-ecmwf-player-engine-end -->
 </body>
 </html>
