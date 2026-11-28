@@ -1724,8 +1724,31 @@
 
 <!-- ew-twin-ecmwf-start -->
 <style id="ew-twin-ecmwf-style">
-  #ew-cbar, #ew-ecmwf-live-note, #ew-point-single-value, #ew-ecmwf-panel-status, #ew-ecmwf-top-location-bar {
+  #ew-cbar, #ew-ecmwf-live-note, #ew-point-single-value, #ew-ecmwf-panel-status,
+  #ew-ecmwf-top-location-bar, #ew-player-cbar-wrap, #ew-player-sync-row,
+  #ew-player-controls-row, #ew-range-player-box {
     display: none !important;
+  }
+  #ew-player-below-cbar-row {
+    margin-top: 8px !important;
+    display: flex !important;
+    gap: 6px !important;
+    align-items: center !important;
+  }
+  .ew-player-action-btn {
+    flex: 1 !important;
+    padding: 6px 8px !important;
+    border-radius: 6px !important;
+    background: rgba(30, 41, 59, 0.96) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.45) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+  }
+  .ew-player-action-btn.active {
+    background: rgba(2, 132, 199, 0.85) !important;
+    border-color: #7dd3fc !important;
   }
   #ew-ecmwf-step-144-box {
     margin-top: 8px !important;
@@ -1860,104 +1883,6 @@
     border-color: #7dd3fc !important;
     color: #ffffff !important;
   }
-  #ew-player-cbar-wrap {
-    background: rgba(15, 23, 42, 0.94) !important;
-    color: #f8fafc !important;
-    border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    border-radius: 10px !important;
-    padding: 8px 10px !important;
-    margin-top: 8px !important;
-    box-sizing: border-box !important;
-  }
-  .ew-cbar-track-wrap {
-    position: relative;
-    width: 100%;
-  }
-  #ew-player-cbar {
-    min-height: 15px !important;
-    height: 15px !important;
-    width: 100% !important;
-    border-radius: 6px !important;
-    border: 1px solid rgba(255, 255, 255, 0.32) !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    transition: background 140ms linear !important;
-  }
-  #ew-point-marker {
-    position: absolute;
-    top: -3px;
-    width: 4px;
-    height: 21px;
-    margin-left: -2px;
-    background: #ffffff;
-    border: 1px solid #0f172a;
-    border-radius: 2px;
-    box-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
-    pointer-events: none;
-    z-index: 5;
-    transition: left 140ms linear !important;
-  }
-  .ew-cbar-scale-row, #ew-player-cbar-scale {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    font-size: 11px !important;
-    color: #e2e8f0 !important;
-    margin-top: 6px !important;
-    gap: 6px !important;
-  }
-  .ew-cbar-header, #ew-player-cbar-title {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    margin-bottom: 6px !important;
-    gap: 8px !important;
-  }
-  #ew-player-sync-row {
-    margin-top: 6px;
-    margin-bottom: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  #ew-player-controls-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  #ew-player-below-cbar-row {
-    margin-top: 6px;
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .ew-player-action-btn {
-    flex: 1;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(30, 41, 59, 0.96);
-    color: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.45);
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .ew-player-action-btn.active {
-    background: rgba(2, 132, 199, 0.85);
-    border-color: #7dd3fc;
-  }
-  #ew-player-var-select {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(15, 23, 42, 0.94);
-    color: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.4);
-    font-size: 12px;
-  }
   .ew-map-point-badge {
     background: rgba(9, 13, 22, 0.96) !important;
     color: #f8fafc !important;
@@ -2044,9 +1969,7 @@
   let offsetHours = 0;
   let clickEpoch = 0;
   let latestRequestToken = 0;
-  let cbarVisible = true;
-  let playerTimer = null;
-  let isPlaying = false;
+  let cbarActive = true;
   let filterQuery = "";
   const seriesCache = new Map();
   const geoCache = new Map();
@@ -2141,22 +2064,34 @@
     }
   }
 
-  function cleanWaitingTextFromCbarAndDom() {
-    const extraBar = document.getElementById("ew-ecmwf-top-location-bar");
-    if (extraBar && extraBar.parentElement) {
-      extraBar.remove();
-    }
+  // CBAR üzerindeki tüm ekstra öğeleri ("artı şimdi" vb.) ve çift konum kutularını temizle
+  function cleanUnwantedElements() {
+    const removeIds = [
+      "ew-ecmwf-top-location-bar",
+      "ew-player-cbar-wrap",
+      "ew-player-sync-row",
+      "ew-player-controls-row",
+      "ew-range-player-box"
+    ];
+    removeIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement) el.remove();
+    });
 
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const nodes = [];
     let n;
     while ((n = walker.nextNode())) {
-      if (n.nodeValue && /beklemede\s*\(\s*ecmwf\s*aktif\s*\)/i.test(n.nodeValue)) {
+      const val = n.nodeValue || "";
+      if (/beklemede\s*\(\s*ecmwf\s*aktif\s*\)/i.test(val) || /artı\s*şimdi/i.test(val)) {
         nodes.push(n);
       }
     }
     nodes.forEach(node => {
-      node.nodeValue = node.nodeValue.replace(/beklemede\s*\(\s*ecmwf\s*aktif\s*\)/gi, "").trim();
+      node.nodeValue = node.nodeValue
+        .replace(/beklemede\s*\(\s*ecmwf\s*aktif\s*\)/gi, "")
+        .replace(/artı\s*şimdi/gi, "")
+        .trim();
     });
   }
 
@@ -2177,9 +2112,8 @@
     return null;
   }
 
-  // Mevcut tek konum satırlarını yerinde güncelle (ikinci kutu eklemeden)
   function updateExistingSingleLocationInPanel() {
-    cleanWaitingTextFromCbarAndDom();
+    cleanUnwantedElements();
     const panel = findEcmwfPanelContainer();
     if (!panel) return;
 
@@ -2204,6 +2138,55 @@
       } else if (/^\s*Seçili Zaman\s*:/i.test(txt)) {
         node.nodeValue = timeStr;
       }
+    }
+  }
+
+  function ensureOnlyCbarAçıkButton() {
+    cleanUnwantedElements();
+    let row = document.getElementById("ew-player-below-cbar-row");
+    if (!row) {
+      row = document.createElement("div");
+      row.id = "ew-player-below-cbar-row";
+      const panel = findEcmwfPanelContainer();
+      if (panel) {
+        panel.appendChild(row);
+      } else {
+        document.body.appendChild(row);
+      }
+    }
+
+    Array.from(row.children).forEach(ch => {
+      if (ch.id !== "ew-player-cbar-toggle-btn") {
+        ch.remove();
+      }
+    });
+
+    let cbarBtn = document.getElementById("ew-player-cbar-toggle-btn");
+    if (!cbarBtn) {
+      cbarBtn = document.createElement("button");
+      cbarBtn.id = "ew-player-cbar-toggle-btn";
+      cbarBtn.type = "button";
+      cbarBtn.className = "ew-player-action-btn";
+      cbarBtn.addEventListener("click", () => {
+        cbarActive = !cbarActive;
+        syncCbarAçıkButtonUi();
+        const catalog = collectAllCandidateVars();
+        const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
+        if (item) updatePlayerCbarAndMap(item, offsetHours);
+      });
+    }
+    if (cbarBtn.parentElement !== row) {
+      row.appendChild(cbarBtn);
+    }
+
+    syncCbarAçıkButtonUi();
+  }
+
+  function syncCbarAçıkButtonUi() {
+    const btn = document.getElementById("ew-player-cbar-toggle-btn");
+    if (btn) {
+      btn.classList.toggle("active", cbarActive);
+      btn.textContent = "CBAR Açık";
     }
   }
 
@@ -2488,7 +2471,7 @@
 
     auditCompleted = true;
     renderRealOnlyFilterList(catalog);
-    syncAllThreeBlocks(catalog);
+    syncEcmwfPanelAndButton(catalog);
   }
 
   function renderRealOnlyFilterList(catalog) {
@@ -2555,40 +2538,6 @@
     });
   }
 
-  function ensureCbarMarker(barEl, markerId) {
-    if (!barEl || !barEl.parentElement) return null;
-    if (!barEl.parentElement.classList.contains("ew-cbar-track-wrap")) {
-      const wrap = document.createElement("div");
-      wrap.className = "ew-cbar-track-wrap";
-      barEl.parentElement.insertBefore(wrap, barEl);
-      wrap.appendChild(barEl);
-    }
-    let m = document.getElementById(markerId);
-    if (!m) {
-      m = document.createElement("div");
-      m.id = markerId;
-      barEl.parentElement.appendChild(m);
-    }
-    return m;
-  }
-
-  function positionCbarMarker(markerEl, val, minVal, maxVal) {
-    if (!markerEl) return;
-    const span = Math.max(1e-6, maxVal - minVal);
-    const ratio = Math.max(0, Math.min(1, (val - minVal) / span));
-    markerEl.style.left = `${(ratio * 100).toFixed(1)}%`;
-  }
-
-  function buildStepGradient(palette) {
-    const n = palette.length;
-    const step = 100 / n;
-    return "linear-gradient(90deg, " + palette.map((c, i) => {
-      const start = (i * step).toFixed(1);
-      const end = ((i + 1) * step).toFixed(1);
-      return `${c} ${start}%, ${c} ${end}%`;
-    }).join(", ") + ")";
-  }
-
   function colorForNorm(norm, palette) {
     const clamped = Math.max(0, Math.min(1, Number.isFinite(norm) ? norm : 0.5));
     const idx = Math.min(palette.length - 1, Math.floor(clamped * palette.length));
@@ -2596,7 +2545,6 @@
   }
 
   function renderEcmwfPanelRealData(item, hOffset, state) {
-    cleanWaitingTextFromCbarAndDom();
     updateExistingSingleLocationInPanel();
     render144HourStepControls();
     const panel = findEcmwfPanelContainer();
@@ -2636,159 +2584,7 @@
     if (hourEl) hourEl.textContent = formatOffsetSigned(hOffset);
   }
 
-  function syncCbarButtonUi() {
-    const wrap = document.getElementById("ew-player-cbar-wrap");
-    const btn = document.getElementById("ew-player-cbar-toggle-btn");
-    if (wrap) {
-      wrap.style.setProperty("display", cbarVisible ? "block" : "none", "important");
-    }
-    if (btn) {
-      btn.classList.toggle("active", cbarVisible);
-      btn.textContent = cbarVisible ? "CBAR Açık" : "CBAR Kapalı";
-    }
-  }
-
-  function setCbarState(visible, refreshWhenOpen) {
-    cbarVisible = Boolean(visible);
-    syncCbarButtonUi();
-    if (cbarVisible && refreshWhenOpen) {
-      const catalog = collectAllCandidateVars();
-      const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
-      if (item) updatePlayerCbarAndMap(item, offsetHours);
-    }
-  }
-
-  function togglePlayStepLoop() {
-    const playBtn = document.getElementById("ew-player-play-btn");
-    if (isPlaying) {
-      isPlaying = false;
-      if (playerTimer) {
-        clearInterval(playerTimer);
-        playerTimer = null;
-      }
-      if (playBtn) {
-        playBtn.textContent = "Oynat";
-        playBtn.classList.remove("active");
-      }
-      return;
-    }
-
-    setCbarState(false, false);
-
-    isPlaying = true;
-    if (playBtn) {
-      playBtn.textContent = "Duraklat";
-      playBtn.classList.add("active");
-    }
-    if (playerTimer) clearInterval(playerTimer);
-    playerTimer = setInterval(() => {
-      const nextH = offsetHours >= MAX_OFFSET_HOURS ? MIN_OFFSET_HOURS : offsetHours + 1;
-      setOffsetHours(nextH);
-    }, 350);
-  }
-
-  function ensurePlayerCbarStructure() {
-    let wrap = document.getElementById("ew-player-cbar-wrap");
-    if (!wrap) {
-      wrap = document.createElement("div");
-      wrap.id = "ew-player-cbar-wrap";
-      const playerBox = document.getElementById("ew-range-player-box");
-      if (playerBox && playerBox.parentElement) {
-        playerBox.insertAdjacentElement("afterend", wrap);
-      } else {
-        document.body.appendChild(wrap);
-      }
-    }
-
-    if (!document.getElementById("ew-player-cbar-title") || !document.getElementById("ew-player-cbar") || !document.getElementById("ew-player-cbar-min")) {
-      wrap.innerHTML =
-        "<div id='ew-player-cbar-title' class='ew-cbar-header'><span>-</span><span>0s (Şu An)</span></div>" +
-        "<div id='ew-player-cbar'></div>" +
-        "<div id='ew-player-cbar-scale' class='ew-cbar-scale-row'>" +
-          "<span id='ew-player-cbar-min'>Min</span>" +
-          "<span id='ew-player-cbar-mid'>Ort</span>" +
-          "<span id='ew-player-cbar-max'>Max</span>" +
-        "</div>";
-    }
-
-    let belowRow = document.getElementById("ew-player-below-cbar-row");
-    if (!belowRow) {
-      belowRow = document.createElement("div");
-      belowRow.id = "ew-player-below-cbar-row";
-      wrap.insertAdjacentElement("afterend", belowRow);
-    }
-
-    let cbarBtn = document.getElementById("ew-player-cbar-toggle-btn");
-    if (!cbarBtn) {
-      cbarBtn = document.createElement("button");
-      cbarBtn.id = "ew-player-cbar-toggle-btn";
-      cbarBtn.type = "button";
-      cbarBtn.className = "ew-player-action-btn";
-      cbarBtn.addEventListener("click", () => setCbarState(!cbarVisible, true));
-    }
-    if (cbarBtn.parentElement !== belowRow) {
-      belowRow.appendChild(cbarBtn);
-    }
-
-    syncCbarButtonUi();
-    return wrap;
-  }
-
-  function ensureTwinPlayerSelect(catalog) {
-    const playerBox = document.getElementById("ew-range-player-box") || ensurePlayerCbarStructure();
-    if (!playerBox) return null;
-
-    let row = document.getElementById("ew-player-sync-row");
-    if (!row) {
-      row = document.createElement("div");
-      row.id = "ew-player-sync-row";
-
-      const sel = document.createElement("select");
-      sel.id = "ew-player-var-select";
-      row.appendChild(sel);
-
-      const ctrlRow = document.createElement("div");
-      ctrlRow.id = "ew-player-controls-row";
-
-      const playBtn = document.createElement("button");
-      playBtn.id = "ew-player-play-btn";
-      playBtn.type = "button";
-      playBtn.className = "ew-player-action-btn";
-      playBtn.textContent = isPlaying ? "Duraklat" : "Oynat";
-      playBtn.addEventListener("click", togglePlayStepLoop);
-
-      ctrlRow.appendChild(playBtn);
-      row.appendChild(ctrlRow);
-
-      playerBox.insertBefore(row, playerBox.firstChild);
-    }
-
-    const pSel = document.getElementById("ew-player-var-select");
-    if (!pSel) return null;
-
-    const currentSignature = Array.from(pSel.options).map(o => `${o.value}::${o.textContent}`).join("|");
-    const nextSignature = catalog.map(v => `${v.code}::${formatCanonicalVarLabel(v)}`).join("|");
-    if (currentSignature !== nextSignature) {
-      pSel.innerHTML = "";
-      catalog.forEach(v => {
-        const opt = document.createElement("option");
-        opt.value = v.code;
-        opt.textContent = formatCanonicalVarLabel(v);
-        pSel.appendChild(opt);
-      });
-    }
-    if (pSel.value !== activeVarCode) {
-      pSel.value = activeVarCode;
-    }
-
-    if (!pSel.dataset.ewTwinBound) {
-      pSel.dataset.ewTwinBound = "1";
-      pSel.addEventListener("change", () => setActiveVar(pSel.value, "player"));
-    }
-    return pSel;
-  }
-
-  function syncAllThreeBlocks(catalog) {
+  function syncEcmwfPanelAndButton(catalog) {
     updateExistingSingleLocationInPanel();
     render144HourStepControls();
 
@@ -2814,8 +2610,7 @@
       }
     }
 
-    ensureTwinPlayerSelect(catalog);
-    ensurePlayerCbarStructure();
+    ensureOnlyCbarAçıkButton();
     renderRealOnlyFilterList(catalog);
   }
 
@@ -2868,29 +2663,7 @@
     const valStr = formatNum(state.pointVal, item.unit, item.code);
 
     renderEcmwfPanelRealData(item, hOffset, state);
-
-    ensurePlayerCbarStructure();
-    const grad = buildStepGradient(item.palette);
-    const pBar = document.getElementById("ew-player-cbar");
-    if (pBar) {
-      pBar.style.setProperty("background", grad, "important");
-      pBar.style.setProperty("opacity", "1", "important");
-    }
-
-    const titleEl = document.getElementById("ew-player-cbar-title");
-    if (titleEl) {
-      titleEl.innerHTML = `<span>${formatCanonicalVarLabel(item)}</span><span>${formatOffsetSigned(hOffset)}</span>`;
-    }
-
-    const minEl = document.getElementById("ew-player-cbar-min");
-    const midEl = document.getElementById("ew-player-cbar-mid");
-    const maxEl = document.getElementById("ew-player-cbar-max");
-    if (minEl) minEl.textContent = formatNum(state.min, item.unit, item.code);
-    if (midEl) midEl.textContent = formatNum(state.avg, item.unit, item.code);
-    if (maxEl) maxEl.textContent = formatNum(state.max, item.unit, item.code);
-
-    const markerEl = ensureCbarMarker(pBar, "ew-point-marker");
-    positionCbarMarker(markerEl, state.pointVal, state.min, state.max);
+    ensureOnlyCbarAçıkButton();
 
     const mapObj = resolveLeafletMap();
     if (window.L && mapObj) {
@@ -2901,52 +2674,54 @@
       }
       window.gridGroup.clearLayers();
 
-      const latMin = -85.0, latMax = 85.0, lonMin = -180.0, lonMax = 180.0;
-      const rows = 36, cols = 72;
-      const dLat = (latMax - latMin) / rows;
-      const dLon = (lonMax - lonMin) / cols;
+      if (cbarActive) {
+        const latMin = -85.0, latMax = 85.0, lonMin = -180.0, lonMax = 180.0;
+        const rows = 36, cols = 72;
+        const dLat = (latMax - latMin) / rows;
+        const dLon = (lonMax - lonMin) / cols;
 
-      const anchorLat = selectedPoint.lat;
-      const anchorLon = selectedPoint.lon;
-      const anchorVal = state.pointVal;
+        const anchorLat = selectedPoint.lat;
+        const anchorLon = selectedPoint.lon;
+        const anchorVal = state.pointVal;
 
-      const interpSources = [
-        { lat: anchorLat, lon: anchorLon, val: anchorVal, weightScale: 1.5 },
-        ...GRID_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.valuesByIdx[idx], weightScale: 1.2 })),
-        ...GLOBAL_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.globalVals[idx], weightScale: 1.0 }))
-      ];
+        const interpSources = [
+          { lat: anchorLat, lon: anchorLon, val: anchorVal, weightScale: 1.5 },
+          ...GRID_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.valuesByIdx[idx], weightScale: 1.2 })),
+          ...GLOBAL_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.globalVals[idx], weightScale: 1.0 }))
+        ];
 
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const lat0 = latMin + r * dLat;
-          const lon0 = lonMin + c * dLon;
-          const latC = lat0 + dLat / 2;
-          const lonC = lon0 + dLon / 2;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const lat0 = latMin + r * dLat;
+            const lon0 = lonMin + c * dLon;
+            const latC = lat0 + dLat / 2;
+            const lonC = lon0 + dLon / 2;
 
-          let wSum = 0, vSum = 0;
-          interpSources.forEach(srcPt => {
-            if (typeof srcPt.val !== "number" || !Number.isFinite(srcPt.val)) return;
-            let dl = Math.abs(lonC - srcPt.lon);
-            if (dl > 180) dl = 360 - dl;
-            const df = latC - srcPt.lat;
-            const d2 = (df * df) + (dl * dl) + 1.5;
-            const w = srcPt.weightScale / d2;
-            wSum += w;
-            vSum += w * srcPt.val;
-          });
+            let wSum = 0, vSum = 0;
+            interpSources.forEach(srcPt => {
+              if (typeof srcPt.val !== "number" || !Number.isFinite(srcPt.val)) return;
+              let dl = Math.abs(lonC - srcPt.lon);
+              if (dl > 180) dl = 360 - dl;
+              const df = latC - srcPt.lat;
+              const d2 = (df * df) + (dl * dl) + 1.5;
+              const w = srcPt.weightScale / d2;
+              wSum += w;
+              vSum += w * srcPt.val;
+            });
 
-          const cellVal = wSum > 0 ? (vSum / wSum) : anchorVal;
-          const cellNorm = (cellVal - state.min) / span;
-          const col = colorForNorm(cellNorm, item.palette);
+            const cellVal = wSum > 0 ? (vSum / wSum) : anchorVal;
+            const cellNorm = (cellVal - state.min) / span;
+            const col = colorForNorm(cellNorm, item.palette);
 
-          L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
-            color: col,
-            weight: 0.25,
-            opacity: 0.55,
-            fillColor: col,
-            fillOpacity: 0.62,
-            interactive: false
-          }).addTo(window.gridGroup);
+            L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
+              color: col,
+              weight: 0.25,
+              opacity: 0.55,
+              fillColor: col,
+              fillOpacity: 0.62,
+              interactive: false
+            }).addTo(window.gridGroup);
+          }
         }
       }
 
@@ -3025,7 +2800,7 @@
     if (!item) return;
     activeVarCode = item.code;
 
-    syncAllThreeBlocks(catalog);
+    syncEcmwfPanelAndButton(catalog);
     updatePlayerCbarAndMap(item, offsetHours);
 
     if (source !== "host") {
@@ -3076,22 +2851,22 @@
   }
 
   function tick() {
-    cleanWaitingTextFromCbarAndDom();
+    cleanUnwantedElements();
     updateExistingSingleLocationInPanel();
     const catalog = collectAllCandidateVars();
     const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
     if (!item) return;
-    syncAllThreeBlocks(catalog);
+    syncEcmwfPanelAndButton(catalog);
     bindMapAndTimelineListeners();
     const mapObj = resolveLeafletMap();
-    if (mapObj && (!window.gridGroup || !mapObj.hasLayer(window.gridGroup) || window.gridGroup.getLayers().length === 0)) {
+    if (mapObj && cbarActive && (!window.gridGroup || !mapObj.hasLayer(window.gridGroup) || window.gridGroup.getLayers().length === 0)) {
       updatePlayerCbarAndMap(item, offsetHours);
     }
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      cleanWaitingTextFromCbarAndDom();
+      cleanUnwantedElements();
       updateExistingSingleLocationInPanel();
       const cat = collectAllCandidateVars();
       setActiveVar(activeVarCode, "host");
@@ -3099,7 +2874,7 @@
       bindMapAndTimelineListeners();
     });
   } else {
-    cleanWaitingTextFromCbarAndDom();
+    cleanUnwantedElements();
     updateExistingSingleLocationInPanel();
     const cat = collectAllCandidateVars();
     setActiveVar(activeVarCode, "host");
