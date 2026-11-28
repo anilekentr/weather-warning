@@ -4276,5 +4276,236 @@
 </script>
 <!-- EW_FIX_ZOOM_LOGO_CLICK_MARKER_CBAR_END -->
 
+<!-- EW_INSTANT_CURRENT_MARKER_START -->
+<script>
+(function () {
+  const instantCache = new Map();
+  const geoInstantCache = new Map();
+  let userMovedTimeSlider = false;
+
+  const VMETA = {
+    temperature_2m: { name: "2m Sıcaklık", unit: "°C" },
+    apparent_temperature: { name: "Hissedilen Sıcaklık", unit: "°C" },
+    dew_point_2m: { name: "Çiy Noktası", unit: "°C" },
+    relative_humidity_2m: { name: "Bağıl Nem", unit: "%" },
+    precipitation: { name: "Toplam Yağış", unit: "mm" },
+    rain: { name: "Yağmur", unit: "mm" },
+    snowfall: { name: "Kar Yağışı", unit: "cm" },
+    weather_code: { name: "WMO Hava Kodu", unit: "wmo" },
+    pressure_msl: { name: "Deniz Sev. Basınç", unit: "hPa" },
+    surface_pressure: { name: "Yüzey Basıncı", unit: "hPa" },
+    cloud_cover: { name: "Toplam Bulut", unit: "%" },
+    cloud_cover_low: { name: "Alçak Bulut", unit: "%" },
+    cloud_cover_mid: { name: "Orta Bulut", unit: "%" },
+    cloud_cover_high: { name: "Yüksek Bulut", unit: "%" },
+    visibility: { name: "Görüş Mesafesi", unit: "m" },
+    wind_speed_10m: { name: "10m Rüzgar Hızı", unit: "km/h" },
+    wind_speed_80m: { name: "80m Rüzgar Hızı", unit: "km/h" },
+    wind_speed_120m: { name: "120m Rüzgar Hızı", unit: "km/h" },
+    wind_direction_10m: { name: "10m Rüzgar Yönü", unit: "°" },
+    wind_gusts_10m: { name: "10m Hamle", unit: "km/h" },
+    soil_temperature_0_to_7cm: { name: "Toprak Sıcaklığı", unit: "°C" },
+    soil_moisture_0_to_7cm: { name: "Toprak Nemi", unit: "m³/m³" }
+  };
+
+  function getActiveVar() {
+    const activeBtn = document.querySelector(".ew-ecmwf-btn.is-active");
+    const om = (activeBtn && activeBtn.dataset && activeBtn.dataset.om)
+      || (typeof pState !== "undefined" && pState && (pState.varCode || pState.variable))
+      || "temperature_2m";
+    return { om, ...(VMETA[om] || { name: om, unit: "" }) };
+  }
+
+  function formatNumber(n, unit) {
+    if (!Number.isFinite(n)) return "-";
+    if (unit === "m³/m³") return n.toFixed(3);
+    if (Math.abs(n) >= 100 || unit === "hPa" || unit === "m" || unit === "°") return n.toFixed(1);
+    return n.toFixed(2);
+  }
+
+  function findClosestNowIndex(times) {
+    if (!Array.isArray(times) || !times.length) return 0;
+    const nowMs = Date.now();
+    let bestIdx = 0;
+    let bestDiff = Infinity;
+    for (let i = 0; i < times.length; i++) {
+      const tMs = Date.parse(times[i]);
+      if (Number.isFinite(tMs)) {
+        const diff = Math.abs(tMs - nowMs);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestIdx = i;
+        }
+      }
+    }
+    return bestIdx;
+  }
+
+  function getSelectedOrCurrentIndex(times) {
+    if (userMovedTimeSlider) {
+      try {
+        const rangeInput = document.querySelector('input[type="range"][id*="time" i], input[type="range"][id*="hour" i], input[type="range"][id*="step" i], input[type="range"]');
+        if (rangeInput && Number.isFinite(Number(rangeInput.value))) {
+          return Math.min(Math.max(0, Math.floor(Number(rangeInput.value))), Math.max(0, times.length - 1));
+        }
+        if (typeof pState !== "undefined" && pState && Number.isFinite(Number(pState.stepIdx))) {
+          return Math.min(Math.max(0, Math.floor(Number(pState.stepIdx))), Math.max(0, times.length - 1));
+        }
+      } catch (_) {}
+    }
+    return findClosestNowIndex(times);
+  }
+
+  async function fetchPlaceInfo(lat, lon) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (geoInstantCache.has(key)) return geoInstantCache.get(key);
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=14&addressdetails=1&accept-language=tr`;
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error("Geo " + res.status);
+    const data = await res.json();
+    const a = (data && data.address) || {};
+    const info = {
+      il: a.province || a.state || a.city || a.region || "Açık Alan / Deniz",
+      ilce: a.town || a.county || a.city_district || a.district || a.municipality || "",
+      mahalle: a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || ""
+    };
+    geoInstantCache.set(key, info);
+    return info;
+  }
+
+  async function fetchInstantValue(lat, lon, om) {
+    const key = `${lat.toFixed(3)},${lon.toFixed(3)}:${om}`;
+    let payload = instantCache.get(key);
+    if (!payload) {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=${encodeURIComponent(om)}&hourly=${encodeURIComponent(om)}&timezone=auto&forecast_days=7`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("ECMWF " + res.status);
+      payload = await res.json();
+      if (payload && (payload.current || (payload.hourly && Array.isArray(payload.hourly[om])))) {
+        instantCache.set(key, payload);
+      }
+    }
+
+    const times = (payload && payload.hourly && Array.isArray(payload.hourly.time)) ? payload.hourly.time : [];
+    const vals = (payload && payload.hourly && Array.isArray(payload.hourly[om])) ? payload.hourly[om] : [];
+
+    if (!userMovedTimeSlider && payload && payload.current && Number.isFinite(Number(payload.current[om]))) {
+      const cTime = payload.current.time ? String(payload.current.time).replace("T", " ").slice(0, 16) : "";
+      return {
+        val: Number(payload.current[om]),
+        timeLabel: cTime ? `O An (${cTime})` : "O An (Canlı)"
+      };
+    }
+
+    const idx = getSelectedOrCurrentIndex(times);
+    const val = vals.length ? Number(vals[idx]) : NaN;
+    const tStr = times[idx] ? String(times[idx]).replace("T", " ").slice(0, 16) : "";
+    return {
+      val,
+      timeLabel: userMovedTimeSlider ? `Seçili An (${tStr})` : (tStr ? `O An (${tStr})` : "O An")
+    };
+  }
+
+  function findBluePin() {
+    const mapObj = window.map || window._map;
+    if (!mapObj || typeof mapObj.eachLayer !== "function") return null;
+    let marker = null;
+    mapObj.eachLayer(layer => {
+      if (marker) return;
+      if (layer && typeof layer.getLatLng === "function" && typeof layer.bindPopup === "function") {
+        const el = layer._icon || (layer.getElement && layer.getElement());
+        if (el && el.querySelector && el.querySelector(".ew-click-pin-dot")) {
+          marker = layer;
+        }
+      }
+    });
+    return marker;
+  }
+
+  async function updateBluePinInstant(openPopup) {
+    const marker = findBluePin();
+    if (!marker || typeof marker.getLatLng !== "function") return;
+    const ll = marker.getLatLng();
+    if (!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
+
+    const lat = Number(ll.lat);
+    const lon = Number(ll.lng);
+    const v = getActiveVar();
+
+    let place = geoInstantCache.get(`${lat.toFixed(4)},${lon.toFixed(4)}`) || { il: "Konum alınıyor...", ilce: "", mahalle: "" };
+    let instant = { val: NaN, timeLabel: "O An" };
+
+    try {
+      const [pRes, iRes] = await Promise.allSettled([
+        fetchPlaceInfo(lat, lon),
+        fetchInstantValue(lat, lon, v.om)
+      ]);
+      if (pRes.status === "fulfilled" && pRes.value) place = pRes.value;
+      if (iRes.status === "fulfilled" && iRes.value) instant = iRes.value;
+    } catch (_) {}
+
+    const placeLine = [place.il, place.ilce].filter(Boolean).join(" / ") || "Konum";
+    const mahLine = place.mahalle ? ` · ${place.mahalle}` : "";
+    const valLine = Number.isFinite(instant.val)
+      ? `${formatNumber(instant.val, v.unit)} ${v.unit}`.trim()
+      : `- ${v.unit}`.trim();
+
+    const popupHtml = `
+      <div class="ew-marker-popup-body">
+        <div class="ew-marker-popup-place">${placeLine}${mahLine}</div>
+        <div class="ew-marker-popup-coord">Lat: ${lat.toFixed(4)}° · Lon: ${lon.toFixed(4)}°</div>
+        <div class="ew-marker-popup-val">${v.name}: ${valLine}</div>
+        <div class="ew-marker-popup-hour">${instant.timeLabel}</div>
+      </div>
+    `;
+
+    try {
+      marker.unbindTooltip();
+      marker.bindPopup(popupHtml, { className: "ew-marker-popup", closeButton: true, autoPan: false });
+      if (openPopup && typeof marker.openPopup === "function") {
+        marker.openPopup();
+      } else if (marker.isPopupOpen && marker.isPopupOpen() && typeof marker.setPopupContent === "function") {
+        marker.setPopupContent(popupHtml);
+      }
+    } catch (_) {}
+
+    const coordEl = document.getElementById("ew-panel-coord-vals");
+    const titleEl = document.getElementById("ew-panel-location-title");
+    const subEl = document.getElementById("ew-panel-location-sub");
+    const liveValEl = document.getElementById("ew-sp-live-val");
+    const liveMetaEl = document.getElementById("ew-sp-live-meta");
+    const timeBadge = document.getElementById("ew-sp-time-badge");
+
+    if (coordEl) coordEl.textContent = `Lat: ${lat.toFixed(4)}° · Lon: ${lon.toFixed(4)}°`;
+    if (titleEl) titleEl.textContent = placeLine;
+    if (subEl) subEl.textContent = place.mahalle ? `Mahalle: ${place.mahalle}` : instant.timeLabel;
+    if (liveValEl) liveValEl.textContent = valLine;
+    if (liveMetaEl) liveMetaEl.textContent = `${v.name} · ${instant.timeLabel}`;
+    if (timeBadge) timeBadge.textContent = instant.timeLabel;
+  }
+
+  document.addEventListener("input", function (e) {
+    if (e.target && e.target.matches && e.target.matches('input[type="range"]')) {
+      userMovedTimeSlider = true;
+      setTimeout(() => updateBluePinInstant(false), 30);
+    }
+  }, true);
+
+  document.addEventListener("click", function (e) {
+    const t = e.target;
+    if (t && t.closest && (t.closest(".ew-click-pin-dot") || t.closest(".ew-click-pin-wrap"))) {
+      setTimeout(() => updateBluePinInstant(true), 20);
+      return;
+    }
+    if (t && t.closest && t.closest(".ew-ecmwf-btn")) {
+      setTimeout(() => updateBluePinInstant(false), 40);
+    }
+  }, true);
+
+  setInterval(() => updateBluePinInstant(false), 1200);
+})();
+</script>
+<!-- EW_INSTANT_CURRENT_MARKER_END -->
+
 </body>
 </html>
