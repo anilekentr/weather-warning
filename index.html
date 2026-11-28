@@ -1727,6 +1727,27 @@
   #ew-cbar, #ew-ecmwf-live-note, #ew-point-single-value, #ew-ecmwf-panel-status {
     display: none !important;
   }
+  #ew-ecmwf-top-location-bar {
+    margin-top: 8px !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.96) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(125, 211, 252, 0.45) !important;
+    box-sizing: border-box !important;
+    font-size: 11px !important;
+  }
+  .ew-top-loc-coord {
+    font-weight: 700 !important;
+    color: #7dd3fc !important;
+    font-size: 11px !important;
+  }
+  .ew-top-loc-place {
+    color: #e2e8f0 !important;
+    font-size: 10.5px !important;
+    margin-top: 2px !important;
+    line-height: 1.3 !important;
+  }
   #ew-ecmwf-real-data-box {
     margin-top: 8px !important;
     padding: 8px 10px !important;
@@ -1748,16 +1769,10 @@
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    font-size: 11px !important;
-    color: #cbd5e1 !important;
-    margin-top: 4px !important;
+    font-size: 12px !important;
+    color: #f8fafc !important;
+    margin-top: 5px !important;
     gap: 8px !important;
-  }
-  .ew-ecmwf-loc-line {
-    font-size: 10px !important;
-    color: #93c5fd !important;
-    margin-top: 4px !important;
-    line-height: 1.35 !important;
   }
   .ew-ecmwf-status-tag {
     padding: 2px 7px !important;
@@ -1798,8 +1813,8 @@
   #ew-ecmwf-real-vars-list {
     display: flex !important;
     flex-direction: column !important;
-    gap: 5px !important;
-    max-height: 195px !important;
+    gap: 4px !important;
+    max-height: 185px !important;
     overflow-y: auto !important;
   }
   .ew-real-var-chip {
@@ -1810,30 +1825,19 @@
     background: rgba(30, 41, 59, 0.95) !important;
     color: #e2e8f0 !important;
     border: 1px solid rgba(148, 163, 184, 0.35) !important;
-    font-size: 10px !important;
+    font-size: 10.5px !important;
     font-weight: 600 !important;
     cursor: pointer !important;
     display: flex !important;
-    flex-direction: column !important;
-    gap: 2px !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
     box-sizing: border-box !important;
   }
   .ew-real-var-chip.active {
     background: rgba(2, 132, 199, 0.85) !important;
     border-color: #7dd3fc !important;
     color: #ffffff !important;
-  }
-  .ew-real-chip-row1 {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    gap: 6px !important;
-    width: 100% !important;
-  }
-  .ew-real-chip-row2 {
-    font-size: 9.5px !important;
-    color: #cbd5e1 !important;
-    line-height: 1.3 !important;
   }
   #ew-player-cbar-wrap {
     background: rgba(15, 23, 42, 0.94) !important;
@@ -2022,7 +2026,6 @@
   const seriesCache = new Map();
   const geoCache = new Map();
   const liveValueByVar = new Map();
-  const approxValueByVar = new Map();
   let auditCompleted = false;
 
   function normalizeUnit(rawUnit, code) {
@@ -2057,13 +2060,11 @@
     return `${Number(lat).toFixed(4)}, ${Number(lon).toFixed(4)}`;
   }
 
-  function formatLocationSummary(loc, lat, lon) {
-    const parts = [];
-    if (loc && loc.il) parts.push(`İl: ${loc.il}`);
-    if (loc && loc.ilce) parts.push(`İlçe: ${loc.ilce}`);
-    if (loc && loc.mahalle) parts.push(`Mahalle: ${loc.mahalle}`);
-    const locStr = parts.length ? parts.join(" · ") : "Konum Çözümleniyor";
-    return `${formatCoordPlain(lat, lon)} · ${locStr}`;
+  function formatTopLocationPlace(loc, lat, lon) {
+    const il = (loc && loc.il) || "Bölge";
+    const ilce = (loc && loc.ilce) || "Merkez";
+    const mahalle = (loc && loc.mahalle) || `${Number(lat).toFixed(2)}, ${Number(lon).toFixed(2)}`;
+    return `İl: ${il} · İlçe: ${ilce} · Mahalle: ${mahalle}`;
   }
 
   async function resolveReverseLocation(lat, lon) {
@@ -2134,6 +2135,27 @@
     const varsList = document.getElementById("ew-vars-list");
     if (varsList && varsList.parentElement) return varsList.parentElement;
     return null;
+  }
+
+  // ECMWF Değişken Panelinin en üstünde tek bir koordinat + il/ilçe/mahalle başlığı render et
+  function renderTopLocationHeader() {
+    const panel = findEcmwfPanelContainer();
+    if (!panel) return;
+
+    let topBar = document.getElementById("ew-ecmwf-top-location-bar");
+    if (!topBar) {
+      topBar = document.createElement("div");
+      topBar.id = "ew-ecmwf-top-location-bar";
+      topBar.innerHTML =
+        "<div id='ew-top-loc-coord' class='ew-top-loc-coord'>-</div>" +
+        "<div id='ew-top-loc-place' class='ew-top-loc-place'>-</div>";
+      panel.insertBefore(topBar, panel.firstChild);
+    }
+
+    const coordEl = document.getElementById("ew-top-loc-coord");
+    const placeEl = document.getElementById("ew-top-loc-place");
+    if (coordEl) coordEl.textContent = `Koordinat: ${formatCoordPlain(selectedPoint.lat, selectedPoint.lon)}`;
+    if (placeEl) placeEl.textContent = formatTopLocationPlace(activeLocation, selectedPoint.lat, selectedPoint.lon);
   }
 
   function resolveLeafletMap() {
@@ -2282,29 +2304,15 @@
     }
   }
 
-  // Tıklanan nokta için tüm değişken değerlerini o noktaya göre anında güncelle (önceki noktanın canlı değerlerini sıfırla)
-  async function auditAllVariablesForClickedPoint(catalog, myEpoch) {
+  // Seçili koordinat (ECMWF panelindeki koordinat) için tüm değişkenlerin anlık canlı değerlerini güncelle
+  async function auditAllVariablesForSelectedPoint(catalog, myEpoch) {
     const epochAtStart = typeof myEpoch === "number" ? myEpoch : clickEpoch;
     const hourIdx = getActiveHourIndex();
     const ptSnapshot = { lat: selectedPoint.lat, lon: selectedPoint.lon };
-    const locSnapshot = { ...activeLocation };
 
+    renderTopLocationHeader();
     auditCompleted = false;
     liveValueByVar.clear();
-    approxValueByVar.clear();
-
-    catalog.forEach(v => {
-      const approxVal = fallbackPointValue(v, ptSnapshot.lat, ptSnapshot.lon, hourIdx);
-      approxValueByVar.set(v.code, {
-        val: approxVal,
-        unit: v.unit,
-        hourIdx,
-        lat: ptSnapshot.lat,
-        lon: ptSnapshot.lon,
-        loc: locSnapshot
-      });
-    });
-
     renderRealOnlyFilterList(catalog);
 
     const results = await Promise.all(
@@ -2330,12 +2338,8 @@
           liveValueByVar.set(v.code, {
             val: candidateVal,
             unit: finalUnit,
-            hourIdx: idx,
-            lat: ptSnapshot.lat,
-            lon: ptSnapshot.lon,
-            loc: locSnapshot
+            hourIdx: idx
           });
-          approxValueByVar.delete(v.code);
         }
       }
     });
@@ -2345,9 +2349,12 @@
     syncAllThreeBlocks(catalog);
   }
 
+  // Filtre altında koordinat/konum tekrarlamadan yalnızca değişken adı/kodu ve anlık değer göster
   function renderRealOnlyFilterList(catalog) {
     const panel = findEcmwfPanelContainer();
     if (!panel) return;
+
+    renderTopLocationHeader();
 
     let sec = document.getElementById("ew-ecmwf-filter-section");
     if (!sec) {
@@ -2389,7 +2396,7 @@
       });
 
     if (countEl) {
-      countEl.textContent = auditCompleted ? `${liveItems.length} Canlı (${formatCoordPlain(selectedPoint.lat, selectedPoint.lon)})` : "Güncelleniyor...";
+      countEl.textContent = auditCompleted ? `${liveItems.length} Canlı` : "Güncelleniyor...";
     }
 
     listEl.innerHTML = "";
@@ -2399,11 +2406,8 @@
       chip.type = "button";
       chip.className = "ew-real-var-chip" + (v.code === activeVarCode ? " active" : "");
       chip.innerHTML =
-        `<div class='ew-real-chip-row1'>` +
-          `<span>${formatCanonicalVarLabel(v)}</span>` +
-          `<strong>${formatNum(liveInfo.val, liveInfo.unit || v.unit, v.code)}</strong>` +
-        `</div>` +
-        `<div class='ew-real-chip-row2'>${formatLocationSummary(liveInfo.loc || activeLocation, liveInfo.lat ?? selectedPoint.lat, liveInfo.lon ?? selectedPoint.lon)}</div>`;
+        `<span>${formatCanonicalVarLabel(v)}</span>` +
+        `<strong>${formatNum(liveInfo.val, liveInfo.unit || v.unit, v.code)}</strong>`;
       chip.addEventListener("click", () => setActiveVar(v.code, "filter"));
       listEl.appendChild(chip);
     });
@@ -2449,8 +2453,10 @@
     return palette[idx];
   }
 
+  // ECMWF Panelinde yalnızca anlık değer göster (koordinat/mahalle yukarıda tek yerde)
   function renderEcmwfPanelRealData(item, hourIdx, state) {
     cleanWaitingTextFromCbarAndDom();
+    renderTopLocationHeader();
     const panel = findEcmwfPanelContainer();
     if (!panel) return;
 
@@ -2464,10 +2470,9 @@
           "<span id='ew-ecmwf-real-badge' class='ew-ecmwf-status-tag'>Yaklaşık</span>" +
         "</div>" +
         "<div class='ew-ecmwf-real-sub'>" +
-          "<span id='ew-ecmwf-real-val'>-</span>" +
+          "<strong id='ew-ecmwf-real-val'>-</strong>" +
           "<span id='ew-ecmwf-real-hour'>-</span>" +
-        "</div>" +
-        "<div id='ew-ecmwf-real-loc' class='ew-ecmwf-loc-line'>-</div>";
+        "</div>";
       panel.appendChild(box);
     }
 
@@ -2478,7 +2483,6 @@
     const badgeEl = document.getElementById("ew-ecmwf-real-badge");
     const valEl = document.getElementById("ew-ecmwf-real-val");
     const hourEl = document.getElementById("ew-ecmwf-real-hour");
-    const locEl = document.getElementById("ew-ecmwf-real-loc");
 
     if (titleEl) titleEl.textContent = formatCanonicalVarLabel(item);
     if (badgeEl) {
@@ -2488,7 +2492,6 @@
     }
     if (valEl) valEl.textContent = valStr;
     if (hourEl) hourEl.textContent = `Saat +${hourIdx}s`;
-    if (locEl) locEl.textContent = formatLocationSummary(activeLocation, selectedPoint.lat, selectedPoint.lon);
   }
 
   function getActiveHourIndex() {
@@ -2672,6 +2675,8 @@
   }
 
   function syncAllThreeBlocks(catalog) {
+    renderTopLocationHeader();
+
     const mainSel = document.getElementById("var-select");
     if (mainSel) {
       const curSig = Array.from(mainSel.options).map(o => `${o.value}::${o.textContent}`).join("|");
@@ -2729,12 +2734,9 @@
     const badgeMarker = L.marker([lat, lon], {
       icon: L.divIcon({
         className: "ew-map-point-badge",
-        html:
-          `<div style="color:${color || "#f8fafc"};">${valStr} · ${statusText}</div>` +
-          `<div style="color:#e2e8f0;font-size:10px;font-weight:600;">Koordinat: ${formatCoordPlain(lat, lon)}</div>` +
-          `<div style="color:#93c5fd;font-size:9.5px;font-weight:500;">${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</div>`,
+        html: `<div style="color:${color || "#f8fafc"};">${valStr} · ${statusText}</div>`,
         iconSize: null,
-        iconAnchor: [0, 48]
+        iconAnchor: [0, 26]
       }),
       interactive: false
     });
@@ -2841,21 +2843,11 @@
     const reqToken = ++latestRequestToken;
     const hourIdx = typeof explicitHourIdx === "number" ? explicitHourIdx : getActiveHourIndex();
     const ptSnapshot = { lat: selectedPoint.lat, lon: selectedPoint.lon };
-    const locSnapshot = { ...activeLocation };
 
     const fallbackPt = fallbackPointValue(item, ptSnapshot.lat, ptSnapshot.lon, hourIdx);
     const fallbackGrid = GRID_POINTS.map(g => fallbackPointValue(item, g.lat, g.lon, hourIdx));
     const fallbackGlobal = GLOBAL_POINTS.map(g => fallbackPointValue(item, g.lat, g.lon, hourIdx));
     const initAll = [fallbackPt, ...fallbackGrid, ...fallbackGlobal];
-
-    approxValueByVar.set(item.code, {
-      val: fallbackPt,
-      unit: item.unit,
-      hourIdx,
-      lat: ptSnapshot.lat,
-      lon: ptSnapshot.lon,
-      loc: locSnapshot
-    });
 
     applyStepToCbarAndMap(item, hourIdx, {
       min: Math.min(...initAll),
@@ -2889,22 +2881,10 @@
       liveValueByVar.set(item.code, {
         val: ptValRaw,
         unit: item.unit,
-        hourIdx,
-        lat: ptSnapshot.lat,
-        lon: ptSnapshot.lon,
-        loc: locSnapshot
+        hourIdx
       });
-      approxValueByVar.delete(item.code);
     } else {
       liveValueByVar.delete(item.code);
-      approxValueByVar.set(item.code, {
-        val: fallbackPt,
-        unit: item.unit,
-        hourIdx,
-        lat: ptSnapshot.lat,
-        lon: ptSnapshot.lon,
-        loc: locSnapshot
-      });
     }
     const pointVal = isLivePoint ? ptValRaw : fallbackPt;
 
@@ -2974,6 +2954,7 @@
           ilce: "",
           mahalle: ""
         };
+        renderTopLocationHeader();
 
         const catalog = collectAllCandidateVars();
         const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
@@ -2981,15 +2962,15 @@
         if (item) {
           updatePlayerCbarAndMap(item, getActiveHourIndex());
         }
-        auditAllVariablesForClickedPoint(catalog, myEpoch);
+        auditAllVariablesForSelectedPoint(catalog, myEpoch);
 
         const resolvedLoc = await resolveReverseLocation(selectedPoint.lat, selectedPoint.lon);
         if (myEpoch !== clickEpoch) return;
         activeLocation = resolvedLoc;
+        renderTopLocationHeader();
         if (item) {
           updatePlayerCbarAndMap(item, getActiveHourIndex());
         }
-        renderRealOnlyFilterList(catalog);
       });
     }
 
@@ -3024,14 +3005,14 @@
       cleanWaitingTextFromCbarAndDom();
       const cat = collectAllCandidateVars();
       setActiveVar(activeVarCode, "host");
-      auditAllVariablesForClickedPoint(cat, clickEpoch);
+      auditAllVariablesForSelectedPoint(cat, clickEpoch);
       bindMapAndTimelineListeners();
     });
   } else {
     cleanWaitingTextFromCbarAndDom();
     const cat = collectAllCandidateVars();
     setActiveVar(activeVarCode, "host");
-    auditAllVariablesForClickedPoint(cat, clickEpoch);
+    auditAllVariablesForSelectedPoint(cat, clickEpoch);
     bindMapAndTimelineListeners();
   }
   setInterval(tick, 1200);
