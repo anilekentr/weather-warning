@@ -3481,5 +3481,256 @@
 </script>
 <!-- EW_VAR_BTN_CBAR_FULL_GRID_END -->
 
+<!-- EW_RIGHT_PANEL_CLICK_COORD_VAR_START -->
+<script>
+(function () {
+  const geoStore = new Map();
+  const valStore = new Map();
+  const hookedMaps = new Set();
+
+  let pickedPoint = { lat: 41.0082, lon: 28.9784, hasPick: false };
+  let pickedPlace = { il: "İstanbul", ilce: "Fatih", mahalle: "Eminönü" };
+  let chosenVar = { key: "temperature_2m", unit: "°C", val: NaN, series: [] };
+  let reqToken = 0;
+
+  function labelFromKey(key) {
+    return String(key || "")
+      .replace(/_(\d+)hPa$/, " ($1 hPa)")
+      .replace(/_(\d+)m$/, " ($1 m)")
+      .replace(/_/g, " ")
+      .trim();
+  }
+
+  function formatNumber(v, unit) {
+    if (!Number.isFinite(v)) return "-";
+    if (unit === "m³/m³") return v.toFixed(3);
+    if (unit === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || unit === "hPa" || unit === "m" || unit === "°" || unit === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function detectSelectedVariable() {
+    const activeBtn = document.querySelector(
+      ".ew-cat-var-item-btn.is-active, .ew-simple-var-btn.is-active, .ew-grouped-var-btn.is-active, .ew-125-var-btn.is-active, .ew-pro-var-btn.is-active, .ew-ecmwf-btn.is-active"
+    );
+    if (activeBtn && activeBtn.dataset) {
+      const k = activeBtn.dataset.key || activeBtn.dataset.varKey || activeBtn.dataset.om;
+      if (k) {
+        return {
+          key: k,
+          unit: activeBtn.dataset.unit || chosenVar.unit || ""
+        };
+      }
+    }
+    return { key: chosenVar.key || "temperature_2m", unit: chosenVar.unit || "°C" };
+  }
+
+  function ensureRightPanelDom() {
+    let panel = document.getElementById("ew-dual-panel");
+    if (!panel) {
+      panel = document.createElement("aside");
+      panel.id = "ew-dual-panel";
+      document.body.appendChild(panel);
+    }
+
+    if (!document.getElementById("ew-rp-coord") || !document.getElementById("ew-rp-il-ilce") || !document.getElementById("ew-rp-mahalle") || !document.getElementById("ew-rp-var-val")) {
+      panel.innerHTML = `
+        <div class="ew-pro-top-coord">
+          <span>KOORDİNAT</span>
+          <span class="ew-pro-coord-pill" id="ew-rp-coord">41.0082°N, 28.9784°E</span>
+        </div>
+        <div class="ew-pro-loc-box">
+          <div class="ew-pro-loc-il-ilce" id="ew-rp-il-ilce">İstanbul / Fatih</div>
+          <div class="ew-pro-loc-mahalle" id="ew-rp-mahalle">Mahalle: -</div>
+        </div>
+        <div class="ew-pro-val-box">
+          <div class="ew-pro-card">
+            <div class="ew-pro-card-lbl" id="ew-rp-var-lbl">Seçili Değişken</div>
+            <div class="ew-pro-card-val" id="ew-rp-var-val">-</div>
+            <div class="ew-pro-card-sub" id="ew-rp-var-sub">Birim: -</div>
+          </div>
+          <div class="ew-pro-card">
+            <div class="ew-pro-card-lbl">Min .. Max</div>
+            <div class="ew-pro-card-val" id="ew-rp-range-val">-</div>
+            <div class="ew-pro-card-sub" id="ew-rp-coord-sub">Nokta Değeri</div>
+          </div>
+        </div>
+      `;
+    }
+    return panel;
+  }
+
+  function renderRightPanelNow() {
+    ensureRightPanelDom();
+    const vName = labelFromKey(chosenVar.key);
+    const unit = chosenVar.unit || "";
+    const valText = Number.isFinite(chosenVar.val)
+      ? `${formatNumber(chosenVar.val, unit)} ${unit}`.trim()
+      : `- ${unit}`.trim();
+
+    const s = (chosenVar.series || []).filter(Number.isFinite);
+    const minText = s.length ? formatNumber(Math.min(...s), unit) : "-";
+    const maxText = s.length ? formatNumber(Math.max(...s), unit) : "-";
+
+    const coordEl = document.getElementById("ew-rp-coord");
+    const ilIlceEl = document.getElementById("ew-rp-il-ilce");
+    const mahEl = document.getElementById("ew-rp-mahalle");
+    const vLblEl = document.getElementById("ew-rp-var-lbl");
+    const vValEl = document.getElementById("ew-rp-var-val");
+    const vSubEl = document.getElementById("ew-rp-var-sub");
+    const rValEl = document.getElementById("ew-rp-range-val");
+    const cSubEl = document.getElementById("ew-rp-coord-sub");
+
+    if (coordEl) {
+      coordEl.textContent = `${pickedPoint.lat.toFixed(4)}°N, ${pickedPoint.lon.toFixed(4)}°E`;
+    }
+    if (ilIlceEl) {
+      const ilIlce = [pickedPlace.il, pickedPlace.ilce].filter(Boolean).join(" / ");
+      ilIlceEl.textContent = ilIlce || "Konum";
+    }
+    if (mahEl) {
+      mahEl.textContent = `Mahalle: ${pickedPlace.mahalle || "-"}`;
+    }
+    if (vLblEl) {
+      vLblEl.textContent = vName;
+    }
+    if (vValEl) {
+      vValEl.textContent = valText;
+    }
+    if (vSubEl) {
+      vSubEl.textContent = `Birim: ${unit || "-"}`;
+    }
+    if (rValEl) {
+      rValEl.textContent = `${minText} .. ${maxText}`;
+    }
+    if (cSubEl) {
+      cSubEl.textContent = `${pickedPoint.lat.toFixed(2)}°N, ${pickedPoint.lon.toFixed(2)}°E`;
+    }
+  }
+
+  async function lookupGeo(lat, lon) {
+    const k = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (geoStore.has(k)) return geoStore.get(k);
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1&accept-language=tr`;
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error("geo " + res.status);
+    const data = await res.json();
+    const a = (data && data.address) || {};
+    const out = {
+      il: a.province || a.state || a.city || a.region || "Açık Alan / Deniz",
+      ilce: a.town || a.county || a.city_district || a.district || a.municipality || "",
+      mahalle: a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || a.road || "-"
+    };
+    geoStore.set(k, out);
+    return out;
+  }
+
+  async function lookupVarAtPoint(lat, lon, key, fallbackUnit) {
+    const k = `${lat.toFixed(3)},${lon.toFixed(3)}:${key}`;
+    if (valStore.has(k)) return valStore.get(k);
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=${encodeURIComponent(key)}&timezone=auto&forecast_days=7`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("ecmwf " + res.status);
+    const json = await res.json();
+    const raw = (json && json.hourly && Array.isArray(json.hourly[key])) ? json.hourly[key] : [];
+    const times = (json && json.hourly && Array.isArray(json.hourly.time)) ? json.hourly.time : [];
+    const unit = (json && json.hourly_units && json.hourly_units[key]) ? json.hourly_units[key] : (fallbackUnit || "");
+    const series = raw.map(Number).filter(Number.isFinite);
+
+    let bestIdx = 0, bestDiff = Infinity;
+    const nowMs = Date.now();
+    for (let i = 0; i < times.length; i++) {
+      const ms = Date.parse(times[i]);
+      if (Number.isFinite(ms) && Math.abs(ms - nowMs) < bestDiff) {
+        bestDiff = Math.abs(ms - nowMs);
+        bestIdx = i;
+      }
+    }
+    const val = series.length ? series[Math.min(series.length - 1, bestIdx)] : NaN;
+    const out = { val, unit, series };
+    valStore.set(k, out);
+    return out;
+  }
+
+  async function refreshPickedPointAndVar(lat, lon, vSpec) {
+    const myToken = ++reqToken;
+    pickedPoint.lat = lat;
+    pickedPoint.lon = lon;
+    pickedPoint.hasPick = true;
+    chosenVar.key = vSpec.key;
+    chosenVar.unit = vSpec.unit;
+    chosenVar.val = NaN;
+    renderRightPanelNow();
+
+    const [gRes, vRes] = await Promise.allSettled([
+      lookupGeo(lat, lon),
+      lookupVarAtPoint(lat, lon, vSpec.key, vSpec.unit)
+    ]);
+
+    if (myToken !== reqToken) return;
+
+    if (gRes.status === "fulfilled" && gRes.value) {
+      pickedPlace = gRes.value;
+    }
+    if (vRes.status === "fulfilled" && vRes.value) {
+      chosenVar.val = vRes.value.val;
+      chosenVar.unit = vRes.value.unit || vSpec.unit;
+      chosenVar.series = vRes.value.series;
+    }
+    renderRightPanelNow();
+  }
+
+  function hookMap(mp) {
+    if (!mp || typeof mp.on !== "function" || mp.__ewRightPanelHook) return;
+    mp.__ewRightPanelHook = true;
+    hookedMaps.add(mp);
+
+    mp.on("click", function (ev) {
+      if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
+        const vSpec = detectSelectedVariable();
+        refreshPickedPointAndVar(Number(ev.latlng.lat), Number(ev.latlng.lng), vSpec);
+      }
+    });
+  }
+
+  if (typeof window.L !== "undefined" && window.L.Map && window.L.Map.addInitHook && !window.__ewRightPanelInit) {
+    window.__ewRightPanelInit = true;
+    window.L.Map.addInitHook(function () {
+      hookMap(this);
+    });
+  }
+
+  document.addEventListener("click", function (ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (!btn) return;
+    const k = btn.dataset && (btn.dataset.key || btn.dataset.varKey || btn.dataset.om);
+    if (!k) return;
+    const u = (btn.dataset && btn.dataset.unit) || "";
+    setTimeout(() => {
+      refreshPickedPointAndVar(pickedPoint.lat, pickedPoint.lon, { key: k, unit: u });
+    }, 10);
+  }, true);
+
+  setInterval(() => {
+    if (window.map) hookMap(window.map);
+    if (window._map) hookMap(window._map);
+    for (const key of Object.keys(window)) {
+      try {
+        const obj = window[key];
+        if (obj && typeof obj === "object" && typeof obj.on === "function" && typeof obj.getCenter === "function") {
+          hookMap(obj);
+        }
+      } catch (_) {}
+    }
+    renderRightPanelNow();
+  }, 800);
+
+  setTimeout(() => {
+    refreshPickedPointAndVar(pickedPoint.lat, pickedPoint.lon, detectSelectedVariable());
+  }, 250);
+})();
+</script>
+<!-- EW_RIGHT_PANEL_CLICK_COORD_VAR_END -->
+
 </body>
 </html>
