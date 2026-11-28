@@ -2872,5 +2872,339 @@
 </script>
 <!-- EW_DYNAMIC_ECMWF_SUITE_END -->
 
+<!-- EW_UNIFIED_PANELS_COORDS_CBAR_START -->
+<style>
+  #ew-dual-panel {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 980;
+    width: min(360px, calc(100vw - 28px));
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.90);
+    border: 1px solid rgba(148, 163, 184, 0.30);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 14px 34px rgba(2, 6, 23, 0.55);
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+  #ew-panel-coords-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(2, 132, 199, 0.18);
+    border-bottom: 1px solid rgba(125, 211, 252, 0.25);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .ew-coord-pill {
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-variant-numeric: tabular-nums;
+    color: #e0f2fe;
+    white-space: nowrap;
+  }
+  .ew-subpanels-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .ew-subpanel {
+    background: rgba(30, 41, 59, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 10px;
+    padding: 8px 10px;
+    min-width: 0;
+  }
+  .ew-subpanel-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+    margin-bottom: 3px;
+  }
+  .ew-subpanel-val {
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ew-subpanel-meta {
+    font-size: 10.5px;
+    color: #cbd5e1;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #ew-panel-range-foot {
+    padding: 0 12px 10px 12px;
+    font-size: 10.5px;
+    color: #cbd5e1;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  #ew-cbar {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+</style>
+
+<script>
+(function () {
+  const VAR_META = {
+    temperature_2m: { name: "2m Sıcaklık", unit: "°C" },
+    apparent_temperature: { name: "Hissedilen Sıcaklık", unit: "°C" },
+    dew_point_2m: { name: "Çiy Noktası", unit: "°C" },
+    relative_humidity_2m: { name: "Bağıl Nem", unit: "%" },
+    precipitation: { name: "Toplam Yağış", unit: "mm" },
+    rain: { name: "Yağmur", unit: "mm" },
+    snowfall: { name: "Kar Yağışı", unit: "cm" },
+    weather_code: { name: "WMO Hava Kodu", unit: "wmo" },
+    pressure_msl: { name: "Deniz Sev. Basınç", unit: "hPa" },
+    surface_pressure: { name: "Yüzey Basıncı", unit: "hPa" },
+    cloud_cover: { name: "Toplam Bulut", unit: "%" },
+    cloud_cover_low: { name: "Alçak Bulut", unit: "%" },
+    cloud_cover_mid: { name: "Orta Bulut", unit: "%" },
+    cloud_cover_high: { name: "Yüksek Bulut", unit: "%" },
+    visibility: { name: "Görüş Mesafesi", unit: "m" },
+    wind_speed_10m: { name: "10m Rüzgar Hızı", unit: "km/h" },
+    wind_speed_80m: { name: "80m Rüzgar Hızı", unit: "km/h" },
+    wind_speed_120m: { name: "120m Rüzgar Hızı", unit: "km/h" },
+    wind_direction_10m: { name: "10m Rüzgar Yönü", unit: "°" },
+    wind_gusts_10m: { name: "10m Hamle", unit: "km/h" },
+    soil_temperature_0_to_7cm: { name: "Toprak Sıcaklığı", unit: "°C" },
+    soil_moisture_0_to_7cm: { name: "Toprak Nemi", unit: "m³/m³" }
+  };
+
+  let currentCoords = { lat: null, lon: null };
+
+  function getActiveOmCode() {
+    const activeBtn = document.querySelector(".ew-ecmwf-btn.is-active");
+    if (activeBtn && activeBtn.dataset.om) return activeBtn.dataset.om;
+    if (typeof pState !== "undefined" && pState && (pState.varCode || pState.variable)) {
+      return pState.varCode || pState.variable;
+    }
+    return "temperature_2m";
+  }
+
+  function getVarInfo(omCode) {
+    if (VAR_META[omCode]) return { om: omCode, ...VAR_META[omCode] };
+    return { om: omCode, name: omCode, unit: "" };
+  }
+
+  function fmt(num, unit) {
+    if (!Number.isFinite(num)) return "-";
+    if (unit === "m³/m³") return num.toFixed(3);
+    if (Math.abs(num) >= 100 || unit === "hPa" || unit === "m" || unit === "°") return num.toFixed(1);
+    return num.toFixed(2);
+  }
+
+  function extractSeriesForOm(omCode) {
+    const vals = [];
+    let times = [];
+    try {
+      if (typeof findLiveSeriesForCode === "function") {
+        const s = findLiveSeriesForCode(omCode);
+        if (s && Array.isArray(s.values)) {
+          s.values.forEach(v => { if (Number.isFinite(Number(v))) vals.push(Number(v)); });
+          if (Array.isArray(s.times)) times = s.times;
+        }
+      }
+    } catch (_) {}
+
+    if (!vals.length) {
+      try {
+        if (typeof gridPayload !== "undefined" && gridPayload && gridPayload.raw) {
+          const raw = gridPayload.raw;
+          const h = Array.isArray(raw)
+            ? (raw[0] && raw[0].hourly ? raw[0].hourly : null)
+            : (raw.hourly || null);
+          if (h && Array.isArray(h[omCode])) {
+            h[omCode].forEach(v => { if (Number.isFinite(Number(v))) vals.push(Number(v)); });
+            if (Array.isArray(h.time)) times = h.time;
+          }
+        }
+      } catch (_) {}
+    }
+
+    let stepIdx = 0;
+    try {
+      if (typeof pState !== "undefined" && pState && Number.isFinite(Number(pState.stepIdx))) {
+        stepIdx = Math.max(0, Number(pState.stepIdx));
+      }
+    } catch (_) {}
+
+    const idx = vals.length ? Math.min(vals.length - 1, stepIdx) : -1;
+    const currentVal = idx >= 0 ? vals[idx] : NaN;
+    const timeLabel = (times && idx >= 0 && times[idx]) ? String(times[idx]).replace("T", " ").slice(0, 16) : "";
+    const minVal = vals.length ? Math.min(...vals) : NaN;
+    const maxVal = vals.length ? Math.max(...vals) : NaN;
+
+    return { vals, currentVal, minVal, maxVal, timeLabel };
+  }
+
+  function resolveCoords() {
+    let lat = currentCoords.lat;
+    let lon = currentCoords.lon;
+
+    try {
+      if (typeof pState !== "undefined" && pState) {
+        const cLat = Number(pState.lat ?? pState.selectedLat);
+        const cLon = Number(pState.lon ?? pState.lng ?? pState.selectedLon);
+        if (Number.isFinite(cLat) && Number.isFinite(cLon)) {
+          lat = cLat;
+          lon = cLon;
+        }
+      }
+    } catch (_) {}
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      try {
+        const mapObj = window.map || window._map || null;
+        if (mapObj && typeof mapObj.getCenter === "function") {
+          const c = mapObj.getCenter();
+          if (c && Number.isFinite(c.lat) && Number.isFinite(c.lng)) {
+            lat = c.lat;
+            lon = c.lng;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      currentCoords = { lat, lon };
+    }
+    return currentCoords;
+  }
+
+  function ensurePanelDom() {
+    let panel = document.getElementById("ew-dual-panel");
+    if (panel) return panel;
+
+    panel = document.createElement("aside");
+    panel.id = "ew-dual-panel";
+    panel.setAttribute("aria-label", "ECMWF Veri ve Koordinat Paneli");
+    panel.innerHTML = `
+      <div id="ew-panel-coords-top">
+        <span>Koordinat</span>
+        <span id="ew-panel-coord-vals" class="ew-coord-pill">Lat: - · Lon: -</span>
+      </div>
+      <div class="ew-subpanels-grid">
+        <div class="ew-subpanel" id="ew-subpanel-live">
+          <div class="ew-subpanel-label">Seçili Değer</div>
+          <div class="ew-subpanel-val" id="ew-sp-live-val">-</div>
+          <div class="ew-subpanel-meta" id="ew-sp-live-meta">Değişken · Birim</div>
+        </div>
+        <div class="ew-subpanel" id="ew-subpanel-range">
+          <div class="ew-subpanel-label">Veri Aralığı (Min–Max)</div>
+          <div class="ew-subpanel-val" id="ew-sp-range-val">-</div>
+          <div class="ew-subpanel-meta" id="ew-sp-range-meta">Gelen veriye göre</div>
+        </div>
+      </div>
+      <div id="ew-panel-range-foot">
+        <span id="ew-sp-var-badge">ECMWF</span>
+        <span id="ew-sp-time-badge"></span>
+      </div>
+    `;
+    document.body.appendChild(panel);
+    return panel;
+  }
+
+  function syncPanelsAndCbar() {
+    const panel = ensurePanelDom();
+    const omCode = getActiveOmCode();
+    const info = getVarInfo(omCode);
+    const series = extractSeriesForOm(omCode);
+    const coords = resolveCoords();
+
+    const coordEl = panel.querySelector("#ew-panel-coord-vals");
+    if (coordEl) {
+      coordEl.textContent = (Number.isFinite(coords.lat) && Number.isFinite(coords.lon))
+        ? `Lat: ${coords.lat.toFixed(4)}° · Lon: ${coords.lon.toFixed(4)}°`
+        : "Lat: - · Lon: -";
+    }
+
+    const curText = Number.isFinite(series.currentVal)
+      ? `${fmt(series.currentVal, info.unit)} ${info.unit}`.trim()
+      : `- ${info.unit}`.trim();
+
+    const minText = Number.isFinite(series.minVal) ? fmt(series.minVal, info.unit) : "-";
+    const maxText = Number.isFinite(series.maxVal) ? fmt(series.maxVal, info.unit) : "-";
+    const rangeText = (Number.isFinite(series.minVal) && Number.isFinite(series.maxVal))
+      ? `${minText} .. ${maxText}`
+      : "-";
+
+    const liveValEl = panel.querySelector("#ew-sp-live-val");
+    const liveMetaEl = panel.querySelector("#ew-sp-live-meta");
+    if (liveValEl) liveValEl.textContent = curText;
+    if (liveMetaEl) liveMetaEl.textContent = `${info.name} (${info.unit || "-"})`;
+
+    const rangeValEl = panel.querySelector("#ew-sp-range-val");
+    const rangeMetaEl = panel.querySelector("#ew-sp-range-meta");
+    if (rangeValEl) rangeValEl.textContent = rangeText;
+    if (rangeMetaEl) rangeMetaEl.textContent = `Birim: ${info.unit || "-"}`;
+
+    const varBadge = panel.querySelector("#ew-sp-var-badge");
+    const timeBadge = panel.querySelector("#ew-sp-time-badge");
+    if (varBadge) varBadge.textContent = `${info.name} [${info.om}] · ${info.unit || "-"}`;
+    if (timeBadge) timeBadge.textContent = series.timeLabel;
+
+    const cbar = document.getElementById("ew-cbar");
+    if (cbar) {
+      const titleEl = document.getElementById("cbar-title") || cbar.querySelector(".cbar-title");
+      if (titleEl) {
+        titleEl.innerHTML = `${info.name} <span style="opacity:.78;font-weight:500;">[${info.om}]</span> · <strong>${curText}</strong>`;
+      }
+    }
+  }
+
+  function hookMapCoordEvents() {
+    const mapObj = window.map || window._map || null;
+    if (!mapObj || mapObj.__ewCoordHooked) return;
+    mapObj.__ewCoordHooked = true;
+    const updateFromEvt = (e) => {
+      if (e && e.latlng && Number.isFinite(e.latlng.lat) && Number.isFinite(e.latlng.lng)) {
+        currentCoords = { lat: e.latlng.lat, lon: e.latlng.lng };
+      }
+      syncPanelsAndCbar();
+    };
+    mapObj.on("click", updateFromEvt);
+    mapObj.on("moveend", () => syncPanelsAndCbar());
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      ensurePanelDom();
+      hookMapCoordEvents();
+      syncPanelsAndCbar();
+    });
+  } else {
+    ensurePanelDom();
+    hookMapCoordEvents();
+    syncPanelsAndCbar();
+  }
+
+  setInterval(() => {
+    hookMapCoordEvents();
+    syncPanelsAndCbar();
+  }, 800);
+})();
+</script>
+<!-- EW_UNIFIED_PANELS_COORDS_CBAR_END -->
+
 </body>
 </html>
