@@ -1731,32 +1731,42 @@
     visibility: visible !important;
     z-index: 1400 !important;
   }
+  .ew-inline-hour-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 2px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
   .ew-inline-hour-btn {
-    padding: 4px 7px;
-    border-radius: 6px;
-    border: 1px solid rgba(148, 163, 184, 0.45);
-    background: rgba(15, 23, 42, 0.88);
-    color: #e2e8f0;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    line-height: 1.2;
-    white-space: nowrap;
+    padding: 2px 4px !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(148, 163, 184, 0.4) !important;
+    background: rgba(15, 23, 42, 0.9) !important;
+    color: #e2e8f0 !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    flex: 0 1 auto !important;
   }
   .ew-inline-hour-btn:hover {
-    background: rgba(2, 132, 199, 0.5);
-    border-color: #38bdf8;
-    color: #ffffff;
+    background: rgba(2, 132, 199, 0.55) !important;
+    border-color: #38bdf8 !important;
+    color: #ffffff !important;
   }
   .ew-loc-sync-line {
-    margin-top: 6px;
-    padding: 5px 8px;
-    border-radius: 6px;
+    margin-top: 5px;
+    padding: 4px 6px;
+    border-radius: 5px;
     background: rgba(9, 19, 34, 0.86);
-    border: 1px solid rgba(148, 163, 184, 0.32);
+    border: 1px solid rgba(148, 163, 184, 0.3);
     color: #e2e8f0;
-    font-size: 10.5px;
-    line-height: 1.35;
+    font-size: 10px;
+    line-height: 1.3;
+    word-break: break-word;
   }
 </style>
 <script id="ew-4e4e484-clean-script">
@@ -1832,12 +1842,27 @@
     }
   }
 
+  function compactExistingButtons(row) {
+    Array.from(row.querySelectorAll("button")).forEach(b => {
+      if (b.classList.contains("ew-inline-hour-btn")) return;
+      const t = (b.textContent || "").trim();
+      if (t === "-1 Saat") b.textContent = "-1s";
+      else if (t === "+1 Saat") b.textContent = "+1s";
+      b.style.padding = "2px 4px";
+      b.style.fontSize = "9px";
+      b.style.lineHeight = "1.15";
+    });
+  }
+
   function attachInlineHourButtons() {
     const nowBtn = Array.from(document.querySelectorAll("button")).find(b =>
       !b.classList.contains("ew-inline-hour-btn") && (b.textContent || "").trim() === "Şimdi"
     );
     if (!nowBtn || !nowBtn.parentElement) return;
     const row = nowBtn.parentElement;
+    row.classList.add("ew-inline-hour-row");
+    compactExistingButtons(row);
+
     if (row.dataset.ewInlineHoursReady === "1") return;
     row.dataset.ewInlineHoursReady = "1";
 
@@ -1853,7 +1878,7 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "ew-inline-hour-btn";
-      btn.textContent = `${h} Saat`;
+      btn.textContent = `${h}s`;
       btn.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
@@ -1867,7 +1892,7 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "ew-inline-hour-btn";
-      btn.textContent = `+${h} Saat`;
+      btn.textContent = `+${h}s`;
       btn.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
