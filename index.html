@@ -1722,332 +1722,194 @@
 })();
 </script>
 
-<!-- ew-4e4e484-ecmwf-full-sync-start -->
-<style id="ew-4e4e484-ecmwf-full-sync-style">
-  .ew-ecmwf-range-box { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px; border-radius: 8px; background: rgba(9, 19, 34, 0.94); border: 1px solid rgba(148, 163, 184, 0.35); color: #f8fafc; font-size: 11px; line-height: 1.4; }
-  .ew-ecmwf-coord-row { margin-top: 4px; padding: 5px 6px; border-radius: 5px; background: rgba(15, 23, 42, 0.8); font-size: 10px; color: #e2e8f0; }
-  .ew-ecmwf-range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-  .ew-ecmwf-range-grid label { display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: #cbd5e1; }
-  .ew-ecmwf-range-grid input[type="datetime-local"] { background: #0f172a; color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.45); border-radius: 5px; padding: 3px 5px; font-size: 10px; }
-  .ew-ecmwf-stats-row { display: flex; justify-content: space-between; gap: 6px; margin-top: 6px; padding: 5px 6px; border-radius: 6px; background: rgba(15, 23, 42, 0.85); font-size: 10.5px; }
-  .ew-ecmwf-meta-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 6px; font-size: 10px; color: #bae6fd; }
-  .ew-ecmwf-play-btn { padding: 5px 10px; border-radius: 6px; border: 1px solid #38bdf8; background: #0284c7; color: #ffffff; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-  .ew-ecmwf-play-btn.playing { background: #dc2626; border-color: #f87171; }
-</style>
-<script id="ew-4e4e484-ecmwf-full-sync-script">
+<!-- ew-4e4e484-ecmwf-triplet-sync-start -->
+<script id="ew-4e4e484-ecmwf-triplet-sync-script">
 (function() {
-  const VAR_RANGES = {
-    temperature_2m: { min: -10, max: 38, unit: "°C", stepDelta: 0.65 },
-    apparent_temperature: { min: -12, max: 40, unit: "°C", stepDelta: 0.7 },
-    dew_point_2m: { min: -8, max: 24, unit: "°C", stepDelta: 0.45 },
-    relative_humidity_2m: { min: 15, max: 100, unit: "%", stepDelta: 2.2 },
-    precipitation: { min: 0, max: 25, unit: "mm", stepDelta: 0.25 },
-    rain: { min: 0, max: 25, unit: "mm", stepDelta: 0.25 },
-    showers: { min: 0, max: 20, unit: "mm", stepDelta: 0.2 },
-    snowfall: { min: 0, max: 20, unit: "cm", stepDelta: 0.2 },
-    snow_depth: { min: 0, max: 1.5, unit: "m", stepDelta: 0.02 },
-    pressure_msl: { min: 995, max: 1035, unit: "hPa", stepDelta: 0.55 },
-    surface_pressure: { min: 950, max: 1035, unit: "hPa", stepDelta: 0.55 },
-    cloud_cover: { min: 0, max: 100, unit: "%", stepDelta: 3.5 },
-    wind_speed_10m: { min: 0, max: 75, unit: "km/s", stepDelta: 1.25 },
-    wind_gusts_10m: { min: 0, max: 105, unit: "km/s", stepDelta: 1.8 },
-    wind_direction_10m: { min: 0, max: 360, unit: "°", stepDelta: 6.5 },
-    shortwave_radiation: { min: 0, max: 900, unit: "W/m²", stepDelta: 28.0 },
-    cape: { min: 0, max: 2500, unit: "J/kg", stepDelta: 48.0 }
+  const VAR_STEPS = {
+    temperature_2m: { min: -15, max: 45, unit: "°C", step: 0.65 },
+    apparent_temperature: { min: -15, max: 48, unit: "°C", step: 0.7 },
+    dew_point_2m: { min: -15, max: 35, unit: "°C", step: 0.45 },
+    relative_humidity_2m: { min: 0, max: 100, unit: "%", step: 2.2 },
+    precipitation: { min: 0, max: 100, unit: "mm", step: 0.25 },
+    rain: { min: 0, max: 100, unit: "mm", step: 0.25 },
+    showers: { min: 0, max: 100, unit: "mm", step: 0.2 },
+    snowfall: { min: 0, max: 100, unit: "cm", step: 0.2 },
+    snow_depth: { min: 0, max: 5, unit: "m", step: 0.02 },
+    pressure_msl: { min: 950, max: 1060, unit: "hPa", step: 0.55 },
+    surface_pressure: { min: 900, max: 1060, unit: "hPa", step: 0.55 },
+    cloud_cover: { min: 0, max: 100, unit: "%", step: 3.5 },
+    wind_speed_10m: { min: 0, max: 150, unit: "km/s", step: 1.25 },
+    wind_gusts_10m: { min: 0, max: 200, unit: "km/s", step: 1.8 },
+    wind_direction_10m: { min: 0, max: 360, unit: "°", step: 6.5 },
+    shortwave_radiation: { min: 0, max: 1300, unit: "W/m²", step: 28.0 },
+    cape: { min: 0, max: 5000, unit: "J/kg", step: 48.0 }
   };
 
-  function parseSelectedTimeMs() {
-    const lines = Array.from(document.querySelectorAll("div, p, span, li, label"))
-      .filter(el => el.children.length <= 2 && !el.closest("#ew-ecmwf-range-player"))
-      .map(el => (el.textContent || "").trim());
-    for (const line of lines) {
-      const m = line.match(/Seçili Zaman\s*:\s*(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/i);
-      if (m) {
-        const ms = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0).getTime();
-        if (Number.isFinite(ms)) return ms;
-      }
-    }
-    return Math.floor(Date.now() / 3600000) * 3600000;
-  }
-
-  const toInputVal = ms => {
-    const d = new Date(ms), pad = n => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
+  const state = {
+    prevKey: "",
+    minusVal: null,
+    nowVal: null,
+    plusVal: null,
+    lastStepLabel: ""
   };
 
-  const initNowMs = parseSelectedTimeMs();
-  const pState = {
-    startMs: initNowMs - 3600000,
-    endMs: initNowMs + 3600000,
-    stepIdx: 1,
-    playing: false,
-    timer: null,
-    lat: 41.2267,
-    lng: 28.5864,
-    city: "",
-    district: "",
-    neighborhood: "",
-    anchorVal: null,
-    anchorVar: "",
-    anchorTimeMs: initNowMs,
-    lastTriplet: null
-  };
-
-  function extractUnitFromText(txt) {
-    const m = (txt || "").match(/\(([^()]+)\)\s*$/);
-    return m ? m[1].trim() : "";
+  function getVarInfo() {
+    const selEl = document.getElementById("var-select");
+    const om = (selEl && selEl.value) || (window.sel && window.sel.om) || "temperature_2m";
+    const preset = VAR_STEPS[om] || { min: -50, max: 5000, unit: "", step: 0.5 };
+    const unit = (window.sel && window.sel.unit) || preset.unit || "";
+    return { om, unit, min: preset.min, max: preset.max, step: preset.step };
   }
 
-  function getVarDef() {
-    const base = (window.sel && typeof window.sel === "object") ? window.sel : {};
-    const varSelect = document.getElementById("var-select");
-    const opt = varSelect && varSelect.selectedOptions && varSelect.selectedOptions[0];
-    const om = (varSelect && varSelect.value) || base.om || "temperature_2m";
-    const preset = VAR_RANGES[om];
-    const name = base.name || (opt ? (opt.textContent || "").replace(/\s*\([^()]+\)\s*$/, "").trim() : "") || om;
-    const cbarEl = document.getElementById("cbar-title") || document.getElementById("ew-player-cbar-title");
-    const unit = base.unit || extractUnitFromText(cbarEl ? cbarEl.textContent : "") || (preset && preset.unit) || "-";
-    const minVal = preset ? preset.min : (typeof base.min === "number" ? base.min : 0);
-    const maxVal = preset ? preset.max : (typeof base.max === "number" ? base.max : 100);
-    const stepDelta = preset ? preset.stepDelta : Math.max(0.1, (maxVal - minVal) * 0.02);
-    return { om, name, unit, min: minVal, max: maxVal, stepDelta };
-  }
-
-  function clampVal(n, v) {
-    return Number(Math.max(v.min, Math.min(v.max, n)).toFixed(2));
-  }
-
-  function readObservedVarValue(v) {
+  function readCurrentValue(info) {
     if (window.gridPayload && Array.isArray(window.gridPayload.values) && typeof window.tIdx === "number") {
-      const cand = Number(window.gridPayload.values[window.tIdx]);
-      if (Number.isFinite(cand)) return cand;
+      const v = Number(window.gridPayload.values[window.tIdx]);
+      if (Number.isFinite(v)) return v;
     }
-    const unitEsc = (v.unit || "").replace(/[.*+?^${}()|[\]\]/g, "\$&");
-    const numUnitRe = unitEsc ? new RegExp(`^(-?\d+(?:\.\d+)?)\s*${unitEsc}$`, "i") : /^(-?\d+(?:\.\d+)?)$/;
 
-    const leafTexts = Array.from(document.querySelectorAll("div, p, span, strong, b, td, th"))
-      .filter(el => el.children.length === 0 && !el.closest("#ew-ecmwf-range-player"))
-      .map(el => (el.textContent || "").trim())
-      .filter(Boolean);
+    const escUnit = info.unit.replace(/[.*+?^${}()|[\]\]/g, "\$&");
+    const re = escUnit
+      ? new RegExp(`^(-?\d+(?:\.\d+)?)\s*${escUnit}$`, "i")
+      : /^(-?\d+(?:\.\d+)?)$/;
 
-    for (let i = leafTexts.length - 1; i >= 0; i--) {
-      const t = leafTexts[i];
-      if (t.includes("Min:") || t.includes("Ort:") || t.includes("Max:") || t.includes("Seçili:") || t.includes("Aralık:") || t.includes("Adım:")) continue;
-      const m = t.match(numUnitRe);
+    const els = Array.from(document.querySelectorAll("div, p, span, strong, b, td, th, label"))
+      .filter(el => el.children.length === 0 && !el.closest("[data-ew-triplet-box='1']"));
+
+    for (let i = els.length - 1; i >= 0; i--) {
+      const txt = (els[i].textContent || "").trim();
+      if (!txt || /min\s*:|ort\s*:|max\s*:|seçili\s*:/i.test(txt)) continue;
+      const m = txt.match(re);
       if (m) {
-        const parsed = Number(m[1]);
-        if (Number.isFinite(parsed) && parsed >= v.min - 15 && parsed <= v.max + 15) return parsed;
+        const num = Number(m[1]);
+        if (Number.isFinite(num) && num >= info.min && num <= info.max) return num;
       }
     }
-    if (pState.anchorVar === v.om && typeof pState.anchorVal === "number") return pState.anchorVal;
-    return Number(((v.min + v.max) * 0.35).toFixed(2));
+    return null;
   }
 
-  function readEcmwfContext() {
-    let lat = null, lng = null;
-    let city = "", district = "", neighborhood = "";
+  function readTimeAndCoordKey(info) {
+    let timeTxt = "";
+    let coordTxt = "";
+    const els = Array.from(document.querySelectorAll("div, p, span, li, label"))
+      .filter(el => el.children.length <= 2);
 
-    const lines = Array.from(document.querySelectorAll("div, p, span, li, label"))
-      .filter(el => el.children.length <= 2 && !el.closest("#ew-ecmwf-range-player"))
-      .map(el => (el.textContent || "").trim())
-      .filter(Boolean);
+    for (const el of els) {
+      const t = (el.textContent || "").trim();
+      if (!timeTxt && /seçili zaman\s*:/i.test(t)) timeTxt = t;
+      if (!coordTxt && /koordinat\s*:/i.test(t)) coordTxt = t;
+    }
+    return `${info.om}|${timeTxt}|${coordTxt}`;
+  }
 
-    for (const line of lines) {
-      const cm = line.match(/Koordinat\s*:\s*(-?\d+(?:\.\d+)?)\s*[,;/]\s*(-?\d+(?:\.\d+)?)/i);
-      if (cm) {
-        const a = Number(cm[1]), b = Number(cm[2]);
-        if (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180) {
-          lat = a; lng = b;
-        }
+  function clamp(num, info) {
+    return Number(Math.max(info.min, Math.min(info.max, num)).toFixed(2));
+  }
+
+  function updateTripletFromSteps(info) {
+    const curVal = readCurrentValue(info);
+    if (curVal === null) return null;
+
+    const key = readTimeAndCoordKey(info);
+    if (key !== state.prevKey || state.nowVal === null) {
+      state.prevKey = key;
+      state.nowVal = clamp(curVal, info);
+      state.minusVal = clamp(curVal - info.step, info);
+      state.plusVal = clamp(curVal + info.step, info);
+    } else if (state.lastStepLabel === "-1") {
+      state.minusVal = clamp(curVal, info);
+    } else if (state.lastStepLabel === "+1") {
+      state.plusVal = clamp(curVal, info);
+    } else if (state.lastStepLabel === "Şimdi") {
+      state.nowVal = clamp(curVal, info);
+    }
+
+    const vals = [state.minusVal, state.nowVal, state.plusVal].filter(n => typeof n === "number" && Number.isFinite(n));
+    if (!vals.length) return null;
+
+    const minVal = Math.min(...vals);
+    const maxVal = Math.max(...vals);
+    const avgVal = Number((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2));
+    return { minVal, maxVal, avgVal, unit: info.unit };
+  }
+
+  function applyStatsToDom(stats) {
+    if (!stats) return;
+    const unitSuffix = stats.unit ? ` ${stats.unit}` : "";
+    const minStr = `${stats.minVal.toFixed(2)}${unitSuffix}`;
+    const avgStr = `${stats.avgVal.toFixed(2)}${unitSuffix}`;
+    const maxStr = `${stats.maxVal.toFixed(2)}${unitSuffix}`;
+
+    const leafEls = Array.from(document.querySelectorAll("div, p, span, strong, b, td, th, label"))
+      .filter(el => el.children.length === 0);
+
+    for (const el of leafEls) {
+      const txt = (el.textContent || "").trim();
+      if (/^min\s*:?$/i.test(txt) && el.nextElementSibling) {
+        el.nextElementSibling.textContent = minStr;
+      } else if (/^min\s*:/i.test(txt)) {
+        el.textContent = `Min: ${minStr}`;
       }
-      const im = line.match(/^İl\s*:\s*(.+)$/i);
-      if (im && !city) city = im[1].trim();
-      const dm = line.match(/^İlçe\s*:\s*(.+)$/i);
-      if (dm && !district) district = dm[1].trim();
-      const nm = line.match(/^(?:Mahalle\s*\/\s*Semt|Mahalle|Semt)\s*:\s*(.+)$/i);
-      if (nm && !neighborhood) neighborhood = nm[1].trim();
-    }
 
-    if (lat !== null && lng !== null) { pState.lat = lat; pState.lng = lng; }
-    if (city) pState.city = city;
-    if (district) pState.district = district;
-    if (neighborhood) pState.neighborhood = neighborhood;
+      if (/^(ort|avg|ortalama)\s*:?$/i.test(txt) && el.nextElementSibling) {
+        el.nextElementSibling.textContent = avgStr;
+      } else if (/^(ort|avg|ortalama)\s*:/i.test(txt)) {
+        const prefix = txt.split(":")[0];
+        el.textContent = `${prefix}: ${avgStr}`;
+      }
 
-    return { lat: pState.lat, lng: pState.lng, city: pState.city, district: pState.district, neighborhood: pState.neighborhood };
-  }
-
-  function getMinusNowPlusTriplet(v, ctx) {
-    const varHourMs = parseSelectedTimeMs();
-    const nowVal = readObservedVarValue(v);
-
-    if (pState.anchorVar !== v.om || Math.abs((pState.anchorVal ?? nowVal) - nowVal) > 0.001 || pState.anchorTimeMs !== varHourMs) {
-      pState.anchorVar = v.om;
-      pState.anchorVal = nowVal;
-      pState.anchorTimeMs = varHourMs;
-      pState.startMs = varHourMs - 3600000;
-      pState.endMs = varHourMs + 3600000;
-      pState.stepIdx = 1;
-    }
-
-    const locShift = (((Math.abs(ctx.lat * 100 + ctx.lng * 100) % 7) - 3) * 0.04) * v.stepDelta;
-    const minusVal = clampVal(nowVal - v.stepDelta + locShift, v);
-    const simdiVal = clampVal(nowVal, v);
-    const plusVal = clampVal(nowVal + v.stepDelta + locShift, v);
-
-    const triplet = [minusVal, simdiVal, plusVal];
-    pState.lastTriplet = triplet;
-
-    const spanHours = Math.max(1, Math.round((pState.endMs - pState.startMs) / 3600000));
-    const vals = [];
-    for (let i = 0; i <= spanHours; i++) {
-      const tMs = pState.startMs + i * 3600000;
-      const rel = Math.round((tMs - varHourMs) / 3600000);
-      if (rel === -1) vals.push(minusVal);
-      else if (rel === 0) vals.push(simdiVal);
-      else if (rel === 1) vals.push(plusVal);
-      else vals.push(clampVal(simdiVal + rel * v.stepDelta + locShift, v));
-    }
-
-    return { totalHours: spanHours, vals, triplet, varHourMs };
-  }
-
-  function shiftByHours(delta) {
-    const d = Number(delta) || 0;
-    const { totalHours, varHourMs } = getMinusNowPlusTriplet(getVarDef(), readEcmwfContext());
-    if (d === 0) {
-      const spanMs = Math.max(3600000, pState.endMs - pState.startMs);
-      const halfMs = Math.floor(spanMs / 2);
-      pState.startMs = varHourMs - halfMs;
-      pState.endMs = pState.startMs + spanMs;
-      pState.stepIdx = Math.max(0, Math.min(totalHours, Math.round((varHourMs - pState.startMs) / 3600000)));
-    } else {
-      const nextStep = pState.stepIdx + d;
-      if (nextStep < 0) {
-        pState.startMs += nextStep * 3600000;
-        pState.endMs += nextStep * 3600000;
-        pState.stepIdx = 0;
-      } else if (nextStep > totalHours) {
-        const diff = nextStep - totalHours;
-        pState.startMs += diff * 3600000;
-        pState.endMs += diff * 3600000;
-        pState.stepIdx = totalHours;
-      } else {
-        pState.stepIdx = nextStep;
+      if (/^max\s*:?$/i.test(txt) && el.nextElementSibling) {
+        el.nextElementSibling.textContent = maxStr;
+      } else if (/^max\s*:/i.test(txt)) {
+        el.textContent = `Max: ${maxStr}`;
       }
     }
-    renderAll();
   }
 
-  function bindStepButtons() {
-    document.querySelectorAll("button").forEach(b => {
-      const curTxt = (b.textContent || "").trim();
-      if ((curTxt === "-1" || curTxt === "Şimdi" || curTxt === "+1") && !b._ewTripletBound) {
-        b._ewTripletBound = true;
-        b.addEventListener("click", () => {
-          const delta = curTxt === "-1" ? -1 : (curTxt === "+1" ? 1 : 0);
-          setTimeout(() => shiftByHours(delta), 30);
+  function bindControls() {
+    document.querySelectorAll("button").forEach(btn => {
+      if (btn._ewTripletBtnBound) return;
+      const label = (btn.textContent || "").trim();
+      if (label === "-1" || label === "Şimdi" || label === "+1" || /oynat|durdur|play|pause/i.test(label)) {
+        btn._ewTripletBtnBound = true;
+        btn.addEventListener("click", () => {
+          if (label === "-1" || label === "Şimdi" || label === "+1") {
+            state.lastStepLabel = label;
+          }
+          setTimeout(() => {
+            const stats = updateTripletFromSteps(getVarInfo());
+            applyStatsToDom(stats);
+          }, 40);
         });
       }
     });
-  }
 
-  function renderStats(v, ctx) {
-    const box = document.getElementById("ew-ecmwf-range-player");
-    if (!box) return;
-    const { totalHours, vals, triplet, varHourMs } = getMinusNowPlusTriplet(v, ctx);
-    pState.stepIdx = Math.max(0, Math.min(totalHours, pState.stepIdx));
-
-    // -1, Şimdi, +1 okunan değerlerden Min, Ort, Max hesapla
-    const sampleSet = triplet;
-    const minVal = Math.min(...sampleSet);
-    const maxVal = Math.max(...sampleSet);
-    const avgVal = sampleSet.reduce((a, b) => a + b, 0) / sampleSet.length;
-    const curVal = vals[pState.stepIdx] ?? triplet[1];
-    const curMs = pState.startMs + pState.stepIdx * 3600000;
-
-    const coordEl = box.querySelector("#ew-ecmwf-coord-summary");
-    if (coordEl) {
-      const parts = [ctx.city, ctx.district, ctx.neighborhood].filter(Boolean);
-      const placeStr = parts.length ? parts.join(" / ") : "Konum seçimi bekleniyor";
-      coordEl.innerHTML = `<div>Koordinat: <strong>${ctx.lat.toFixed(4)}, ${ctx.lng.toFixed(4)}</strong> · Seçili: <strong>${curVal.toFixed(2)} ${v.unit}</strong></div><div>Konum: <strong>${placeStr}</strong> · Saat: <strong>${toInputVal(varHourMs).replace("T", " ")}</strong></div>`;
-    }
-
-    const startInp = box.querySelector("#ew-ecmwf-start-dt");
-    const endInp = box.querySelector("#ew-ecmwf-end-dt");
-    if (startInp && document.activeElement !== startInp) startInp.value = toInputVal(pState.startMs);
-    if (endInp && document.activeElement !== endInp) endInp.value = toInputVal(pState.endMs);
-
-    const stepEl = box.querySelector("#ew-ecmwf-step-summary");
-    if (stepEl) {
-      stepEl.textContent = `Aralık: ${totalHours}s · Adım: ${pState.stepIdx}/${totalHours} (${toInputVal(curMs).replace("T", " ")})`;
-    }
-
-    const playBtn = box.querySelector("#ew-ecmwf-play-toggle");
-    if (playBtn) {
-      playBtn.textContent = pState.playing ? "Durdur" : "Oynat";
-      playBtn.classList.toggle("playing", pState.playing);
-      if (!playBtn._ewPlayBound) {
-        playBtn._ewPlayBound = true;
-        playBtn.addEventListener("click", () => {
-          pState.playing = !pState.playing;
-          if (pState.playing) {
-            pState.timer = setInterval(() => {
-              const { totalHours: th } = getMinusNowPlusTriplet(getVarDef(), readEcmwfContext());
-              pState.stepIdx = (pState.stepIdx + 1) > th ? 0 : (pState.stepIdx + 1);
-              renderAll();
-            }, 650);
-          } else if (pState.timer) {
-            clearInterval(pState.timer);
-            pState.timer = null;
-          }
-          renderAll();
-        });
-      }
-    }
-
-    if (startInp && !startInp._ewStartBound) {
-      startInp._ewStartBound = true;
-      startInp.addEventListener("change", () => {
-        const ms = Date.parse(startInp.value);
-        if (Number.isFinite(ms)) {
-          pState.startMs = ms;
-          if (pState.endMs <= pState.startMs) pState.endMs = pState.startMs + 3600000;
-          pState.stepIdx = 0;
-          renderAll();
-        }
+    document.querySelectorAll("input[type='datetime-local'], input[type='date'], input[type='time'], select").forEach(inp => {
+      if (inp._ewTripletInpBound) return;
+      inp._ewTripletInpBound = true;
+      inp.addEventListener("change", () => {
+        state.prevKey = "";
+        setTimeout(() => {
+          const stats = updateTripletFromSteps(getVarInfo());
+          applyStatsToDom(stats);
+        }, 40);
       });
-    }
-
-    if (endInp && !endInp._ewEndBound) {
-      endInp._ewEndBound = true;
-      endInp.addEventListener("change", () => {
-        const ms = Date.parse(endInp.value);
-        if (Number.isFinite(ms)) {
-          pState.endMs = ms;
-          if (pState.endMs <= pState.startMs) pState.startMs = pState.endMs - 3600000;
-          pState.stepIdx = 0;
-          renderAll();
-        }
-      });
-    }
-
-    const statsEl = box.querySelector("#ew-ecmwf-stats-summary");
-    if (statsEl) {
-      statsEl.innerHTML = `<span>Min: <strong>${minVal.toFixed(2)} ${v.unit}</strong></span><span>Ort: <strong>${avgVal.toFixed(2)} ${v.unit}</strong></span><span>Max: <strong>${maxVal.toFixed(2)} ${v.unit}</strong></span>`;
-    }
+    });
   }
 
-  function renderAll() {
-    bindStepButtons();
-    const ctx = readEcmwfContext();
-    const v = getVarDef();
-    renderStats(v, ctx);
+  function tick() {
+    bindControls();
+    const stats = updateTripletFromSteps(getVarInfo());
+    applyStatsToDom(stats);
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", renderAll); else renderAll();
-  setInterval(renderAll, 250);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tick);
+  } else {
+    tick();
+  }
+  setInterval(tick, 300);
 })();
 </script>
-<!-- ew-4e4e484-ecmwf-full-sync-end -->
+<!-- ew-4e4e484-ecmwf-triplet-sync-end -->
 </body>
 </html>
