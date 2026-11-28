@@ -3135,5 +3135,71 @@
 </script>
 <!-- EW_ECMWF_400_GUARD_END -->
 
+<!-- EW_KILL_EW_PANEL_AND_ECMWF_400_START -->
+<style>
+  #ew-panel {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+</style>
+
+<script>
+(function () {
+  function nukeEwPanel() {
+    document.querySelectorAll("#ew-panel").forEach(el => el.remove());
+  }
+
+  if (typeof window.fetch === "function" && !window.__ewSafeEcmwfFetchV2) {
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async function (input, init) {
+      let urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
+      if (urlStr.includes("api.open-meteo.com/v1/ecmwf")) {
+        try {
+          const u = new URL(urlStr);
+          const lats = (u.searchParams.get("latitude") || "").split(",").filter(Boolean);
+          const lons = (u.searchParams.get("longitude") || "").split(",").filter(Boolean);
+          if (lats.length !== lons.length && lats.length > 0 && lons.length > 0) {
+            const n = Math.min(lats.length, lons.length);
+            u.searchParams.set("latitude", lats.slice(0, n).join(","));
+            u.searchParams.set("longitude", lons.slice(0, n).join(","));
+          }
+          const fd = Number(u.searchParams.get("forecast_days") || "7");
+          if (!Number.isFinite(fd) || fd > 10 || fd < 1) {
+            u.searchParams.set("forecast_days", "7");
+          }
+          urlStr = u.toString();
+          input = typeof input === "string" ? urlStr : new Request(urlStr, input);
+        } catch (_) {}
+      }
+
+      const res = await origFetch(input, init);
+      if (!res.ok && urlStr.includes("api.open-meteo.com/v1/ecmwf")) {
+        return new Response(JSON.stringify({
+          hourly: { time: [], temperature_2m: [] },
+          error: true,
+          status: res.status
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      return res;
+    };
+    window.__ewSafeEcmwfFetchV2 = true;
+  }
+
+  nukeEwPanel();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", nukeEwPanel);
+  }
+  const obs = new MutationObserver(nukeEwPanel);
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+  setInterval(nukeEwPanel, 250);
+})();
+</script>
+<!-- EW_KILL_EW_PANEL_AND_ECMWF_400_END -->
+
 </body>
 </html>
