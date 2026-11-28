@@ -1995,6 +1995,27 @@
   }
 
   function findEcmwfPanelHost() {
+    const candidates = Array.from(document.querySelectorAll("aside, section, div, panel"))
+      .filter(el => {
+        if (el.id === "ew-ecmwf-range-player" || el.id === "ew-player-cbar-wrap") return false;
+        const r = el.getBoundingClientRect();
+        if (r.width < 220 || r.height < 120) return false;
+        const txt = (el.innerText || "").toUpperCase();
+        return txt.includes("ECMWF") || txt.includes("KOORDİNAT") || txt.includes("KOORDINAT");
+      });
+
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => {
+        const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        const areaA = ra.width * ra.height, areaB = rb.width * rb.height;
+        const rightScoreA = ra.left >= window.innerWidth * 0.45 ? 1 : 0;
+        const rightScoreB = rb.left >= window.innerWidth * 0.45 ? 1 : 0;
+        if (rightScoreA !== rightScoreB) return rightScoreB - rightScoreA;
+        return areaA - areaB;
+      });
+      return candidates[0];
+    }
+
     const selEl = document.getElementById("var-select") || document.querySelector("select");
     if (!selEl) return null;
     for (let i = 0, cur = selEl.parentElement; i < 6 && cur; i++, cur = cur.parentElement) {
