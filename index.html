@@ -5937,5 +5937,135 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </script>
 <!-- EW_CURSOR_PLACE_RIGHT_PANEL_END -->
 
+<!-- EW_COORD_INLINE_PLACE_START -->
+<script>
+(function () {
+  const cache = new Map();
+  let lastCoordKey = "";
+  let currentPlace = "";
+  let reqSeq = 0;
+
+  function parseCoordFromText(txt) {
+    if (!txt) return null;
+    const m = txt.match(/(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
+    if (!m) return null;
+    const lat = Number(m[1]);
+    const lon = Number(m[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon, raw: m[0] };
+  }
+
+  function formatAddress(addr, lat, lon) {
+    const a = addr || {};
+    const il = a.province || a.state || a.city || "";
+    const ilce = a.town || a.county || a.city_district || a.district || "";
+    const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || a.road || "";
+    const parts = [il, ilce].filter(Boolean);
+    if (!parts.length && !mah) return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    if (mah) return `${parts.join(" / ")} · ${mah}`;
+    return parts.join(" / ");
+  }
+
+  function applyPlaceToCoordBoxes(lat, lon, placeText) {
+    const targetRaw = `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
+    const candidates = Array.from(document.querySelectorAll("div, p, span, b, strong, small, label"));
+
+    for (const el of candidates) {
+      if (el.id === "ew-cursor-tooltip" || el.id === "ew-static-cbar") continue;
+      if (el.children && el.children.length > 3) continue;
+
+      const txt = (el.textContent || "").trim();
+      if (!txt || txt.length > 240) continue;
+      if (!txt.includes("°N,") || !txt.includes("°E")) continue;
+
+      const parsed = parseCoordFromText(txt);
+      if (!parsed) continue;
+
+      let badge = el.querySelector(".ew-inline-place-tag");
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "ew-inline-place-tag";
+        badge.style.cssText = "display:block;font-size:11px;font-weight:700;color:#7dd3fc;margin-top:2px;";
+        el.appendChild(badge);
+      }
+      const line = `Konum: ${placeText}`;
+      if (badge.textContent !== line) {
+        badge.textContent = line;
+      }
+      if (parsed.raw !== targetRaw) {
+        badge.dataset.coordRef = parsed.raw;
+      }
+    }
+  }
+
+  async function resolvePlace(lat, lon) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (cache.has(key)) {
+      currentPlace = cache.get(key);
+      applyPlaceToCoordBoxes(lat, lon, currentPlace);
+      return;
+    }
+
+    const seq = ++reqSeq;
+    currentPlace = "Konum alınıyor...";
+    applyPlaceToCoordBoxes(lat, lon, currentPlace);
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1&accept-language=tr`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok || seq !== reqSeq) return;
+      const data = await res.json();
+      const formatted = formatAddress(data.address, lat, lon);
+      cache.set(key, formatted);
+      currentPlace = formatted;
+      applyPlaceToCoordBoxes(lat, lon, currentPlace);
+    } catch (_) {
+      if (seq === reqSeq) {
+        currentPlace = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        applyPlaceToCoordBoxes(lat, lon, currentPlace);
+      }
+    }
+  }
+
+  function scanAndSync() {
+    const all = Array.from(document.querySelectorAll("div, p, span, b, strong, small, label"));
+    for (const el of all) {
+      if (el.id === "ew-cursor-tooltip") continue;
+      if (el.children && el.children.length > 3) continue;
+      const txt = (el.textContent || "").trim();
+      const parsed = parseCoordFromText(txt);
+      if (parsed) {
+        const k = `${parsed.lat.toFixed(4)},${parsed.lon.toFixed(4)}`;
+        if (k !== lastCoordKey) {
+          lastCoordKey = k;
+          resolvePlace(parsed.lat, parsed.lon);
+        } else if (currentPlace) {
+          applyPlaceToCoordBoxes(parsed.lat, parsed.lon, currentPlace);
+        }
+        break;
+      }
+    }
+  }
+
+  const domObs = new MutationObserver(function () {
+    scanAndSync();
+  });
+
+  function start() {
+    scanAndSync();
+    if (document.body) {
+      domObs.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+})();
+</script>
+<!-- EW_COORD_INLINE_PLACE_END -->
+
 </body>
 </html>
