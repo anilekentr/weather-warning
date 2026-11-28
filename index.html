@@ -1731,5 +1731,49 @@
   }
 </style>
 <!-- ew-ecmwf-panel-removed-end -->
+<!-- ew-remove-ecmwf-cbars-start -->
+<style id="ew-remove-ecmwf-cbars-style">
+  #ew-cbar, #ew-player-cbar, #ew-player-cbar-wrap,
+  #ew-player-cbar-title, #ew-player-cbar-scale,
+  #ew-player-cbar-toggle-btn, #ew-point-marker,
+  [id*="cbar" i], [class*="cbar" i] {
+    display: none !important;
+  }
+</style>
+<script id="ew-remove-ecmwf-cbars-script">
+(function() {
+  function purgeEcmwfCbars() {
+    document.querySelectorAll('[id*="cbar" i], [class*="cbar" i]').forEach(el => {
+      if (el.id === "ew-remove-ecmwf-cbars-style" || el.id === "ew-remove-ecmwf-cbars-script") return;
+      el.style.setProperty("display", "none", "important");
+      if (el.parentElement) {
+        el.remove();
+      }
+    });
+
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+    const toRemove = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.id === "ew-remove-ecmwf-cbars-style" || node.id === "ew-remove-ecmwf-cbars-script") continue;
+      const txt = (node.textContent || "").trim();
+      if (node.children.length <= 2 && /(ecmwf\s*cbar|cbar)/i.test(txt) && txt.length < 80) {
+        toRemove.push(node);
+      }
+    }
+    toRemove.forEach(el => {
+      if (el.parentElement) el.remove();
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", purgeEcmwfCbars);
+  } else {
+    purgeEcmwfCbars();
+  }
+  setInterval(purgeEcmwfCbars, 1000);
+})();
+</script>
+<!-- ew-remove-ecmwf-cbars-end -->
 </body>
 </html>
