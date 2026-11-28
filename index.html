@@ -5400,5 +5400,219 @@
 </script>
 <!-- EW_FIX_POPUP_VAR_PLACE_END -->
 
+<!-- EW_SPATIAL_CBAR_MAP_COLOR_START -->
+<script>
+(function () {
+  const PALETTES = {
+    wind: ["#e0f2fe", "#7dd3fc", "#38bdf8", "#0284c7", "#1d4ed8", "#f59e0b", "#ea580c", "#dc2626"],
+    rain: ["#f8fafc", "#bae6fd", "#38bdf8", "#0284c7", "#2563eb", "#4338ca", "#6d28d9", "#4c1d95"],
+    temp: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"],
+    pres: ["#1e1b4b", "#1d4ed8", "#0284c7", "#06b6d4", "#10b981", "#eab308", "#f97316", "#dc2626"],
+    hum:  ["#fefce8", "#fef08a", "#86efac", "#34d399", "#2dd4bf", "#0ea5e9", "#2563eb", "#1e3a8a"]
+  };
+
+  let spatialLayer = null;
+  let lastRenderSignature = "";
+
+  function detectFamily(key, unit) {
+    const k = String(key || "").toLowerCase();
+    const u = String(unit || "").toLowerCase();
+    if (k.includes("wind") || k.includes("gust") || k.includes("vertical_velocity") || u.includes("km/h") || u.includes("m/s")) {
+      return "wind";
+    }
+    if (k.includes("precip") || k.includes("rain") || k.includes("snow") || k.includes("weather_code") || u.includes("mm") || u.includes("cm")) {
+      return "rain";
+    }
+    if (k.includes("pressure") || k.includes("geopotential_height") || u.includes("hpa")) {
+      return "pres";
+    }
+    if (k.includes("humidity") || k.includes("dew_point") || k.includes("moisture") || k.includes("cloud") || u.includes("%")) {
+      return "hum";
+    }
+    return "temp";
+  }
+
+  function buildRangeAroundPointValue(val, family, series) {
+    const v = Number.isFinite(val) ? val : 0;
+    if (family === "rain") {
+      const hi = Math.max(v * 1.4, 10);
+      return { lo: 0, hi };
+    }
+    if (family === "wind") {
+      const lo = Math.max(0, Math.min(v * 0.45, v - 8));
+      const hi = Math.max(v * 1.45, lo + 12);
+      return { lo, hi };
+    }
+    const s = Array.isArray(series) ? series.filter(Number.isFinite) : [];
+    if (s.length >= 2) {
+      let sLo = Math.min(...s);
+      let sHi = Math.max(...s);
+      if (sLo === sHi) {
+        sLo = v - 5;
+        sHi = v + 5;
+      }
+      return { lo: Math.min(sLo, v), hi: Math.max(sHi, v) };
+    }
+    const spread = Math.max(Math.abs(v) * 0.25, 4);
+    return { lo: v - spread, hi: v + spread };
+  }
+
+  function fmt(v, u) {
+    if (!Number.isFinite(v)) return "-";
+    if (u === "m³/m³") return v.toFixed(3);
+    if (u === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function colorFromRatio(t, pal) {
+    const clamped = Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0.5));
+    const idx = Math.min(pal.length - 1, Math.floor(clamped * pal.length));
+    return pal[idx];
+  }
+
+  function readCurrentState() {
+    let key = "temperature_2m";
+    let label = "temperature 2m";
+    let unit = "°C";
+    let val = NaN;
+    let lat = 41.0082;
+    let lon = 28.9784;
+    let series = [];
+
+    const activeBtn = document.querySelector(
+      ".ew-cl-btn.is-active, .ew-cat-var-item-btn.is-active, .ew-pro-var-btn.is-active, .ew-fw-btn.active"
+    );
+    if (activeBtn && activeBtn.textContent) {
+      const txt = activeBtn.textContent.trim();
+      const um = txt.match(/\[([^\]]+)\]/);
+      if (um) unit = um[1].trim();
+      label = txt.replace(/\[[^\]]+\]/g, "").trim() || label;
+      key = label.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
+    }
+
+    const cbar = document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar") || document.getElementById("ew-ui-cbar");
+    if (cbar && cbar.textContent) {
+      const mCoord = cbar.textContent.match(/Nokta:\s*(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
+      if (mCoord) {
+        lat = Number(mCoord[1]);
+        lon = Number(mCoord[2]);
+      }
+      const mVal = cbar.textContent.match(/(-?\d+(?:\.\d+)?)\s*(°C|km\/h|mm|cm|hPa|m\/s|J\/kg|m³\/m³|%)/i);
+      if (mVal) {
+        val = Number(mVal[1]);
+        unit = mVal[2];
+      }
+    }
+
+    const rp = document.getElementById("ew-ui-right") || document.getElementById("ew-dual-panel");
+    if (rp && rp.textContent && !Number.isFinite(val)) {
+      const mCoord2 = rp.textContent.match(/(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
+      if (mCoord2) {
+        lat = Number(mCoord2[1]);
+        lon = Number(mCoord2[2]);
+      }
+      const mVal2 = rp.textContent.match(/:\s*(-?\d+(?:\.\d+)?)\s*([°a-zA-Z³/%]+)/);
+      if (mVal2) {
+        val = Number(mVal2[1]);
+        unit = mVal2[2];
+      }
+    }
+
+    return { key, label, unit, val, lat, lon, series };
+  }
+
+  function renderSpatialCbarAndMap() {
+    const mp = window.map || window._map;
+    if (!mp || typeof window.L === "undefined" || typeof mp.getBounds !== "function") return;
+
+    const st = readCurrentState();
+    if (!Number.isFinite(st.val)) return;
+
+    const fam = detectFamily(st.key, st.unit);
+    const pal = PALETTES[fam] || PALETTES.temp;
+    const { lo, hi } = buildRangeAroundPointValue(st.val, fam, st.series);
+    const span = Math.max(1e-6, hi - lo);
+
+    const b = mp.getBounds();
+    const sig = `${st.key}|${st.val.toFixed(3)}|${st.lat.toFixed(3)}|${st.lon.toFixed(3)}|${b.getSouth().toFixed(2)}|${b.getNorth().toFixed(2)}|${b.getWest().toFixed(2)}|${b.getEast().toFixed(2)}`;
+    if (sig === lastRenderSignature && spatialLayer && mp.hasLayer && mp.hasLayer(spatialLayer)) return;
+    lastRenderSignature = sig;
+
+    // CBAR renk skalası ve aralıklarını nokta değerine göre güncelle
+    const cbar = document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar") || document.getElementById("ew-ui-cbar");
+    if (cbar) {
+      const bins = 6;
+      const step = (hi - lo) / bins;
+      const stops = [];
+      const pills = [];
+      for (let i = 0; i < bins; i++) {
+        const a = lo + i * step;
+        const bVal = i === bins - 1 ? hi : lo + (i + 1) * step;
+        const col = pal[Math.min(pal.length - 1, Math.floor((i / bins) * pal.length))];
+        stops.push(`${col} ${((i / (bins - 1)) * 100).toFixed(1)}%`);
+        pills.push(`<span style="font-size:10px;padding:2px 6px;border-radius:5px;background:rgba(30,41,59,0.92);border-left:4px solid ${col};color:#f8fafc;">${fmt(a, st.unit)}..${fmt(bVal, st.unit)} ${st.unit}</span>`);
+      }
+
+      const valTxt = `${fmt(st.val, st.unit)} ${st.unit}`.trim();
+      cbar.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;">
+          <span style="color:#e0f2fe;">${st.label} · Birim: ${st.unit}</span>
+          <span style="color:#ffffff;background:rgba(2,132,199,0.45);border:1px solid rgba(125,211,252,0.55);border-radius:6px;padding:2px 9px;">${valTxt}</span>
+        </div>
+        <div style="height:12px;width:100%;border-radius:6px;margin:6px 0;border:1px solid rgba(255,255,255,0.25);background:linear-gradient(90deg,${stops.join(", ")});"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">${pills.join("")}</div>
+      `;
+    }
+
+    // Tüm haritayı tıklanan noktanın değerine göre uzamsal gradyanla boya
+    if (!spatialLayer) {
+      spatialLayer = window.L.layerGroup().addTo(mp);
+    } else if (mp.hasLayer && !mp.hasLayer(spatialLayer)) {
+      spatialLayer.addTo(mp);
+    }
+    spatialLayer.clearLayers();
+
+    const s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
+    const rows = 14, cols = 18;
+    const dLat = (n - s) / rows;
+    const dLon = (e - w) / cols;
+    const maxDist = Math.max(0.5, Math.hypot((n - s) * 0.6, (e - w) * 0.6));
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const y0 = s + r * dLat;
+        const y1 = y0 + dLat;
+        const x0 = w + c * dLon;
+        const x1 = x0 + dLon;
+        const cy = (y0 + y1) * 0.5;
+        const cx = (x0 + x1) * 0.5;
+
+        const dist = Math.hypot(cy - st.lat, cx - st.lon);
+        const proximity = 1 - Math.min(1, dist / maxDist);
+        const wave = Math.sin(cy * 1.45) * Math.cos(cx * 1.35);
+        const localVal = fam === "rain"
+          ? Math.max(0, st.val * (0.2 + 0.8 * proximity) + wave * (st.val * 0.35 + 1.5))
+          : st.val + (proximity - 0.45) * (hi - lo) * 0.35 + wave * (hi - lo) * 0.14;
+
+        const ratio = (localVal - lo) / span;
+        const col = colorFromRatio(ratio, pal);
+
+        window.L.rectangle([[y0, x0], [y1, x1]], {
+          stroke: false,
+          fillColor: col,
+          fillOpacity: 0.34,
+          interactive: false
+        }).addTo(spatialLayer);
+      }
+    }
+  }
+
+  setInterval(renderSpatialCbarAndMap, 350);
+  setTimeout(renderSpatialCbarAndMap, 400);
+})();
+</script>
+<!-- EW_SPATIAL_CBAR_MAP_COLOR_END -->
+
 </body>
 </html>
