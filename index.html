@@ -1722,67 +1722,76 @@
 })();
 </script>
 
-<!-- ew-4e4e484-v6-start -->
-<style id="ew-4e4e484-v6-style">
+<!-- ew-4e4e484-final-start -->
+<style id="ew-4e4e484-final-style">
   #ew-cbar { display: none !important; }
   #ew-player-cbar-wrap {
     display: block !important;
     opacity: 1 !important;
     visibility: visible !important;
-    z-index: 1300 !important;
+    z-index: 1400 !important;
   }
-  .ew-v6-box {
+  .ew-fin-loc {
     margin-top: 6px;
     padding: 6px 8px;
     border-radius: 6px;
-    background: rgba(9, 19, 34, 0.9);
+    background: rgba(9, 19, 34, 0.88);
     border: 1px solid rgba(148, 163, 184, 0.35);
     color: #f8fafc;
     font-size: 10.5px;
     line-height: 1.38;
   }
-  .ew-v6-wins {
+  .ew-fin-ecmwf-box {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    color: #e2e8f0;
+    font-size: 10.5px;
+  }
+  .ew-fin-row {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    margin-top: 5px;
+    margin-top: 4px;
   }
-  .ew-v6-btn {
+  .ew-fin-btn {
     padding: 2px 6px;
     font-size: 10px;
     border-radius: 4px;
     border: 1px solid rgba(148, 163, 184, 0.45);
     background: rgba(30, 41, 59, 0.9);
-    color: #e2e8f0;
+    color: #f8fafc;
     cursor: pointer;
   }
-  .ew-v6-btn.active {
+  .ew-fin-btn.active {
     background: #0284c7;
     border-color: #38bdf8;
-    color: #fff;
+    color: #ffffff;
     font-weight: 700;
   }
 </style>
-<script id="ew-4e4e484-v6-script">
+<script id="ew-4e4e484-final-script">
 (function() {
   const WINDOWS = [
-    { label: "Şimdi", step: 0 },
-    { label: "-1s / +1s", step: 1 },
-    { label: "-3s / +3s", step: 3 },
-    { label: "-6s / +6s", step: 6 },
-    { label: "-12s / +12s", step: 12 }
+    { label: "Şimdi", h: 0 },
+    { label: "-1s / +1s", h: 1 },
+    { label: "-3s / +3s", h: 3 },
+    { label: "-6s / +6s", h: 6 },
+    { label: "-12s / +12s", h: 12 }
   ];
 
-  const v6State = {
-    step: 0,
+  const st = {
+    h: 0,
     dir: 0, // -1 geri, 0 an, +1 ileri
     lat: 41.0082,
     lng: 28.9784,
     place: "İstanbul / Fatih / Eminönü"
   };
-  const placeCache = new Map();
+  const geoCache = new Map();
 
-  function getVarObj() {
+  function getActiveVar() {
     if (window.sel && typeof window.sel === "object") {
       return {
         om: window.sel.om || "temperature_2m",
@@ -1805,11 +1814,11 @@
     };
   }
 
-  function hourShift() {
-    return v6State.step * v6State.dir;
+  function deltaHoursNow() {
+    return st.h * st.dir;
   }
 
-  function colorFromVar(val, v) {
+  function colorByVar(val, v) {
     if (typeof window.colorOf === "function") {
       try {
         const c = window.colorOf(val, v);
@@ -1820,11 +1829,11 @@
     if (!Number.isFinite(n)) return "#64748b";
     const span = (v.max - v.min) || 1;
     const ratio = Math.max(0, Math.min(1, (n - v.min) / span));
-    const idx = Math.min(v.palette.length - 1, Math.max(0, Math.floor(ratio * v.palette.length)));
-    return v.palette[idx];
+    const i = Math.min(v.palette.length - 1, Math.max(0, Math.floor(ratio * v.palette.length)));
+    return v.palette[i];
   }
 
-  function syncSingleCbarToFlag(v) {
+  function applySinglePlayerCbar(v) {
     const oldCbar = document.getElementById("ew-cbar");
     if (oldCbar) oldCbar.style.setProperty("display", "none", "important");
 
@@ -1838,23 +1847,21 @@
       wrap.style.setProperty("display", "block", "important");
       wrap.style.setProperty("opacity", "1", "important");
 
-      const flagEl = document.getElementById("ew-tr-flag-badge");
-      if (flagEl) {
-        const fr = flagEl.getBoundingClientRect();
-        if (fr.width > 0 && fr.height > 0) {
+      const flag = document.getElementById("ew-tr-flag-badge");
+      if (flag) {
+        const r = flag.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) {
           wrap.style.position = "fixed";
-          wrap.style.top = Math.max(8, Math.round(fr.bottom + 8)) + "px";
+          wrap.style.top = Math.max(8, Math.round(r.bottom + 8)) + "px";
           wrap.style.left = "auto";
-          wrap.style.right = Math.max(12, Math.round(window.innerWidth - fr.right)) + "px";
-          wrap.style.width = Math.min(310, Math.max(230, Math.round(fr.width + 50))) + "px";
+          wrap.style.right = Math.max(12, Math.round(window.innerWidth - r.right)) + "px";
+          wrap.style.width = Math.min(315, Math.max(230, Math.round(r.width + 55))) + "px";
         }
       }
     }
 
     if (title) {
-      const sh = hourShift();
-      const tag = sh === 0 ? "Şimdi" : `${sh > 0 ? "+" : ""}${sh}s`;
-      title.innerHTML = `<span>${v.name} (${v.unit})</span><span>${tag}</span>`;
+      title.textContent = `${v.name} (${v.unit})`;
     }
     if (bar) {
       bar.style.background = `linear-gradient(to right, ${v.palette.join(", ")})`;
@@ -1865,92 +1872,116 @@
     }
   }
 
-  async function lookupIlIlceMahalle(lat, lng) {
+  async function lookupPlace(lat, lng) {
     const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
-    if (placeCache.has(key)) {
-      v6State.place = placeCache.get(key);
-      renderPanel(getVarObj());
+    if (geoCache.has(key)) {
+      st.place = geoCache.get(key);
+      renderPlayerInfo(getActiveVar());
       return;
     }
-    v6State.place = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    st.place = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=16&addressdetails=1`;
       const resp = await fetch(url, { headers: { "Accept-Language": "tr" } });
       if (resp.ok) {
-        const d = await resp.json();
-        const a = d.address || {};
+        const j = await resp.json();
+        const a = j.address || {};
         const il = a.province || a.city || a.state || "İl Yok";
         const ilce = a.district || a.town || a.county || a.suburb || "İlçe Yok";
         const mah = a.neighbourhood || a.quarter || a.residential || a.village || a.hamlet || "Mahalle Yok";
-        const label = `${il} / ${ilce} / ${mah}`;
-        placeCache.set(key, label);
-        v6State.place = label;
-        renderPanel(getVarObj());
+        const txt = `${il} / ${ilce} / ${mah}`;
+        geoCache.set(key, txt);
+        st.place = txt;
+        renderPlayerInfo(getActiveVar());
       }
     } catch (_) {}
   }
 
-  function renderPanel(v) {
-    syncSingleCbarToFlag(v);
-    const host = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
-    if (!host) return;
+  function findEcmwfContainer() {
+    const sel = document.getElementById("var-select");
+    if (sel) {
+      let el = sel.parentElement;
+      for (let i = 0; i < 6 && el; i++) {
+        const r = el.getBoundingClientRect();
+        if (r.width >= 200 && r.height >= 120 && el.tagName !== "BODY") return el;
+        el = el.parentElement;
+      }
+    }
+    return null;
+  }
 
-    let box = document.getElementById("ew-v6-info-box");
+  function renderEcmwfWindowsOnly(v) {
+    const host = findEcmwfContainer();
+    if (!host) return;
+    let box = document.getElementById("ew-fin-ecmwf-win-box");
     if (!box) {
       box = document.createElement("div");
-      box.id = "ew-v6-info-box";
-      box.className = "ew-v6-box";
+      box.id = "ew-fin-ecmwf-win-box";
+      box.className = "ew-fin-ecmwf-box";
       host.appendChild(box);
     }
-
-    const sh = hourShift();
+    const dh = deltaHoursNow();
     box.innerHTML = `
-      <div><strong>Değişken:</strong> ${v.name} (${v.unit})</div>
-      <div><strong>Konum:</strong> ${v6State.place}</div>
-      <div><strong>Koordinat:</strong> ${v6State.lat.toFixed(4)}, ${v6State.lng.toFixed(4)} (${sh === 0 ? "Seçili An" : (sh > 0 ? "+" + sh + "s İleri" : sh + "s Geri")})</div>
-      <div class="ew-v6-wins" id="ew-v6-win-buttons"></div>
-      <div class="ew-v6-wins" id="ew-v6-dir-buttons"></div>
+      <div><strong>ECMWF Zaman Penceresi:</strong> ${dh === 0 ? "Seçili An" : (dh > 0 ? "+" + dh + "s İleri" : dh + "s Geri")}</div>
+      <div class="ew-fin-row" id="ew-fin-win-btns"></div>
+      <div class="ew-fin-row" id="ew-fin-dir-btns"></div>
     `;
-
-    const winWrap = box.querySelector("#ew-v6-win-buttons");
+    const wRow = box.querySelector("#ew-fin-win-btns");
     WINDOWS.forEach(w => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "ew-v6-btn" + (w.step === v6State.step ? " active" : "");
+      btn.className = "ew-fin-btn" + (w.h === st.h ? " active" : "");
       btn.textContent = w.label;
       btn.onclick = () => {
-        v6State.step = w.step;
-        if (w.step === 0) v6State.dir = 0;
-        else if (v6State.dir === 0) v6State.dir = 1;
-        runV6Sync();
+        st.h = w.h;
+        if (w.h === 0) st.dir = 0;
+        else if (st.dir === 0) st.dir = 1;
+        runFinalSync();
       };
-      winWrap.appendChild(btn);
+      wRow.appendChild(btn);
     });
-
-    const dirWrap = box.querySelector("#ew-v6-dir-buttons");
+    const dRow = box.querySelector("#ew-fin-dir-btns");
     [
-      { d: -1, text: `Geri (-${v6State.step || 1}s)` },
+      { d: -1, text: `Geri (-${st.h || 1}s)` },
       { d: 0, text: "Seçili An" },
-      { d: 1, text: `İleri (+${v6State.step || 1}s)` }
+      { d: 1, text: `İleri (+${st.h || 1}s)` }
     ].forEach(item => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "ew-v6-btn" + (v6State.dir === item.d ? " active" : "");
+      btn.className = "ew-fin-btn" + (st.dir === item.d ? " active" : "");
       btn.textContent = item.text;
       btn.onclick = () => {
-        v6State.dir = item.d;
-        runV6Sync();
+        st.dir = item.d;
+        runFinalSync();
       };
-      dirWrap.appendChild(btn);
+      dRow.appendChild(btn);
     });
   }
 
-  function applyFullMapByWindow(v) {
+  function renderPlayerInfo(v) {
+    applySinglePlayerCbar(v);
+    const host = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
+    if (!host) return;
+    let info = document.getElementById("ew-fin-player-info");
+    if (!info) {
+      info = document.createElement("div");
+      info.id = "ew-fin-player-info";
+      info.className = "ew-fin-loc";
+      host.appendChild(info);
+    }
+    info.innerHTML = `
+      <div><strong>Değişken:</strong> ${v.name} (${v.unit})</div>
+      <div><strong>Konum:</strong> ${st.place}</div>
+      <div><strong>Koordinat:</strong> ${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}</div>
+    `;
+  }
+
+  function paintEntireMap(v) {
     if (!window.L || !window.map) return;
     if (!window.gridGroup) {
       window.gridGroup = L.layerGroup().addTo(window.map);
     }
-    const sh = hourShift();
+    const dh = deltaHoursNow();
 
     if (window.gridPayload && Array.isArray(window.gridPayload.raw) && window.gridPayload.raw.length > 0) {
       const baseIdx = Number(window.gridPayload.tIdx || 0);
@@ -1959,9 +1990,9 @@
         if (!pt || typeof pt.latitude !== "number" || typeof pt.longitude !== "number") return;
         const arr = pt.hourly && pt.hourly[v.om];
         if (!Array.isArray(arr) || !arr.length) return;
-        const idx = Math.max(0, Math.min(arr.length - 1, baseIdx + sh));
+        const idx = Math.max(0, Math.min(arr.length - 1, baseIdx + dh));
         const val = arr[idx];
-        const col = colorFromVar(val, v);
+        const col = colorByVar(val, v);
         L.circleMarker([pt.latitude, pt.longitude], {
           radius: 17,
           fillColor: col,
@@ -1973,6 +2004,13 @@
         }).addTo(window.gridGroup);
       });
       return;
+    }
+
+    if (typeof window.drawGrid === "function") {
+      try {
+        window.drawGrid();
+        return;
+      } catch (_) {}
     }
 
     window.gridGroup.clearLayers();
@@ -1992,9 +2030,9 @@
         const x0 = lngMin + c * dLng;
         const cy = y0 + dLat * 0.5;
         const cx = x0 + dLng * 0.5;
-        const norm = Math.max(0, Math.min(1, 0.5 + 0.26 * Math.sin(cy * 1.4 + sh * 0.22) + 0.24 * Math.cos(cx * 1.3 - sh * 0.18)));
-        const val = v.min + norm * span;
-        const col = colorFromVar(val, v);
+        const ratio = Math.max(0, Math.min(1, 0.5 + 0.26 * Math.sin(cy * 1.4 + dh * 0.22) + 0.24 * Math.cos(cx * 1.3 - dh * 0.18)));
+        const val = v.min + ratio * span;
+        const col = colorByVar(val, v);
         L.rectangle([[y0, x0], [y0 + dLat, x0 + dLng]], {
           color: col,
           weight: 0.35,
@@ -2007,52 +2045,53 @@
     }
   }
 
-  function hookInputs() {
+  function bindEvents() {
     if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") {
-      if (Math.abs(window.coords.lat - v6State.lat) > 1e-5 || Math.abs(window.coords.lng - v6State.lng) > 1e-5) {
-        v6State.lat = window.coords.lat;
-        v6State.lng = window.coords.lng;
-        lookupIlIlceMahalle(v6State.lat, v6State.lng);
+      if (Math.abs(window.coords.lat - st.lat) > 1e-5 || Math.abs(window.coords.lng - st.lng) > 1e-5) {
+        st.lat = window.coords.lat;
+        st.lng = window.coords.lng;
+        lookupPlace(st.lat, st.lng);
       }
     }
-    if (window.map && !window.map._ewV6Bound) {
-      window.map._ewV6Bound = true;
+    if (window.map && !window.map._ewFinBound) {
+      window.map._ewFinBound = true;
       window.map.on("click", (e) => {
         if (!e || !e.latlng) return;
-        v6State.lat = e.latlng.lat;
-        v6State.lng = e.latlng.lng;
-        lookupIlIlceMahalle(v6State.lat, v6State.lng);
-        runV6Sync();
+        st.lat = e.latlng.lat;
+        st.lng = e.latlng.lng;
+        lookupPlace(st.lat, st.lng);
+        runFinalSync();
       });
-      window.map.on("moveend", () => applyFullMapByWindow(getVarObj()));
+      window.map.on("moveend", () => paintEntireMap(getActiveVar()));
     }
     document.querySelectorAll("select").forEach(sel => {
-      if (!sel._ewV6Bound) {
-        sel._ewV6Bound = true;
-        sel.addEventListener("change", () => setTimeout(runV6Sync, 30));
+      if (!sel._ewFinBound) {
+        sel._ewFinBound = true;
+        sel.addEventListener("change", () => setTimeout(runFinalSync, 30));
       }
     });
   }
 
-  function runV6Sync() {
-    hookInputs();
-    const v = getVarObj();
-    renderPanel(v);
-    applyFullMapByWindow(v);
+  function runFinalSync() {
+    bindEvents();
+    const v = getActiveVar();
+    renderPlayerInfo(v);
+    renderEcmwfWindowsOnly(v);
+    paintEntireMap(v);
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      lookupIlIlceMahalle(v6State.lat, v6State.lng);
-      runV6Sync();
+      lookupPlace(st.lat, st.lng);
+      runFinalSync();
     });
   } else {
-    lookupIlIlceMahalle(v6State.lat, v6State.lng);
-    runV6Sync();
+    lookupPlace(st.lat, st.lng);
+    runFinalSync();
   }
-  setInterval(runV6Sync, 1000);
+  setInterval(runFinalSync, 1000);
 })();
 </script>
-<!-- ew-4e4e484-v6-end -->
+<!-- ew-4e4e484-final-end -->
 </body>
 </html>
