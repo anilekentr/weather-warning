@@ -1804,6 +1804,28 @@
     padding-bottom: 5px !important;
     margin-bottom: 6px !important;
     border-bottom: 1px solid rgba(148, 163, 184, 0.25) !important;
+    gap: 6px !important;
+  }
+  .ew-pi-step-bar {
+    display: flex !important;
+    gap: 6px !important;
+    margin-bottom: 7px !important;
+  }
+  .ew-pi-step-btn {
+    flex: 1 !important;
+    padding: 5px 6px !important;
+    border-radius: 6px !important;
+    background: rgba(30, 41, 59, 0.96) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.4) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+  }
+  .ew-pi-step-btn.active {
+    background: rgba(22, 163, 74, 0.28) !important;
+    border-color: #4ade80 !important;
+    color: #4ade80 !important;
   }
   .ew-pi-loc {
     font-size: 11px !important;
@@ -1829,13 +1851,26 @@
   .ew-pi-live {
     color: #4ade80 !important;
   }
-  .ew-pi-badge {
+  .ew-pi-approx {
+    color: #fbbf24 !important;
+  }
+  .ew-pi-badge-live {
     padding: 1px 7px !important;
     border-radius: 999px !important;
     font-size: 10px !important;
     background: rgba(34, 197, 94, 0.22) !important;
     color: #4ade80 !important;
     border: 1px solid rgba(74, 222, 128, 0.5) !important;
+    white-space: nowrap !important;
+  }
+  .ew-pi-badge-approx {
+    padding: 1px 7px !important;
+    border-radius: 999px !important;
+    font-size: 10px !important;
+    background: rgba(245, 158, 11, 0.2) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(251, 191, 36, 0.5) !important;
+    white-space: nowrap !important;
   }
   .ew-map-point-badge {
     background: rgba(9, 13, 22, 0.96) !important;
@@ -1853,6 +1888,8 @@
 <script id="ew-point-instant-summary-script">
 (function() {
   let selectedPoint = { lat: 40.8120, lon: 29.3774 };
+  let hoverPoint = null;
+  let hourOffset = 0; // -1: 1 saat önce (ECMWF Canlı), 0: Şu an (ECMWF Canlı), +1: 1 saat sonra (ECMWF Yakın)
   let activeLocation = {
     il: "Kocaeli",
     ilce: "Gebze",
@@ -1861,6 +1898,7 @@
   let clickEpoch = 0;
   let activeAbortController = null;
   const geoCache = new Map();
+  const seriesCache = new Map();
 
   function degToCompassTr(deg) {
     if (typeof deg !== "number" || !Number.isFinite(deg)) return null;
@@ -1911,14 +1949,33 @@
     return p !== null ? `${p.toFixed(1)} ${precipUnit}` : null;
   }
 
-  function formatIstanbulHourLabel(isoTimeStr) {
+  function formatIstanbulHourLabel(isoTimeStr, offset) {
     if (isoTimeStr && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(isoTimeStr)) {
       return isoTimeStr.replace("T", " ");
     }
     const now = new Date();
-    const tr = new Date(now.getTime() + 3 * 3600 * 1000);
+    const tr = new Date(now.getTime() + (3 + (offset || 0)) * 3600 * 1000);
     const pad = n => String(n).padStart(2, "0");
     return `${tr.getUTCFullYear()}-${pad(tr.getUTCMonth() + 1)}-${pad(tr.getUTCDate())} ${pad(tr.getUTCHours())}:00`;
+  }
+
+  function getModeMeta(offset) {
+    if (offset > 0) {
+      return {
+        tag: "ECMWF Yakın (Tahmin / Gerçek Değil)",
+        isLive: false,
+        badgeClass: "ew-pi-badge-approx",
+        valClass: "ew-pi-approx",
+        colorHex: "#fbbf24"
+      };
+    }
+    return {
+      tag: offset < 0 ? "ECMWF Canlı (-1s)" : "ECMWF Canlı",
+      isLive: true,
+      badgeClass: "ew-pi-badge-live",
+      valClass: "ew-pi-live",
+      colorHex: "#4ade80"
+    };
   }
 
   function purgeCbarsAndErrorText() {
@@ -2028,64 +2085,72 @@
     }
   }
 
-  async function fetchEcmwfLiveOnly(lat, lon, signal) {
-    const params = "hourly=temperature_2m,relative_humidity_2m,precipitation,rain,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m&forecast_days=1&timezone=Europe%2FIstanbul";
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&${params}&_t=${Date.now()}`;
+  async function fetchEcmwfForOffset(lat, lon, offset, signal) {
+    const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    let data = seriesCache.get(cacheKey);
 
-    try {
-      const res = await fetch(url, { cache: "no-store", signal });
-      if (!res.ok) return null;
-      const data = await res.json();
-      const h = data && data.hourly;
-      const units = data && data.hourly_units ? data.hourly_units : {};
-      if (!h || !Array.isArray(h.time) || !Array.isArray(h.temperature_2m)) return null;
-
-      const now = new Date();
-      const trNow = new Date(now.getTime() + 3 * 3600 * 1000);
-      const pad = n => String(n).padStart(2, "0");
-      const targetPrefix = `${trNow.getUTCFullYear()}-${pad(trNow.getUTCMonth() + 1)}-${pad(trNow.getUTCDate())}T${pad(trNow.getUTCHours())}:00`;
-      let idx = h.time.indexOf(targetPrefix);
-      if (idx < 0) {
-        const targetHour = trNow.getUTCHours();
-        idx = h.time.findIndex(t => typeof t === "string" && t.endsWith(`T${pad(targetHour)}:00`));
-        if (idx < 0) idx = 0;
+    if (!data) {
+      const params = "hourly=temperature_2m,relative_humidity_2m,precipitation,rain,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m&past_days=1&forecast_days=2&timezone=Europe%2FIstanbul";
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&${params}&_t=${Date.now()}`;
+      try {
+        const res = await fetch(url, { cache: "no-store", signal });
+        if (!res.ok) return null;
+        data = await res.json();
+        seriesCache.set(cacheKey, data);
+      } catch (_) {
+        return null;
       }
-
-      const temp = h.temperature_2m[idx];
-      const hum = Array.isArray(h.relative_humidity_2m) ? h.relative_humidity_2m[idx] : null;
-      const precip = Array.isArray(h.precipitation) ? h.precipitation[idx] : null;
-      const rain = Array.isArray(h.rain) ? h.rain[idx] : null;
-      const snowfall = Array.isArray(h.snowfall) ? h.snowfall[idx] : null;
-      const wcode = Array.isArray(h.weather_code) ? h.weather_code[idx] : null;
-      const cloud = Array.isArray(h.cloud_cover) ? h.cloud_cover[idx] : null;
-      const wspd = Array.isArray(h.wind_speed_10m) ? h.wind_speed_10m[idx] : null;
-      const wdir = Array.isArray(h.wind_direction_10m) ? h.wind_direction_10m[idx] : null;
-
-      const precipTypeStr = (precip !== null || rain !== null || snowfall !== null || wcode !== null)
-        ? classifyPrecipType(precip, rain, snowfall, wcode)
-        : null;
-      const precipAmountStr = precipTypeStr
-        ? formatPrecipWithUnit(precipTypeStr, precip, rain, snowfall, units)
-        : null;
-
-      const tempUnit = units.temperature_2m || "°C";
-      const windUnit = units.wind_speed_10m || "km/h";
-      const humUnit = units.relative_humidity_2m || "%";
-      const cloudUnit = units.cloud_cover || "%";
-
-      return {
-        timeLabel: formatIstanbulHourLabel(h.time[idx]),
-        tempStr: typeof temp === "number" ? `${temp.toFixed(1)} ${tempUnit}` : null,
-        windSpeedStr: typeof wspd === "number" ? `${wspd.toFixed(1)} ${windUnit}` : null,
-        windDirStr: degToCompassTr(wdir),
-        precipAmountStr,
-        precipTypeStr,
-        humidityStr: typeof hum === "number" ? `${Math.round(hum)} ${humUnit}` : null,
-        cloudCoverStr: typeof cloud === "number" ? `${Math.round(cloud)} ${cloudUnit}` : null
-      };
-    } catch (_) {
-      return null;
     }
+
+    const h = data && data.hourly;
+    const units = data && data.hourly_units ? data.hourly_units : {};
+    if (!h || !Array.isArray(h.time) || !Array.isArray(h.temperature_2m)) return null;
+
+    const now = new Date();
+    const trNow = new Date(now.getTime() + 3 * 3600 * 1000);
+    const pad = n => String(n).padStart(2, "0");
+    const targetPrefix = `${trNow.getUTCFullYear()}-${pad(trNow.getUTCMonth() + 1)}-${pad(trNow.getUTCDate())}T${pad(trNow.getUTCHours())}:00`;
+    let baseIdx = h.time.indexOf(targetPrefix);
+    if (baseIdx < 0) {
+      const targetHour = trNow.getUTCHours();
+      baseIdx = h.time.findIndex(t => typeof t === "string" && t.endsWith(`T${pad(targetHour)}:00`));
+      if (baseIdx < 0) baseIdx = 0;
+    }
+
+    const idx = Math.max(0, Math.min(h.time.length - 1, baseIdx + offset));
+
+    const temp = h.temperature_2m[idx];
+    const hum = Array.isArray(h.relative_humidity_2m) ? h.relative_humidity_2m[idx] : null;
+    const precip = Array.isArray(h.precipitation) ? h.precipitation[idx] : null;
+    const rain = Array.isArray(h.rain) ? h.rain[idx] : null;
+    const snowfall = Array.isArray(h.snowfall) ? h.snowfall[idx] : null;
+    const wcode = Array.isArray(h.weather_code) ? h.weather_code[idx] : null;
+    const cloud = Array.isArray(h.cloud_cover) ? h.cloud_cover[idx] : null;
+    const wspd = Array.isArray(h.wind_speed_10m) ? h.wind_speed_10m[idx] : null;
+    const wdir = Array.isArray(h.wind_direction_10m) ? h.wind_direction_10m[idx] : null;
+
+    const precipTypeStr = (precip !== null || rain !== null || snowfall !== null || wcode !== null)
+      ? classifyPrecipType(precip, rain, snowfall, wcode)
+      : null;
+    const precipAmountStr = precipTypeStr
+      ? formatPrecipWithUnit(precipTypeStr, precip, rain, snowfall, units)
+      : null;
+
+    const tempUnit = units.temperature_2m || "°C";
+    const windUnit = units.wind_speed_10m || "km/h";
+    const humUnit = units.relative_humidity_2m || "%";
+    const cloudUnit = units.cloud_cover || "%";
+
+    return {
+      timeLabel: formatIstanbulHourLabel(h.time[idx], offset),
+      tempStr: typeof temp === "number" ? `${temp.toFixed(1)} ${tempUnit}` : null,
+      windSpeedStr: typeof wspd === "number" ? `${wspd.toFixed(1)} ${windUnit}` : null,
+      windDirStr: degToCompassTr(wdir),
+      precipAmountStr,
+      precipTypeStr,
+      humidityStr: typeof hum === "number" ? `${Math.round(hum)} ${humUnit}` : null,
+      cloudCoverStr: typeof cloud === "number" ? `${Math.round(cloud)} ${cloudUnit}` : null
+    };
   }
 
   function renderInstantBox(weather, isFetching) {
@@ -2104,13 +2169,14 @@
         box.style.right = "14px";
         box.style.bottom = "14px";
         box.style.zIndex = "9999";
-        box.style.maxWidth = "310px";
+        box.style.maxWidth = "320px";
         document.body.appendChild(box);
       }
     }
 
+    const mode = getModeMeta(hourOffset);
     const w = weather || {
-      timeLabel: formatIstanbulHourLabel(null),
+      timeLabel: formatIstanbulHourLabel(null, hourOffset),
       tempStr: null,
       windSpeedStr: null,
       windDirStr: null,
@@ -2120,28 +2186,43 @@
       cloudCoverStr: null
     };
 
-    const fmtLive = val => val
-      ? `<span class="ew-pi-val ew-pi-live">${val}</span>`
-      : `<span class="ew-pi-val ew-pi-live">${isFetching ? "Güncelleniyor..." : "-"}</span>`;
+    const fmtVal = val => val
+      ? `<span class="ew-pi-val ${mode.valClass}">${val}</span>`
+      : `<span class="ew-pi-val ${mode.valClass}">${isFetching ? "Güncelleniyor..." : "-"}</span>`;
 
     const coordStr = `${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}`;
-    const statusBadge = weather ? "Canlı" : "Canlı · Güncelleniyor";
+    const hoverLine = hoverPoint
+      ? `<div><strong>İmleç Koordinatı:</strong> <span class="ew-pi-live">${hoverPoint.lat.toFixed(4)}, ${hoverPoint.lon.toFixed(4)}</span></div>`
+      : "";
 
     box.innerHTML =
-      `<div class="ew-pi-header"><span>ECMWF Canlı (${w.timeLabel})</span><span class="ew-pi-badge">${statusBadge}</span></div>` +
+      `<div class="ew-pi-header"><span>${mode.tag} · ${w.timeLabel}</span><span class="${mode.badgeClass}">${mode.isLive ? "Canlı" : "Yakın Değer"}</span></div>` +
+      `<div class="ew-pi-step-bar">` +
+        `<button type="button" class="ew-pi-step-btn ${hourOffset === -1 ? "active" : ""}" data-step="-1">-1</button>` +
+        `<button type="button" class="ew-pi-step-btn ${hourOffset === 0 ? "active" : ""}" data-step="0">Şu An</button>` +
+        `<button type="button" class="ew-pi-step-btn ${hourOffset === 1 ? "active" : ""}" data-step="1">+1</button>` +
+      `</div>` +
       `<div class="ew-pi-loc">` +
-        `<div><strong>Koordinat:</strong> <span class="ew-pi-live">${coordStr}</span></div>` +
-        `<div><strong>İl / İlçe / Mahalle:</strong> <span class="ew-pi-live">${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</span></div>` +
+        `<div><strong>Seçilen Koordinat:</strong> <span class="ew-pi-live">${coordStr}</span></div>` +
+        hoverLine +
+        `<div><strong>Konum:</strong> <span class="ew-pi-live">${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</span></div>` +
       `</div>` +
       `<div class="ew-pi-grid">` +
-        `<span class="ew-pi-lbl">2m Sıcaklığı:</span>${fmtLive(w.tempStr)}` +
-        `<span class="ew-pi-lbl">Rüzgar Hızı:</span>${fmtLive(w.windSpeedStr)}` +
-        `<span class="ew-pi-lbl">Rüzgar Yönü:</span>${fmtLive(w.windDirStr)}` +
-        `<span class="ew-pi-lbl">Yağış Miktarı:</span>${fmtLive(w.precipAmountStr)}` +
-        `<span class="ew-pi-lbl">Yağış Tipi:</span>${fmtLive(w.precipTypeStr)}` +
-        `<span class="ew-pi-lbl">Bağıl Nem:</span>${fmtLive(w.humidityStr)}` +
-        `<span class="ew-pi-lbl">Toplam Bulutluluk:</span>${fmtLive(w.cloudCoverStr)}` +
+        `<span class="ew-pi-lbl">2m Sıcaklığı:</span>${fmtVal(w.tempStr)}` +
+        `<span class="ew-pi-lbl">Rüzgar Hızı:</span>${fmtVal(w.windSpeedStr)}` +
+        `<span class="ew-pi-lbl">Rüzgar Yönü:</span>${fmtVal(w.windDirStr)}` +
+        `<span class="ew-pi-lbl">Yağış Miktarı:</span>${fmtVal(w.precipAmountStr)}` +
+        `<span class="ew-pi-lbl">Yağış Tipi:</span>${fmtVal(w.precipTypeStr)}` +
+        `<span class="ew-pi-lbl">Bağıl Nem:</span>${fmtVal(w.humidityStr)}` +
+        `<span class="ew-pi-lbl">Toplam Bulutluluk:</span>${fmtVal(w.cloudCoverStr)}` +
       `</div>`;
+
+    box.querySelectorAll("button[data-step]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const nextStep = Number(btn.getAttribute("data-step") || "0");
+        setHourOffset(nextStep);
+      });
+    });
   }
 
   function resolveLeafletMap() {
@@ -2177,18 +2258,20 @@
     }
     window._ewPointInstantLayer.clearLayers();
 
+    const mode = getModeMeta(hourOffset);
     L.circleMarker([selectedPoint.lat, selectedPoint.lon], {
       radius: 8,
       color: "#ffffff",
       weight: 2.5,
-      fillColor: "#22c55e",
+      fillColor: mode.colorHex,
       fillOpacity: 1,
       interactive: false
     }).addTo(window._ewPointInstantLayer);
 
-    const g = v => v ? `<strong style="color:#4ade80;">${v}</strong>` : `<strong style="color:#4ade80;">Canlı...</strong>`;
+    const g = v => v ? `<strong style="color:${mode.colorHex};">${v}</strong>` : `<strong style="color:${mode.colorHex};">...</strong>`;
     const htmlBadge =
-      `<div><strong>${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}</strong> · <strong style="color:#4ade80;">${activeLocation.il} / ${activeLocation.ilce}</strong></div>` +
+      `<div><strong>${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}</strong> · <strong style="color:${mode.colorHex};">${mode.tag}</strong></div>` +
+      `<div><strong>${activeLocation.il} / ${activeLocation.ilce}</strong></div>` +
       `<div>2m Sıcaklık: ${g(weather && weather.tempStr)} · Nem: ${g(weather && weather.humidityStr)} · Bulut: ${g(weather && weather.cloudCoverStr)}</div>` +
       `<div>Rüzgar: ${g(weather && weather.windSpeedStr)} · ${g(weather && weather.windDirStr)}</div>` +
       `<div>Yağış: ${g(weather && weather.precipAmountStr)} (${g(weather && weather.precipTypeStr)})</div>`;
@@ -2231,14 +2314,28 @@
       if (mapObj) updateMapPinAndPopup(mapObj, null);
     });
 
-    const weather = await fetchEcmwfLiveOnly(lat, lon, signal);
+    const weather = await fetchEcmwfForOffset(lat, lon, hourOffset, signal);
     if (myEpoch !== clickEpoch) return;
 
     renderInstantBox(weather, false);
     if (mapObj) updateMapPinAndPopup(mapObj, weather);
   }
 
-  function bindMapClick() {
+  async function setHourOffset(nextOffset) {
+    const clamped = Math.max(-1, Math.min(1, Number(nextOffset) || 0));
+    hourOffset = clamped;
+    const myEpoch = ++clickEpoch;
+    renderInstantBox(null, true);
+
+    const weather = await fetchEcmwfForOffset(selectedPoint.lat, selectedPoint.lon, hourOffset, null);
+    if (myEpoch !== clickEpoch) return;
+
+    renderInstantBox(weather, false);
+    const mapObj = resolveLeafletMap();
+    if (mapObj) updateMapPinAndPopup(mapObj, weather);
+  }
+
+  function bindMapClickAndHover() {
     const mapObj = resolveLeafletMap();
     if (mapObj && !mapObj._ewInstantClickBound) {
       mapObj._ewInstantClickBound = true;
@@ -2246,12 +2343,19 @@
         if (!ev || !ev.latlng) return;
         refreshSelectedPoint(ev.latlng.lat, ev.latlng.lng);
       });
+      mapObj.on("mousemove", function(ev) {
+        if (!ev || !ev.latlng) return;
+        hoverPoint = { lat: ev.latlng.lat, lon: ev.latlng.lng };
+      });
+      mapObj.on("mouseout", function() {
+        hoverPoint = null;
+      });
     }
   }
 
   function init() {
     purgeCbarsAndErrorText();
-    bindMapClick();
+    bindMapClickAndHover();
     refreshSelectedPoint(selectedPoint.lat, selectedPoint.lon);
   }
 
@@ -2264,7 +2368,7 @@
   setInterval(() => {
     purgeCbarsAndErrorText();
     syncExistingLocationLabels();
-    bindMapClick();
+    bindMapClickAndHover();
   }, 1000);
 })();
 </script>
