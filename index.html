@@ -2949,5 +2949,160 @@
 </script>
 <!-- EW_DYNAMIC_ECMWF_SUITE_END -->
 
+<!-- EW_FIX_CBAR_FLICKER_AND_LEGACY_PANEL_START -->
+<style>
+  /* Eski ECMWF panelini ve çakışan eski renk çubuklarını tamamen gizle */
+  #ecmwf-panel,
+  #ew-ecmwf-panel,
+  .ecmwf-panel,
+  .ew-ecmwf-panel,
+  [data-panel="ecmwf"],
+  [id*="ecmwf" i]:not(#ew-dual-panel):not(#ew-ecmwf-var-bar):not([class*="btn" i]),
+  [class*="ecmwf-panel" i]:not(#ew-dual-panel):not(#ew-ecmwf-var-bar) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Ortadaki #ew-cbar bileşenini sabit ve titremesiz tut */
+  #ew-cbar {
+    position: fixed !important;
+    bottom: 22px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 970 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-width: 280px !important;
+    max-width: min(540px, calc(100vw - 28px)) !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.34) !important;
+    backdrop-filter: blur(10px) !important;
+    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.55) !important;
+    color: #f8fafc !important;
+    pointer-events: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* #ew-cbar dışındaki mükerrer cbar/colorbar öğelerini gizle */
+  [id*="cbar" i]:not(#ew-cbar):not(#cbar-title):not(#ew-cbar-grad-bar):not(#ew-cbar-bins-detail),
+  [class*="cbar" i]:not(.cbar-title):not(.ew-cbar-chip):not(#ew-cbar),
+  [id*="colorbar" i]:not(#ew-cbar),
+  [class*="colorbar" i]:not(#ew-cbar) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+</style>
+
+<script>
+(function () {
+  const SAFE_IDS = new Set([
+    "ew-dual-panel", "ew-panel-coords-top", "ew-panel-coord-vals",
+    "ew-subpanel-live", "ew-subpanel-range", "ew-panel-range-foot",
+    "ew-sp-live-val", "ew-sp-live-meta", "ew-sp-range-val", "ew-sp-range-meta",
+    "ew-sp-var-badge", "ew-sp-time-badge",
+    "ew-ecmwf-var-bar", "ew-cbar", "cbar-title", "ew-cbar-grad-bar", "ew-cbar-bins-detail"
+  ]);
+
+  function ensureCenterCbarExists() {
+    let cbar = document.getElementById("ew-cbar");
+    if (!cbar) {
+      cbar = document.createElement("div");
+      cbar.id = "ew-cbar";
+      cbar.innerHTML = `
+        <div id="cbar-title" class="cbar-title" style="font-size:12px;font-weight:700;">ECMWF Renk Skalası</div>
+        <div id="ew-cbar-grad-bar"></div>
+        <div id="ew-cbar-bins-detail"></div>
+      `;
+      document.body.appendChild(cbar);
+    }
+    if (!document.getElementById("cbar-title") && !cbar.querySelector(".cbar-title")) {
+      const t = document.createElement("div");
+      t.id = "cbar-title";
+      t.className = "cbar-title";
+      t.style.cssText = "font-size:12px;font-weight:700;";
+      cbar.prepend(t);
+    }
+    if (!document.getElementById("ew-cbar-grad-bar")) {
+      const g = document.createElement("div");
+      g.id = "ew-cbar-grad-bar";
+      cbar.appendChild(g);
+    }
+    if (!document.getElementById("ew-cbar-bins-detail")) {
+      const d = document.createElement("div");
+      d.id = "ew-cbar-bins-detail";
+      cbar.appendChild(d);
+    }
+    cbar.style.setProperty("display", "block", "important");
+    cbar.style.setProperty("visibility", "visible", "important");
+    cbar.style.setProperty("opacity", "1", "important");
+  }
+
+  function hideLegacyEcmwfPanels() {
+    document.querySelectorAll("aside, section, div, panel").forEach(el => {
+      if (!el || el.nodeType !== 1) return;
+      if (SAFE_IDS.has(el.id)) return;
+      if (el.closest("#ew-dual-panel, #ew-ecmwf-var-bar, #ew-cbar, .leaflet-control-zoom")) return;
+      if (el.classList && (el.classList.contains("ew-ecmwf-btn") || el.classList.contains("ew-cbar-chip"))) return;
+
+      const idStr = String(el.id || "").toLowerCase();
+      const clsStr = String(typeof el.className === "string" ? el.className : "").toLowerCase();
+      const txt = String(el.textContent || "");
+
+      const matchesLegacyIdOrClass =
+        idStr === "ecmwf-panel" ||
+        idStr === "ew-ecmwf-panel" ||
+        clsStr.includes("ecmwf-panel") ||
+        (idStr.includes("ecmwf") && (idStr.includes("panel") || idStr.includes("box") || idStr.includes("card") || idStr.includes("drawer")));
+
+      const hasMapOrMusic = Boolean(
+        el.querySelector && (
+          el.querySelector("#map, .leaflet-container, audio, .leaflet-control-zoom") ||
+          el.id === "map" ||
+          (el.classList && el.classList.contains("leaflet-container"))
+        )
+      );
+
+      if (!hasMapOrMusic && matchesLegacyIdOrClass) {
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("visibility", "hidden", "important");
+        el.style.setProperty("opacity", "0", "important");
+        el.style.setProperty("pointer-events", "none", "important");
+      }
+
+      const isExtraCbar = ((idStr.includes("cbar") || idStr.includes("colorbar") || clsStr.includes("cbar") || clsStr.includes("colorbar"))
+        && el.id !== "ew-cbar" && el.id !== "cbar-title" && el.id !== "ew-cbar-grad-bar" && el.id !== "ew-cbar-bins-detail");
+      if (!hasMapOrMusic && isExtraCbar && !txt.includes("ew-cbar-chip")) {
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("visibility", "hidden", "important");
+        el.style.setProperty("opacity", "0", "important");
+      }
+    });
+  }
+
+  function tick() {
+    ensureCenterCbarExists();
+    hideLegacyEcmwfPanels();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tick);
+  } else {
+    tick();
+  }
+
+  const mo = new MutationObserver(tick);
+  mo.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+  setInterval(tick, 300);
+})();
+</script>
+<!-- EW_FIX_CBAR_FLICKER_AND_LEGACY_PANEL_END -->
+
 </body>
 </html>
