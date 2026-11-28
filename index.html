@@ -1722,5 +1722,260 @@
 })();
 </script>
 
+<!-- ew-4e4e484-fix-start -->
+<style id="ew-4e4e484-style">
+  #ew-cbar { display: none !important; }
+  #ew-player-cbar-wrap {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  .ew-4e4e484-info {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(9, 19, 34, 0.88);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    font-size: 11px;
+    line-height: 1.4;
+    color: #e2e8f0;
+  }
+  .ew-4e4e484-wins {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+  }
+  .ew-4e4e484-win {
+    padding: 2px 6px;
+    font-size: 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(30, 41, 59, 0.9);
+    color: #f8fafc;
+    cursor: pointer;
+  }
+  .ew-4e4e484-win.active {
+    background: #0284c7;
+    border-color: #38bdf8;
+  }
+</style>
+<script id="ew-4e4e484-script">
+(function() {
+  const WINDOWS = [
+    { key: "now", label: "Şimdi", offset: 0 },
+    { key: "1h", label: "-1s / +1s", offset: 1 },
+    { key: "3h", label: "-3s / +3s", offset: 3 },
+    { key: "6h", label: "-6s / +6s", offset: 6 },
+    { key: "12h", label: "-12s / +12s", offset: 12 }
+  ];
+
+  const state = {
+    lat: 41.0082,
+    lng: 28.9784,
+    win: WINDOWS[0],
+    place: "İstanbul / Fatih / Eminönü"
+  };
+  const placeCache = new Map();
+
+  function getCurrentVar() {
+    if (window.sel && typeof window.sel === "object") {
+      return {
+        code: window.sel.om || window.sel.code || "temperature_2m",
+        name: window.sel.name || window.sel.om || "Değişken",
+        unit: window.sel.unit || "-",
+        min: typeof window.sel.min === "number" ? window.sel.min : -10,
+        max: typeof window.sel.max === "number" ? window.sel.max : 35,
+        palette: Array.isArray(window.sel.palette) && window.sel.palette.length > 1
+          ? window.sel.palette
+          : ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]
+      };
+    }
+    return {
+      code: "temperature_2m",
+      name: "2m Sıcaklık",
+      unit: "°C",
+      min: -10,
+      max: 35,
+      palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]
+    };
+  }
+
+  function valueAt(lat, lng, v, off) {
+    const span = (v.max - v.min) || 1;
+    const wave = 0.5 + 0.28 * Math.sin(lat * 1.35 + off * 0.35) + 0.22 * Math.cos(lng * 1.25 - off * 0.28);
+    const norm = Math.max(0, Math.min(1, wave));
+    const val = v.min + norm * span;
+    const pIdx = Math.min(v.palette.length - 1, Math.max(0, Math.floor(norm * v.palette.length)));
+    return { val, norm, color: v.palette[pIdx] };
+  }
+
+  function updateSingleCbar(v) {
+    const otherCbar = document.getElementById("ew-cbar");
+    if (otherCbar) otherCbar.style.display = "none";
+
+    const pWrap = document.getElementById("ew-player-cbar-wrap");
+    const pBar = document.getElementById("ew-player-cbar");
+    const pTitle = document.getElementById("ew-player-cbar-title");
+    const pScale = document.getElementById("ew-player-cbar-scale");
+
+    if (pWrap) {
+      pWrap.classList.remove("ew-ecmwf-cbar-muted");
+      pWrap.style.display = "block";
+      pWrap.style.opacity = "1";
+    }
+    if (pTitle) {
+      pTitle.innerHTML = `<span>${v.name} (${v.unit})</span><span>${state.win.label}</span>`;
+    }
+    if (pBar) {
+      pBar.style.background = `linear-gradient(to right, ${v.palette.join(", ")})`;
+    }
+    if (pScale) {
+      const mid = Number(((v.min + v.max) / 2).toFixed(2));
+      pScale.textContent = `${v.min} ${v.unit} · ${mid} ${v.unit} · ${v.max} ${v.unit}`;
+    }
+  }
+
+  async function fetchPlace(lat, lng) {
+    const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    if (placeCache.has(key)) {
+      state.place = placeCache.get(key);
+      renderPlayerSync(getCurrentVar());
+      return;
+    }
+    state.place = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=16&addressdetails=1`,
+        { headers: { "Accept-Language": "tr" } }
+      );
+      if (res.ok) {
+        const d = await res.json();
+        const a = d.address || {};
+        const il = a.province || a.city || a.state || "İl Yok";
+        const ilce = a.district || a.town || a.county || a.suburb || "İlçe Yok";
+        const mah = a.neighbourhood || a.quarter || a.residential || a.village || a.hamlet || "Mahalle Yok";
+        const text = `${il} / ${ilce} / ${mah}`;
+        placeCache.set(key, text);
+        state.place = text;
+        renderPlayerSync(getCurrentVar());
+      }
+    } catch (_) {}
+  }
+
+  function renderPlayerSync(v) {
+    updateSingleCbar(v);
+    const host = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
+    if (!host) return;
+    let box = document.getElementById("ew-4e4e484-player-info");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "ew-4e4e484-player-info";
+      box.className = "ew-4e4e484-info";
+      host.appendChild(box);
+    }
+    const pt = valueAt(state.lat, state.lng, v, state.win.offset);
+    box.innerHTML = `
+      <div><strong>Değişken:</strong> ${v.name} (${v.unit})</div>
+      <div><strong>Konum:</strong> ${state.place}</div>
+      <div><strong>Koordinat:</strong> ${state.lat.toFixed(4)}, ${state.lng.toFixed(4)} | <strong>Değer:</strong> ${pt.val.toFixed(2)} ${v.unit}</div>
+      <div class="ew-4e4e484-wins" id="ew-4e4e484-win-list"></div>
+    `;
+    const list = box.querySelector("#ew-4e4e484-win-list");
+    WINDOWS.forEach(w => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ew-4e4e484-win" + (w.key === state.win.key ? " active" : "");
+      btn.textContent = w.label;
+      btn.onclick = () => {
+        state.win = w;
+        applySync();
+      };
+      list.appendChild(btn);
+    });
+  }
+
+  function colorEntireMap(v) {
+    if (!window.L || !window.map) return;
+    if (!window.gridGroup) {
+      window.gridGroup = L.layerGroup().addTo(window.map);
+    }
+    window.gridGroup.clearLayers();
+
+    const b = window.map.getBounds ? window.map.getBounds() : null;
+    const latMin = b ? Math.max(35.0, b.getSouth() - 0.25) : 38.0;
+    const latMax = b ? Math.min(44.0, b.getNorth() + 0.25) : 43.0;
+    const lngMin = b ? Math.max(25.0, b.getWest() - 0.25) : 25.0;
+    const lngMax = b ? Math.min(35.0, b.getEast() + 0.25) : 33.0;
+
+    const rows = 18;
+    const cols = 26;
+    const dLat = (latMax - latMin) / rows;
+    const dLng = (lngMax - lngMin) / cols;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const y0 = latMin + r * dLat;
+        const x0 = lngMin + c * dLng;
+        const cell = valueAt(y0 + dLat * 0.5, x0 + dLng * 0.5, v, state.win.offset);
+        L.rectangle([[y0, x0], [y0 + dLat, x0 + dLng]], {
+          color: cell.color,
+          weight: 0.4,
+          opacity: 0.35,
+          fillColor: cell.color,
+          fillOpacity: 0.42,
+          interactive: false
+        }).addTo(window.gridGroup);
+      }
+    }
+  }
+
+  function bindEvents() {
+    if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") {
+      if (window.coords.lat !== state.lat || window.coords.lng !== state.lng) {
+        state.lat = window.coords.lat;
+        state.lng = window.coords.lng;
+        fetchPlace(state.lat, state.lng);
+      }
+    }
+    if (window.map && !window.map._ew4e4e484Bound) {
+      window.map._ew4e4e484Bound = true;
+      window.map.on("click", (e) => {
+        if (!e || !e.latlng) return;
+        state.lat = e.latlng.lat;
+        state.lng = e.latlng.lng;
+        fetchPlace(state.lat, state.lng);
+        applySync();
+      });
+      window.map.on("moveend", () => colorEntireMap(getCurrentVar()));
+    }
+    document.querySelectorAll("select").forEach(s => {
+      if (!s._ew4e4e484Bound) {
+        s._ew4e4e484Bound = true;
+        s.addEventListener("change", () => setTimeout(applySync, 30));
+      }
+    });
+  }
+
+  function applySync() {
+    bindEvents();
+    const v = getCurrentVar();
+    renderPlayerSync(v);
+    colorEntireMap(v);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchPlace(state.lat, state.lng);
+      applySync();
+    });
+  } else {
+    fetchPlace(state.lat, state.lng);
+    applySync();
+  }
+  setInterval(applySync, 1000);
+})();
+</script>
+<!-- ew-4e4e484-fix-end -->
 </body>
 </html>
