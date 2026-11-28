@@ -5537,158 +5537,35 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
 
 
-<!-- EW_PIN_COORD_LOCK_START -->
-<script>
-(function () {
-  const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
-  const pinned = { lat: 41.0082, lon: 28.9784, val: NaN, unit: "°C", name: "temperature 2m" };
-  let lockedLayer = null;
-  let updatingDom = false;
 
-  function getMap() {
-    if (window.map && typeof window.map.addLayer === "function") return window.map;
-    if (window._map && typeof window._map.addLayer === "function") return window._map;
-    return null;
-  }
 
-  function colorFromVal(v, center) {
-    const base = Number.isFinite(center) ? center : 15;
-    const spread = Math.max(Math.abs(base) * 0.35, 3);
-    const t = Math.max(0, Math.min(1, (v - (base - spread)) / (2 * spread)));
-    return PAL[Math.min(PAL.length - 1, Math.floor(t * PAL.length))];
-  }
 
-  function syncCoordTexts() {
-    if (updatingDom) return;
-    updatingDom = true;
-    try {
-      const cStr = `${pinned.lat.toFixed(4)}°N, ${pinned.lon.toFixed(4)}°E`;
-      const cbar = document.getElementById("ew-static-cbar");
-      if (cbar) {
-        const subSpans = cbar.querySelectorAll(".ew-sc-sub span");
-        if (subSpans.length >= 1 && subSpans[0].textContent !== cStr) {
-          subSpans[0].textContent = cStr;
-        }
-      }
-      const rp = document.getElementById("ew-ui-right");
-      if (rp) {
-        const divs = rp.querySelectorAll("div");
-        const target = `KOORDİNAT: ${cStr}`;
-        if (divs.length >= 1 && divs[0].textContent !== target) {
-          divs[0].textContent = target;
-        }
-      }
-    } finally {
-      updatingDom = false;
-    }
-  }
 
-  function drawPinnedPoints() {
-    const mp = getMap();
-    if (!mp || typeof window.L === "undefined") return;
-
-    if (!lockedLayer) {
-      lockedLayer = window.L.layerGroup().addTo(mp);
-    } else if (mp.hasLayer && !mp.hasLayer(lockedLayer)) {
-      lockedLayer.addTo(mp);
-    }
-    lockedLayer.clearLayers();
-
-    const baseVal = Number.isFinite(pinned.val) ? pinned.val : 15;
-    const offsets = [
-      [0, 0],
-      [0.25, 0], [-0.25, 0], [0, 0.35], [0, -0.35],
-      [0.25, 0.35], [0.25, -0.35], [-0.25, 0.35], [-0.25, -0.35]
-    ];
-
-    offsets.forEach(([dLat, dLon], idx) => {
-      const lat = pinned.lat + dLat;
-      const lon = pinned.lon + dLon;
-      const dist = Math.hypot(dLat, dLon);
-      const val = baseVal + (0.4 - Math.min(1, dist)) * Math.max(Math.abs(baseVal) * 0.25, 2.5);
-      const col = colorFromVal(val, baseVal);
-
-      window.L.circle([lat, lon], {
-        radius: idx === 0 ? 7500 : 12000,
-        stroke: idx === 0,
-        color: "#ffffff",
-        weight: idx === 0 ? 2 : 0,
-        opacity: idx === 0 ? 0.95 : 0,
-        fillColor: col,
-        fillOpacity: idx === 0 ? 0.9 : 0.48,
-        interactive: false
-      }).addTo(lockedLayer);
-    });
-
-    syncCoordTexts();
-  }
-
-  function bindPinClick() {
-    const mp = getMap();
-    if (!mp || typeof mp.on !== "function" || mp.__ewPinLockBound) return;
-    mp.__ewPinLockBound = true;
-
-    mp.on("click", function (ev) {
-      if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
-        pinned.lat = Number(ev.latlng.lat);
-        pinned.lon = Number(ev.latlng.lng);
-        drawPinnedPoints();
-      }
-    });
-  }
-
-  function watchCbarValue() {
-    const cbar = document.getElementById("ew-static-cbar");
-    if (!cbar || cbar.__ewValObserved) return;
-    cbar.__ewValObserved = true;
-
-    const obs = new MutationObserver(function () {
-      if (updatingDom) return;
-      const mVal = (cbar.textContent || "").match(/(-?\d+(?:\.\d+)?)\s*(°C|km\/h|mm|cm|hPa|m\/s|J\/kg|m³\/m³|%)/i);
-      if (mVal) {
-        const nextVal = Number(mVal[1]);
-        if (Number.isFinite(nextVal) && nextVal !== pinned.val) {
-          pinned.val = nextVal;
-          drawPinnedPoints();
-        }
-      }
-      syncCoordTexts();
-    });
-    obs.observe(cbar, { childList: true, subtree: true, characterData: true });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-      bindPinClick();
-      watchCbarValue();
-      drawPinnedPoints();
-    });
-  } else {
-    bindPinClick();
-    watchCbarValue();
-    drawPinnedPoints();
-  }
-})();
-</script>
-<!-- EW_PIN_COORD_LOCK_END -->
-
-<!-- EW_CLICK_ALL_SYNC_START -->
+<!-- EW_MOUSE_POINT_DATA_START -->
 <script>
 (function () {
   const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
 
-  const state = {
+  const CATS = new Set([
+    "sıcaklık", "basınç", "rüzgar", "yağış",
+    "nem & bulut & toprak", "nem / bulut / toprak",
+    "temperature", "pressure", "wind", "precipitation"
+  ]);
+
+  const pt = {
     lat: 41.0082,
     lon: 28.9784,
-    place: "İstanbul / Fatih · Mahalle: Eminönü",
+    place: "Konum bekleniyor...",
     key: "temperature_2m",
     name: "temperature 2m",
     unit: "°C",
-    val: NaN
+    val: NaN,
+    min: NaN,
+    max: NaN
   };
 
-  let layerGroup = null;
-  let clickSeq = 0;
+  let pointGroup = null;
+  let reqCounter = 0;
 
   function getMap() {
     if (window.map && typeof window.map.on === "function") return window.map;
@@ -5704,28 +5581,28 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     return v.toFixed(2);
   }
 
-  function colorFromVal(v, center) {
+  function colorForValue(v, center) {
     const base = Number.isFinite(center) ? center : 15;
     const spread = Math.max(Math.abs(base) * 0.35, 3);
     const t = Math.max(0, Math.min(1, (v - (base - spread)) / (2 * spread)));
     return PAL[Math.min(PAL.length - 1, Math.floor(t * PAL.length))];
   }
 
-  function paintAll() {
-    const cStr = `${state.lat.toFixed(4)}°N, ${state.lon.toFixed(4)}°E`;
-    const valStr = Number.isFinite(state.val) ? `${fmt(state.val, state.unit)} ${state.unit}`.trim() : `- ${state.unit}`.trim();
+  function renderUI() {
+    const coordText = `${pt.lat.toFixed(4)}°N, ${pt.lon.toFixed(4)}°E`;
+    const valText = Number.isFinite(pt.val) ? `${fmt(pt.val, pt.unit)} ${pt.unit}`.trim() : `- ${pt.unit}`.trim();
 
     const cbar = document.getElementById("ew-static-cbar");
     if (cbar) {
       cbar.innerHTML = `
         <div class="ew-sc-row">
-          <span>${state.name} · Birim: ${state.unit}</span>
-          <span>${valStr}</span>
+          <span>${pt.name} · Birim: ${pt.unit}</span>
+          <span>${valText}</span>
         </div>
         <div class="ew-sc-scale"></div>
         <div class="ew-sc-sub">
-          <span>${cStr}</span>
-          <span>${state.place}</span>
+          <span>${coordText}</span>
+          <span>${pt.place}</span>
         </div>
       `;
     }
@@ -5733,37 +5610,37 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     const rp = document.getElementById("ew-ui-right");
     if (rp) {
       rp.innerHTML = `
-        <div style="font-size:11px;font-weight:700;color:#7dd3fc;">KOORDİNAT: ${cStr}</div>
-        <div style="font-size:12px;font-weight:700;margin-top:4px;">${state.place}</div>
-        <div style="font-size:14px;font-weight:800;margin-top:6px;">${state.name} [${state.unit}]: ${valStr}</div>
+        <div style="font-size:11px;font-weight:700;color:#7dd3fc;">KOORDİNAT: ${coordText}</div>
+        <div style="font-size:12px;font-weight:700;margin-top:4px;">${pt.place}</div>
+        <div style="font-size:14px;font-weight:800;margin-top:6px;">${pt.name} [${pt.unit}]: ${valText}</div>
       `;
     }
 
     document.querySelectorAll(".leaflet-popup-content").forEach((el) => {
-      el.innerHTML = `<div><b>${state.place}</b><br/>${cStr}<br/><b>${state.name}:</b> ${valStr}</div>`;
+      el.innerHTML = `<div><b>${pt.place}</b><br/>${coordText}<br/><b>${pt.name}:</b> ${valText}</div>`;
     });
 
     const mp = getMap();
     if (mp && typeof window.L !== "undefined" && typeof mp.addLayer === "function") {
-      if (!layerGroup) {
-        layerGroup = window.L.layerGroup().addTo(mp);
-      } else if (mp.hasLayer && !mp.hasLayer(layerGroup)) {
-        layerGroup.addTo(mp);
+      if (!pointGroup) {
+        pointGroup = window.L.layerGroup().addTo(mp);
+      } else if (mp.hasLayer && !mp.hasLayer(pointGroup)) {
+        pointGroup.addTo(mp);
       }
-      layerGroup.clearLayers();
+      pointGroup.clearLayers();
 
-      const baseVal = Number.isFinite(state.val) ? state.val : 15;
+      const baseVal = Number.isFinite(pt.val) ? pt.val : 15;
       const offsets = [
         [0, 0],
         [0.25, 0], [-0.25, 0], [0, 0.35], [0, -0.35],
         [0.25, 0.35], [0.25, -0.35], [-0.25, 0.35], [-0.25, -0.35]
       ];
       offsets.forEach(([dLat, dLon], idx) => {
-        const lat = state.lat + dLat;
-        const lon = state.lon + dLon;
+        const lat = pt.lat + dLat;
+        const lon = pt.lon + dLon;
         const dist = Math.hypot(dLat, dLon);
         const v = baseVal + (0.4 - Math.min(1, dist)) * Math.max(Math.abs(baseVal) * 0.25, 2.5);
-        const col = colorFromVal(v, baseVal);
+        const col = colorForValue(v, baseVal);
         window.L.circle([lat, lon], {
           radius: idx === 0 ? 7500 : 12000,
           stroke: idx === 0,
@@ -5773,43 +5650,47 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
           fillColor: col,
           fillOpacity: idx === 0 ? 0.9 : 0.48,
           interactive: false
-        }).addTo(layerGroup);
+        }).addTo(pointGroup);
       });
     }
   }
 
-  async function updatePoint(lat, lon) {
+  async function fetchPointPlaceAndData(lat, lon, fetchPlace) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    const seq = ++clickSeq;
-    state.lat = Number(lat);
-    state.lon = Number(lon);
-    state.place = `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
-    state.val = NaN;
-    paintAll();
+    const seq = ++reqCounter;
+    pt.lat = Number(lat);
+    pt.lon = Number(lon);
+    if (fetchPlace) {
+      pt.place = `${pt.lat.toFixed(4)}, ${pt.lon.toFixed(4)}`;
+    }
+    pt.val = NaN;
+    renderUI();
+
+    if (fetchPlace) {
+      try {
+        const gUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(pt.lat)}&lon=${encodeURIComponent(pt.lon)}&zoom=17&addressdetails=1&accept-language=tr`;
+        const gr = await fetch(gUrl, { headers: { Accept: "application/json" } });
+        if (gr.ok && seq === reqCounter) {
+          const gj = await gr.json();
+          const a = gj.address || {};
+          const il = a.province || a.state || a.city || "Açık Deniz / Bölge";
+          const ilce = a.town || a.county || a.city_district || a.district || "";
+          const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.road || "-";
+          pt.place = `${[il, ilce].filter(Boolean).join(" / ")} · Mahalle: ${mah}`;
+          renderUI();
+        }
+      } catch (_) {}
+    }
 
     try {
-      const gUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(state.lat)}&lon=${encodeURIComponent(state.lon)}&zoom=17&addressdetails=1&accept-language=tr`;
-      const gr = await fetch(gUrl, { headers: { Accept: "application/json" } });
-      if (gr.ok && seq === clickSeq) {
-        const gj = await gr.json();
-        const a = gj.address || {};
-        const il = a.province || a.state || a.city || "Konum";
-        const ilce = a.town || a.county || a.city_district || a.district || "";
-        const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.road || "-";
-        state.place = `${[il, ilce].filter(Boolean).join(" / ")} · Mahalle: ${mah}`;
-        paintAll();
-      }
-    } catch (_) {}
-
-    try {
-      const eUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${state.lat.toFixed(4)}&longitude=${state.lon.toFixed(4)}&hourly=${encodeURIComponent(state.key)}&timezone=auto&forecast_days=7`;
+      const eUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${pt.lat.toFixed(4)}&longitude=${pt.lon.toFixed(4)}&hourly=${encodeURIComponent(pt.key)}&timezone=auto&forecast_days=7`;
       const er = await fetch(eUrl);
-      if (!er.ok || seq !== clickSeq) return;
+      if (!er.ok || seq !== reqCounter) return;
       const ej = await er.json();
-      const arr = (ej && ej.hourly && Array.isArray(ej.hourly[state.key])) ? ej.hourly[state.key] : [];
+      const arr = (ej && ej.hourly && Array.isArray(ej.hourly[pt.key])) ? ej.hourly[pt.key] : [];
       const times = (ej && ej.hourly && Array.isArray(ej.hourly.time)) ? ej.hourly.time : [];
-      if (ej && ej.hourly_units && ej.hourly_units[state.key]) {
-        state.unit = ej.hourly_units[state.key];
+      if (ej && ej.hourly_units && ej.hourly_units[pt.key]) {
+        pt.unit = ej.hourly_units[pt.key];
       }
       const nums = arr.map(Number).filter(Number.isFinite);
       if (nums.length) {
@@ -5818,9 +5699,11 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
           const d = Math.abs(Date.parse(t) - now);
           if (Number.isFinite(d) && d < bestDiff) { bestDiff = d; bestIdx = i; }
         });
-        state.val = nums[Math.min(nums.length - 1, bestIdx)];
+        pt.val = nums[Math.min(nums.length - 1, bestIdx)];
+        pt.min = Math.min(...nums);
+        pt.max = Math.max(...nums);
       }
-      paintAll();
+      renderUI();
     } catch (_) {}
   }
 
@@ -5828,16 +5711,16 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
     if (btn) {
       const raw = (btn.textContent || "").trim();
+      if (!raw || CATS.has(raw.toLowerCase())) return;
       const um = raw.match(/\[([^\]]+)\]/);
       const unit = (btn.dataset && btn.dataset.unit) || (um ? um[1].trim() : "");
       const name = raw.replace(/\[[^\]]+\]/g, "").trim();
-      if (name) {
-        state.name = name;
-        state.key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey)) ||
-          name.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
-        if (unit) state.unit = unit;
-        updatePoint(state.lat, state.lon);
-      }
+      if (!name) return;
+      pt.name = name;
+      pt.key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey)) ||
+        name.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
+      if (unit) pt.unit = unit;
+      fetchPointPlaceAndData(pt.lat, pt.lon, false);
       return;
     }
 
@@ -5847,35 +5730,35 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       try {
         const ll = mp.mouseEventToLatLng(ev);
         if (ll && Number.isFinite(ll.lat) && Number.isFinite(ll.lng)) {
-          updatePoint(ll.lat, ll.lng);
+          fetchPointPlaceAndData(ll.lat, ll.lng, true);
         }
       } catch (_) {}
     }
   }, true);
 
-  function bindLeafletClick() {
+  function bindLeaflet() {
     const mp = getMap();
-    if (!mp || typeof mp.on !== "function" || mp.__ewAllSyncBound) return;
-    mp.__ewAllSyncBound = true;
+    if (!mp || typeof mp.on !== "function" || mp.__ewMousePtBound) return;
+    mp.__ewMousePtBound = true;
     mp.on("click", function (ev) {
       if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
-        updatePoint(ev.latlng.lat, ev.latlng.lng);
+        fetchPointPlaceAndData(ev.latlng.lat, ev.latlng.lng, true);
       }
     });
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
-      bindLeafletClick();
-      updatePoint(state.lat, state.lon);
+      bindLeaflet();
+      fetchPointPlaceAndData(pt.lat, pt.lon, true);
     });
   } else {
-    bindLeafletClick();
-    updatePoint(state.lat, state.lon);
+    bindLeaflet();
+    fetchPointPlaceAndData(pt.lat, pt.lon, true);
   }
 })();
 </script>
-<!-- EW_CLICK_ALL_SYNC_END -->
+<!-- EW_MOUSE_POINT_DATA_END -->
 
 </body>
 </html>
