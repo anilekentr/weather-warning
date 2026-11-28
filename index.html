@@ -5400,6 +5400,183 @@
 </script>
 <!-- EW_FIX_POPUP_VAR_PLACE_END -->
 
+
+
+<!-- EW_CBAR_VAR_UNIT_MANDATORY_START -->
+<script>
+(function () {
+  const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
+
+  const CAT_LABELS = new Set([
+    "sıcaklık", "basınç", "rüzgar", "yağış",
+    "nem & bulut & toprak", "nem / bulut / toprak",
+    "temperature", "pressure", "wind", "precipitation"
+  ]);
+
+  let reqVar = {
+    key: "temperature_2m",
+    name: "temperature 2m",
+    unit: "°C",
+    val: NaN,
+    min: NaN,
+    max: NaN,
+    lat: 41.0082,
+    lon: 28.9784
+  };
+  let token = 0;
+
+  function normalizeName(key, rawText) {
+    if (key) {
+      return String(key)
+        .replace(/_(\d+)hPa$/, " ($1 hPa)")
+        .replace(/_(\d+)m$/, " ($1 m)")
+        .replace(/_/g, " ")
+        .trim();
+    }
+    const clean = String(rawText || "").replace(/\[[^\]]+\]/g, "").trim();
+    return clean || "Değişken";
+  }
+
+  function fmt(v, u) {
+    if (!Number.isFinite(v)) return "-";
+    if (u === "m³/m³") return v.toFixed(3);
+    if (u === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function ensureCbarEl() {
+    let el = document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ew-picked-cbar";
+      document.body.appendChild(el);
+    }
+    el.style.position = "fixed";
+    el.style.bottom = "14px";
+    el.style.left = "50%";
+    el.style.transform = "translateX(-50%)";
+    el.style.zIndex = "5000";
+    el.style.width = "min(560px, calc(100vw - 28px))";
+    el.style.padding = "10px 14px";
+    el.style.borderRadius = "12px";
+    el.style.background = "rgba(15, 23, 42, 0.96)";
+    el.style.border = "1px solid rgba(148, 163, 184, 0.42)";
+    el.style.boxShadow = "0 12px 32px rgba(2, 6, 23, 0.68)";
+    el.style.color = "#f8fafc";
+    el.style.fontFamily = "system-ui, -apple-system, sans-serif";
+    el.style.display = "block";
+    el.style.visibility = "visible";
+    el.style.opacity = "1";
+    return el;
+  }
+
+  function renderCbar() {
+    const cbar = ensureCbarEl();
+    const u = reqVar.unit || "-";
+    const valStr = Number.isFinite(reqVar.val) ? `${fmt(reqVar.val, u)} ${u}`.trim() : `- ${u}`.trim();
+    const minStr = Number.isFinite(reqVar.min) ? `${fmt(reqVar.min, u)} ${u}`.trim() : "-";
+    const maxStr = Number.isFinite(reqVar.max) ? `${fmt(reqVar.max, u)} ${u}`.trim() : "-";
+
+    cbar.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;font-weight:700;">
+        <span style="color:#e0f2fe;">${reqVar.name} · Birim: ${u}</span>
+        <span style="color:#ffffff;background:rgba(2,132,199,0.48);border:1px solid rgba(125,211,252,0.55);border-radius:6px;padding:2px 9px;">${valStr}</span>
+      </div>
+      <div style="height:11px;width:100%;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,${PAL.join(",")});"></div>
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#cbd5e1;">
+        <span>Nokta: ${reqVar.lat.toFixed(4)}°N, ${reqVar.lon.toFixed(4)}°E</span>
+        <span>Min..Max: ${minStr} .. ${maxStr}</span>
+      </div>
+    `;
+  }
+
+  async function refreshValue() {
+    const myToken = ++token;
+    renderCbar();
+    try {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${reqVar.lat.toFixed(4)}&longitude=${reqVar.lon.toFixed(4)}&hourly=${encodeURIComponent(reqVar.key)}&timezone=auto&forecast_days=7`;
+      const res = await fetch(url);
+      if (!res.ok || myToken !== token) return;
+      const json = await res.json();
+      const raw = (json && json.hourly && Array.isArray(json.hourly[reqVar.key])) ? json.hourly[reqVar.key] : [];
+      const times = (json && json.hourly && Array.isArray(json.hourly.time)) ? json.hourly.time : [];
+      if (json && json.hourly_units && json.hourly_units[reqVar.key]) {
+        reqVar.unit = json.hourly_units[reqVar.key];
+      }
+      const nums = raw.map(Number).filter(Number.isFinite);
+      if (nums.length) {
+        let idx = 0, best = Infinity, nowMs = Date.now();
+        times.forEach((t, i) => {
+          const d = Math.abs(Date.parse(t) - nowMs);
+          if (Number.isFinite(d) && d < best) { best = d; idx = i; }
+        });
+        reqVar.val = nums[Math.min(nums.length - 1, idx)];
+        reqVar.min = Math.min(...nums);
+        reqVar.max = Math.max(...nums);
+      }
+      renderCbar();
+    } catch (_) {}
+  }
+
+  function handleBtnTouchOrClick(ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (!btn) return;
+    const raw = (btn.textContent || "").trim();
+    const low = raw.toLowerCase();
+    if (!raw || CAT_LABELS.has(low)) return;
+
+    let key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey || btn.dataset.om)) || "";
+    let unit = (btn.dataset && btn.dataset.unit) || "";
+
+    const um = raw.match(/\[([^\]]+)\]/);
+    if (!unit && um) unit = um[1].trim();
+
+    if (!key) {
+      const base = raw.replace(/\[[^\]]+\]/g, "").trim();
+      if (!base) return;
+      key = base.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
+    }
+
+    reqVar.key = key;
+    reqVar.name = normalizeName(key, raw);
+    if (unit) reqVar.unit = unit;
+    reqVar.val = NaN;
+    reqVar.min = NaN;
+    reqVar.max = NaN;
+    refreshValue();
+  }
+
+  document.addEventListener("pointerdown", handleBtnTouchOrClick, true);
+  document.addEventListener("click", handleBtnTouchOrClick, true);
+
+  function hookMapPoint() {
+    const mp = window.map || window._map;
+    if (mp && typeof mp.on === "function" && !mp.__ewCbarPointBound) {
+      mp.__ewCbarPointBound = true;
+      mp.on("click", function (ev) {
+        if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
+          reqVar.lat = Number(ev.latlng.lat);
+          reqVar.lon = Number(ev.latlng.lng);
+          refreshValue();
+        }
+      });
+    }
+  }
+
+  setInterval(() => {
+    hookMapPoint();
+    renderCbar();
+  }, 300);
+
+  setTimeout(() => {
+    hookMapPoint();
+    refreshValue();
+  }, 200);
+})();
+</script>
+<!-- EW_CBAR_VAR_UNIT_MANDATORY_END -->
+
 <!-- EW_SPATIAL_CBAR_MAP_COLOR_START -->
 <script>
 (function () {
@@ -5613,181 +5790,6 @@
 })();
 </script>
 <!-- EW_SPATIAL_CBAR_MAP_COLOR_END -->
-
-<!-- EW_CBAR_VAR_UNIT_MANDATORY_START -->
-<script>
-(function () {
-  const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
-
-  const CAT_LABELS = new Set([
-    "sıcaklık", "basınç", "rüzgar", "yağış",
-    "nem & bulut & toprak", "nem / bulut / toprak",
-    "temperature", "pressure", "wind", "precipitation"
-  ]);
-
-  let reqVar = {
-    key: "temperature_2m",
-    name: "temperature 2m",
-    unit: "°C",
-    val: NaN,
-    min: NaN,
-    max: NaN,
-    lat: 41.0082,
-    lon: 28.9784
-  };
-  let token = 0;
-
-  function normalizeName(key, rawText) {
-    if (key) {
-      return String(key)
-        .replace(/_(\d+)hPa$/, " ($1 hPa)")
-        .replace(/_(\d+)m$/, " ($1 m)")
-        .replace(/_/g, " ")
-        .trim();
-    }
-    const clean = String(rawText || "").replace(/\[[^\]]+\]/g, "").trim();
-    return clean || "Değişken";
-  }
-
-  function fmt(v, u) {
-    if (!Number.isFinite(v)) return "-";
-    if (u === "m³/m³") return v.toFixed(3);
-    if (u === "m/s") return v.toFixed(2);
-    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
-    return v.toFixed(2);
-  }
-
-  function ensureCbarEl() {
-    let el = document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "ew-picked-cbar";
-      document.body.appendChild(el);
-    }
-    el.style.position = "fixed";
-    el.style.bottom = "14px";
-    el.style.left = "50%";
-    el.style.transform = "translateX(-50%)";
-    el.style.zIndex = "5000";
-    el.style.width = "min(560px, calc(100vw - 28px))";
-    el.style.padding = "10px 14px";
-    el.style.borderRadius = "12px";
-    el.style.background = "rgba(15, 23, 42, 0.96)";
-    el.style.border = "1px solid rgba(148, 163, 184, 0.42)";
-    el.style.boxShadow = "0 12px 32px rgba(2, 6, 23, 0.68)";
-    el.style.color = "#f8fafc";
-    el.style.fontFamily = "system-ui, -apple-system, sans-serif";
-    el.style.display = "block";
-    el.style.visibility = "visible";
-    el.style.opacity = "1";
-    return el;
-  }
-
-  function renderCbar() {
-    const cbar = ensureCbarEl();
-    const u = reqVar.unit || "-";
-    const valStr = Number.isFinite(reqVar.val) ? `${fmt(reqVar.val, u)} ${u}`.trim() : `- ${u}`.trim();
-    const minStr = Number.isFinite(reqVar.min) ? `${fmt(reqVar.min, u)} ${u}`.trim() : "-";
-    const maxStr = Number.isFinite(reqVar.max) ? `${fmt(reqVar.max, u)} ${u}`.trim() : "-";
-
-    cbar.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;font-weight:700;">
-        <span style="color:#e0f2fe;">${reqVar.name} · Birim: ${u}</span>
-        <span style="color:#ffffff;background:rgba(2,132,199,0.48);border:1px solid rgba(125,211,252,0.55);border-radius:6px;padding:2px 9px;">${valStr}</span>
-      </div>
-      <div style="height:11px;width:100%;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,${PAL.join(",")});"></div>
-      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#cbd5e1;">
-        <span>Nokta: ${reqVar.lat.toFixed(4)}°N, ${reqVar.lon.toFixed(4)}°E</span>
-        <span>Min..Max: ${minStr} .. ${maxStr}</span>
-      </div>
-    `;
-  }
-
-  async function refreshValue() {
-    const myToken = ++token;
-    renderCbar();
-    try {
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${reqVar.lat.toFixed(4)}&longitude=${reqVar.lon.toFixed(4)}&hourly=${encodeURIComponent(reqVar.key)}&timezone=auto&forecast_days=7`;
-      const res = await fetch(url);
-      if (!res.ok || myToken !== token) return;
-      const json = await res.json();
-      const raw = (json && json.hourly && Array.isArray(json.hourly[reqVar.key])) ? json.hourly[reqVar.key] : [];
-      const times = (json && json.hourly && Array.isArray(json.hourly.time)) ? json.hourly.time : [];
-      if (json && json.hourly_units && json.hourly_units[reqVar.key]) {
-        reqVar.unit = json.hourly_units[reqVar.key];
-      }
-      const nums = raw.map(Number).filter(Number.isFinite);
-      if (nums.length) {
-        let idx = 0, best = Infinity, nowMs = Date.now();
-        times.forEach((t, i) => {
-          const d = Math.abs(Date.parse(t) - nowMs);
-          if (Number.isFinite(d) && d < best) { best = d; idx = i; }
-        });
-        reqVar.val = nums[Math.min(nums.length - 1, idx)];
-        reqVar.min = Math.min(...nums);
-        reqVar.max = Math.max(...nums);
-      }
-      renderCbar();
-    } catch (_) {}
-  }
-
-  function handleBtnTouchOrClick(ev) {
-    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
-    if (!btn) return;
-    const raw = (btn.textContent || "").trim();
-    const low = raw.toLowerCase();
-    if (!raw || CAT_LABELS.has(low)) return;
-
-    let key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey || btn.dataset.om)) || "";
-    let unit = (btn.dataset && btn.dataset.unit) || "";
-
-    const um = raw.match(/\[([^\]]+)\]/);
-    if (!unit && um) unit = um[1].trim();
-
-    if (!key) {
-      const base = raw.replace(/\[[^\]]+\]/g, "").trim();
-      if (!base) return;
-      key = base.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
-    }
-
-    reqVar.key = key;
-    reqVar.name = normalizeName(key, raw);
-    if (unit) reqVar.unit = unit;
-    reqVar.val = NaN;
-    reqVar.min = NaN;
-    reqVar.max = NaN;
-    refreshValue();
-  }
-
-  document.addEventListener("pointerdown", handleBtnTouchOrClick, true);
-  document.addEventListener("click", handleBtnTouchOrClick, true);
-
-  function hookMapPoint() {
-    const mp = window.map || window._map;
-    if (mp && typeof mp.on === "function" && !mp.__ewCbarPointBound) {
-      mp.__ewCbarPointBound = true;
-      mp.on("click", function (ev) {
-        if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
-          reqVar.lat = Number(ev.latlng.lat);
-          reqVar.lon = Number(ev.latlng.lng);
-          refreshValue();
-        }
-      });
-    }
-  }
-
-  setInterval(() => {
-    hookMapPoint();
-    renderCbar();
-  }, 300);
-
-  setTimeout(() => {
-    hookMapPoint();
-    refreshValue();
-  }, 200);
-})();
-</script>
-<!-- EW_CBAR_VAR_UNIT_MANDATORY_END -->
 
 </body>
 </html>
