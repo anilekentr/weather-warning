@@ -3245,5 +3245,387 @@
 </script>
 <!-- EW_MASTER_UNIFIED_UI_END -->
 
+<!-- EW_LIVE_ECMWF_STRICT_SYNC_START -->
+<style>
+  #ew-level-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  }
+  .ew-lvl-btn {
+    appearance: none;
+    border: 1px solid rgba(125, 211, 252, 0.30);
+    background: rgba(15, 23, 42, 0.85);
+    color: #bae6fd;
+    padding: 3px 7px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .ew-lvl-btn.is-active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #e0f2fe;
+  }
+</style>
+
+<script>
+(function () {
+  const LEVELS = ["ALL", "SURFACE", "1000", "850", "700", "500"];
+  const CANDIDATE_VARS = [
+    "temperature_2m", "apparent_temperature", "dew_point_2m", "relative_humidity_2m",
+    "precipitation", "rain", "showers", "snowfall", "snow_depth", "weather_code",
+    "pressure_msl", "surface_pressure", "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
+    "visibility", "wind_speed_10m", "wind_speed_80m", "wind_speed_100m", "wind_speed_120m", "wind_speed_180m",
+    "wind_direction_10m", "wind_direction_80m", "wind_direction_100m", "wind_direction_120m", "wind_direction_180m",
+    "wind_gusts_10m", "cape",
+    "temperature_1000hPa", "geopotential_height_1000hPa", "relative_humidity_1000hPa", "dew_point_1000hPa", "wind_speed_1000hPa", "wind_direction_1000hPa", "vertical_velocity_1000hPa",
+    "temperature_850hPa", "geopotential_height_850hPa", "relative_humidity_850hPa", "dew_point_850hPa", "wind_speed_850hPa", "wind_direction_850hPa", "vertical_velocity_850hPa",
+    "temperature_700hPa", "geopotential_height_700hPa", "relative_humidity_700hPa", "dew_point_700hPa", "wind_speed_700hPa", "wind_direction_700hPa", "vertical_velocity_700hPa",
+    "temperature_500hPa", "geopotential_height_500hPa", "relative_humidity_500hPa", "dew_point_500hPa", "wind_speed_500hPa", "wind_direction_500hPa", "vertical_velocity_500hPa"
+  ];
+
+  const PALETTE = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
+
+  let activeLevel = "ALL";
+  let activeVarKey = "temperature_2m";
+  let livePayload = null;
+  let liveVarEntries = []; // [{ key, unit, series, nowVal, nowTime, levelTag }]
+  let lastProbeCoord = null;
+  let probingInFlight = false;
+
+  function labelForVar(key) {
+    const clean = key
+      .replace("_2m", " (2m)")
+      .replace("_10m", " (10m)")
+      .replace("_80m", " (80m)")
+      .replace("_100m", " (100m)")
+      .replace("_120m", " (120m)")
+      .replace("_180m", " (180m)")
+      .replace("_1000hPa", " @1000hPa")
+      .replace("_850hPa", " @850hPa")
+      .replace("_700hPa", " @700hPa")
+      .replace("_500hPa", " @500hPa");
+    return clean.replace(/_/g, " ");
+  }
+
+  function levelTagForVar(key) {
+    if (key.includes("1000hPa")) return "1000";
+    if (key.includes("850hPa")) return "850";
+    if (key.includes("700hPa")) return "700";
+    if (key.includes("500hPa")) return "500";
+    return "SURFACE";
+  }
+
+  function fmtScalar(v, unit) {
+    if (!Number.isFinite(v)) return "-";
+    if (unit === "m³/m³") return v.toFixed(3);
+    if (Math.abs(v) >= 100 || unit === "hPa" || unit === "m" || unit === "°") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function pickNowFromPayload(json, key) {
+    const h = json && json.hourly ? json.hourly : null;
+    const c = json && json.current ? json.current : null;
+    const rawArr = h && Array.isArray(h[key]) ? h[key] : [];
+    const times = h && Array.isArray(h.time) ? h.time : [];
+    const series = rawArr.map(Number).filter(Number.isFinite);
+
+    if (c && Number.isFinite(Number(c[key]))) {
+      return {
+        nowVal: Number(c[key]),
+        nowTime: c.time ? String(c.time).replace("T", " ").slice(0, 16) : "O An",
+        series
+      };
+    }
+
+    if (!series.length) {
+      return { nowVal: NaN, nowTime: "", series: [] };
+    }
+
+    let bestIdx = 0;
+    let bestDiff = Infinity;
+    const nowMs = Date.now();
+    for (let i = 0; i < times.length; i++) {
+      const ms = Date.parse(times[i]);
+      if (Number.isFinite(ms)) {
+        const d = Math.abs(ms - nowMs);
+        if (d < bestDiff) {
+          bestDiff = d;
+          bestIdx = i;
+        }
+      }
+    }
+    const safeIdx = Math.min(series.length - 1, bestIdx);
+    return {
+      nowVal: series[safeIdx],
+      nowTime: times[safeIdx] ? String(times[safeIdx]).replace("T", " ").slice(0, 16) : "O An",
+      series
+    };
+  }
+
+  async function fetchLiveSubset(lat, lon, varList) {
+    const base = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&timezone=auto&forecast_days=7`;
+    const hourlyParam = encodeURIComponent(varList.join(","));
+    const currentParam = encodeURIComponent(varList.filter(k => !k.includes("hPa")).slice(0, 12).join(","));
+    const url = `${base}&hourly=${hourlyParam}${currentParam ? `&current=${currentParam}` : ""}`;
+
+    const res = await fetch(url);
+    if (res.ok) {
+      return await res.json();
+    }
+
+    // 400 gelirse tek tek değişkenleri deneyerek canlı dönenleri topla
+    const mergedHourly = { time: [] };
+    const mergedUnits = {};
+    let mergedCurrent = {};
+
+    for (const k of varList) {
+      try {
+        const singleUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=${encodeURIComponent(k)}&timezone=auto&forecast_days=7`;
+        const r1 = await fetch(singleUrl);
+        if (!r1.ok) continue;
+        const j1 = await r1.json();
+        if (j1 && j1.hourly && Array.isArray(j1.hourly[k]) && j1.hourly[k].some(x => x !== null && Number.isFinite(Number(x)))) {
+          mergedHourly[k] = j1.hourly[k];
+          if (!mergedHourly.time.length && Array.isArray(j1.hourly.time)) {
+            mergedHourly.time = j1.hourly.time;
+          }
+          if (j1.hourly_units && j1.hourly_units[k]) {
+            mergedUnits[k] = j1.hourly_units[k];
+          }
+          if (j1.current && Number.isFinite(Number(j1.current[k]))) {
+            mergedCurrent[k] = j1.current[k];
+            if (j1.current.time) mergedCurrent.time = j1.current.time;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return { hourly: mergedHourly, hourly_units: mergedUnits, current: mergedCurrent };
+  }
+
+  function rebuildEntriesFromPayload(json) {
+    livePayload = json;
+    const h = json && json.hourly ? json.hourly : {};
+    const units = (json && json.hourly_units) || {};
+    const keys = Object.keys(h).filter(k => k !== "time" && Array.isArray(h[k]));
+
+    const entries = [];
+    for (const key of keys) {
+      const { nowVal, nowTime, series } = pickNowFromPayload(json, key);
+      if (series.length > 0 || Number.isFinite(nowVal)) {
+        entries.push({
+          key,
+          unit: units[key] || "",
+          series,
+          nowVal,
+          nowTime,
+          levelTag: levelTagForVar(key)
+        });
+      }
+    }
+
+    if (entries.length) {
+      liveVarEntries = entries;
+      if (!liveVarEntries.some(e => e.key === activeVarKey)) {
+        activeVarKey = liveVarEntries[0].key;
+      }
+    }
+  }
+
+  function getFilteredEntries() {
+    if (!liveVarEntries.length) return [];
+    if (activeLevel === "ALL") return liveVarEntries;
+    const filtered = liveVarEntries.filter(e => e.levelTag === activeLevel);
+    return filtered.length ? filtered : liveVarEntries;
+  }
+
+  function renderLiveButtonsAndCbar() {
+    const bar = document.getElementById("ew-ecmwf-var-bar");
+    if (!bar) return;
+
+    let lvlRow = document.getElementById("ew-level-filter-row");
+    if (!lvlRow) {
+      lvlRow = document.createElement("div");
+      lvlRow.id = "ew-level-filter-row";
+      bar.prepend(lvlRow);
+    }
+
+    lvlRow.innerHTML = "";
+    LEVELS.forEach(lvl => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ew-lvl-btn" + (lvl === activeLevel ? " is-active" : "");
+      b.textContent = lvl === "ALL" ? "Tümü" : (lvl === "SURFACE" ? "Yüzey" : `${lvl} hPa`);
+      b.addEventListener("click", ev => {
+        ev.stopPropagation();
+        activeLevel = lvl;
+        renderLiveButtonsAndCbar();
+      });
+      lvlRow.appendChild(b);
+    });
+
+    // Eski statik/sabit butonları temizle, canlı dönen değişkenleri birebir çiz
+    bar.querySelectorAll(".ew-var-chip-btn").forEach(el => el.remove());
+
+    const visibleEntries = getFilteredEntries();
+    visibleEntries.forEach(entry => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ew-var-chip-btn" + (entry.key === activeVarKey ? " is-active" : "");
+      btn.dataset.om = entry.key;
+      const nowTxt = Number.isFinite(entry.nowVal) ? ` · ${fmtScalar(entry.nowVal, entry.unit)} ${entry.unit}` : "";
+      btn.textContent = `${labelForVar(entry.key)}${nowTxt}`;
+      btn.addEventListener("click", ev => {
+        ev.stopPropagation();
+        activeVarKey = entry.key;
+        applyActiveEntryToUiAndMap(entry);
+        renderLiveButtonsAndCbar();
+      });
+      bar.appendChild(btn);
+    });
+
+    const currentEntry = liveVarEntries.find(e => e.key === activeVarKey) || visibleEntries[0];
+    if (currentEntry) {
+      applyActiveEntryToUiAndMap(currentEntry);
+    }
+  }
+
+  function applyActiveEntryToUiAndMap(entry) {
+    if (!entry) return;
+    const unitStr = entry.unit || "";
+    const nowStr = Number.isFinite(entry.nowVal) ? `${fmtScalar(entry.nowVal, unitStr)} ${unitStr}`.trim() : `- ${unitStr}`.trim();
+
+    const vals = entry.series.filter(Number.isFinite);
+    const minV = vals.length ? Math.min(...vals) : NaN;
+    const maxV = vals.length ? Math.max(...vals) : NaN;
+
+    const liveEl = document.getElementById("ew-m-live");
+    const liveSub = document.getElementById("ew-m-live-sub");
+    const rangeEl = document.getElementById("ew-m-range");
+    const rangeSub = document.getElementById("ew-m-range-sub");
+    const fVar = document.getElementById("ew-f-var");
+    const fTime = document.getElementById("ew-f-time");
+
+    if (liveEl) liveEl.textContent = nowStr;
+    if (liveSub) liveSub.textContent = `${labelForVar(entry.key)} (${unitStr || "-"})`;
+    if (rangeEl) {
+      rangeEl.textContent = (Number.isFinite(minV) && Number.isFinite(maxV))
+        ? `${fmtScalar(minV, unitStr)}..${fmtScalar(maxV, unitStr)}`
+        : "-";
+    }
+    if (rangeSub) rangeSub.textContent = `Birim: ${unitStr || "-"}`;
+    if (fVar) fVar.textContent = `${entry.key} · ${unitStr || "-"}`;
+    if (fTime) fTime.textContent = entry.nowTime || "O An";
+
+    const cbarName = document.getElementById("ew-cbar-name");
+    const cbarCur = document.getElementById("ew-cbar-cur");
+    const cbarGrad = document.getElementById("ew-cbar-gradient");
+    const cbarBins = document.getElementById("ew-cbar-bins");
+
+    if (cbarName) cbarName.textContent = `${labelForVar(entry.key)} [${entry.key}] · Birim: ${unitStr || "-"}`;
+    if (cbarCur) cbarCur.textContent = `O An: ${nowStr}`;
+
+    if (cbarGrad && cbarBins && Number.isFinite(minV) && Number.isFinite(maxV)) {
+      const lo = minV === maxV ? minV - 1 : minV;
+      const hi = minV === maxV ? maxV + 1 : maxV;
+      const steps = 6;
+      const d = (hi - lo) / steps;
+      const stops = [];
+      const chips = [];
+      for (let i = 0; i < steps; i++) {
+        const a = lo + i * d;
+        const b = i === steps - 1 ? hi : lo + (i + 1) * d;
+        const col = PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / steps) * PALETTE.length))];
+        stops.push(`${col} ${((i / (steps - 1)) * 100).toFixed(1)}%`);
+        chips.push(`<span class="ew-bin-pill" style="border-left:4px solid ${col};">${fmtScalar(a, unitStr)}..${fmtScalar(b, unitStr)}</span>`);
+      }
+      cbarGrad.style.background = `linear-gradient(90deg, ${stops.join(", ")})`;
+      cbarBins.innerHTML = chips.join("");
+    }
+
+    // Haritadaki veri katmanlarını seçili değişkenin değerine göre boya
+    const mapObj = window.map || window._map;
+    if (mapObj && typeof mapObj.eachLayer === "function" && Number.isFinite(minV) && Number.isFinite(maxV)) {
+      const span = Math.max(1e-9, maxV - minV);
+      const refVal = Number.isFinite(entry.nowVal) ? entry.nowVal : minV;
+      const ratio = Math.max(0, Math.min(1, (refVal - minV) / span));
+      const color = PALETTE[Math.min(PALETTE.length - 1, Math.floor(ratio * PALETTE.length))];
+      mapObj.eachLayer(layer => {
+        if (!layer || typeof layer.setStyle !== "function" || layer._url) return;
+        const el = layer._icon || (layer.getElement && layer.getElement());
+        if (el && el.querySelector && el.querySelector(".ew-pin-dot")) return;
+        try {
+          layer.setStyle({ color, fillColor: color, fillOpacity: 0.45, opacity: 0.8 });
+        } catch (_) {}
+      });
+    }
+  }
+
+  async function probeLiveEcmwf(lat, lon) {
+    if (probingInFlight) return;
+    probingInFlight = true;
+    try {
+      const json = await fetchLiveSubset(lat, lon, CANDIDATE_VARS);
+      rebuildEntriesFromPayload(json);
+      renderLiveButtonsAndCbar();
+    } catch (_) {
+    } finally {
+      probingInFlight = false;
+    }
+  }
+
+  function getCurrentCoordOrCenter() {
+    const coordEl = document.getElementById("ew-coord-text");
+    if (coordEl && coordEl.textContent) {
+      const m = coordEl.textContent.match(/(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
+      if (m) {
+        const lat = Number(m[1]), lon = Number(m[2]);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+      }
+    }
+    const mapObj = window.map || window._map;
+    if (mapObj && typeof mapObj.getCenter === "function") {
+      const c = mapObj.getCenter();
+      if (c && Number.isFinite(c.lat) && Number.isFinite(c.lng)) return { lat: c.lat, lon: c.lng };
+    }
+    return { lat: 41.0082, lon: 28.9784 };
+  }
+
+  function scheduleProbeIfNeeded() {
+    const c = getCurrentCoordOrCenter();
+    const key = `${c.lat.toFixed(3)},${c.lon.toFixed(3)}`;
+    if (!liveVarEntries.length || lastProbeCoord !== key) {
+      lastProbeCoord = key;
+      probeLiveEcmwf(c.lat, c.lon);
+    } else {
+      renderLiveButtonsAndCbar();
+    }
+  }
+
+  document.addEventListener("click", () => {
+    setTimeout(scheduleProbeIfNeeded, 120);
+  }, true);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(scheduleProbeIfNeeded, 250));
+  } else {
+    setTimeout(scheduleProbeIfNeeded, 250);
+  }
+
+  setInterval(() => {
+    if (!liveVarEntries.length) scheduleProbeIfNeeded();
+    else renderLiveButtonsAndCbar();
+  }, 1500);
+})();
+</script>
+<!-- EW_LIVE_ECMWF_STRICT_SYNC_END -->
+
 </body>
 </html>
