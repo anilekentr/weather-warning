@@ -3132,5 +3132,158 @@
 })();
 </script>
 <!-- ew-4x4-map-layer-end -->
+<!-- ew-deployment-cbar-removed-map-colored-start -->
+<style id="ew-deployment-cbar-removed-map-colored-style">
+  #ew-cbar, #ew-player-cbar, #ew-player-cbar-wrap,
+  #ew-player-cbar-title, #ew-player-cbar-scale,
+  #ew-player-cbar-toggle-btn,
+  .ew-u-cbar-box, .ew-u-cbar-card,
+  [id*="cbar" i], [class*="cbar" i] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  .ew-colored-map-tag {
+    background: rgba(9, 15, 28, 0.95) !important;
+    color: #f8fafc !important;
+    border-radius: 7px !important;
+    padding: 5px 8px !important;
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.8) !important;
+    white-space: nowrap !important;
+    line-height: 1.3 !important;
+  }
+</style>
+<script id="ew-deployment-cbar-removed-map-colored-script">
+(function() {
+  const COLOR_STOPS = [
+    "#1d4ed8", "#0284c7", "#06b6d4", "#10b981",
+    "#84cc16", "#eab308", "#f97316", "#ef4444", "#db2777"
+  ];
+
+  function colorForVal(val, minV, maxV) {
+    if (typeof val !== "number" || !Number.isFinite(val)) return COLOR_STOPS[3];
+    const span = Math.max(1e-6, maxV - minV);
+    const t = Math.max(0, Math.min(1, (val - minV) / span));
+    const idx = Math.min(COLOR_STOPS.length - 1, Math.floor(t * COLOR_STOPS.length));
+    return COLOR_STOPS[idx];
+  }
+
+  function stripCbar() {
+    document.querySelectorAll('[id*="cbar" i], [class*="cbar" i], .ew-u-cbar-box, .ew-u-cbar-card').forEach(el => {
+      if (el.id === "ew-deployment-cbar-removed-map-colored-style" || el.id === "ew-deployment-cbar-removed-map-colored-script") return;
+      el.style.setProperty("display", "none", "important");
+      el.style.setProperty("visibility", "hidden", "important");
+    });
+  }
+
+  function getLeafletMap() {
+    if (window.map && typeof window.map.addLayer === "function") return window.map;
+    for (const k of Object.keys(window)) {
+      try {
+        const v = window[k];
+        if (v && typeof v === "object" && typeof v.addLayer === "function" && typeof v.on === "function" && v._container) {
+          window.map = v;
+          return v;
+        }
+      } catch (_) {}
+    }
+    if (window.L && window.L.Map && window.L.Map._instances) {
+      const vals = Object.values(window.L.Map._instances);
+      if (vals.length) {
+        window.map = vals[0];
+        return vals[0];
+      }
+    }
+    return null;
+  }
+
+  function colorizeMapAroundCenter(lat, lon, val, minV, maxV, label) {
+    const mapObj = getLeafletMap();
+    if (!window.L || !mapObj) return;
+
+    if (!window._ewColoredMapLayer) {
+      window._ewColoredMapLayer = L.layerGroup().addTo(mapObj);
+    } else if (!mapObj.hasLayer(window._ewColoredMapLayer)) {
+      window._ewColoredMapLayer.addTo(mapObj);
+    }
+    window._ewColoredMapLayer.clearLayers();
+
+    const mainCol = colorForVal(val, minV, maxV);
+    const gridOffsets = [
+      [-0.25, -0.25], [-0.25, 0], [-0.25, 0.25],
+      [0, -0.25],     [0, 0],     [0, 0.25],
+      [0.25, -0.25],  [0.25, 0],  [0.25, 0.25]
+    ];
+
+    gridOffsets.forEach(([dLat, dLon], i) => {
+      const ratio = i / Math.max(1, gridOffsets.length - 1);
+      const cellVal = minV + ratio * (maxV - minV);
+      const col = (dLat === 0 && dLon === 0) ? mainCol : colorForVal(cellVal, minV, maxV);
+
+      L.circleMarker([lat + dLat, lon + dLon], {
+        radius: (dLat === 0 && dLon === 0) ? 14 : 10,
+        color: "#ffffff",
+        weight: (dLat === 0 && dLon === 0) ? 2.5 : 1.5,
+        fillColor: col,
+        fillOpacity: (dLat === 0 && dLon === 0) ? 0.92 : 0.68,
+        interactive: false
+      }).addTo(window._ewColoredMapLayer);
+    });
+
+    L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: "ew-colored-map-tag",
+        html: `<div style="border-left:3px solid ${mainCol};padding-left:6px;">${label || "ECMWF"}: <span style="color:${mainCol};">${Number.isFinite(val) ? val.toFixed(1) : "-"}</span></div>`,
+        iconSize: null,
+        iconAnchor: [0, 22]
+      }),
+      interactive: false
+    }).addTo(window._ewColoredMapLayer);
+  }
+
+  async function updateColoredMapFromEcmwf(lat, lon) {
+    try {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&hourly=temperature_2m&past_days=1&forecast_days=1&timezone=Europe%2FIstanbul`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const temps = (data && data.hourly && Array.isArray(data.hourly.temperature_2m)) ? data.hourly.temperature_2m : [];
+      const valid = temps.filter(v => typeof v === "number" && Number.isFinite(v));
+      if (!valid.length) return;
+      const midVal = valid[Math.floor(valid.length / 2)];
+      const lo = Math.min(...valid);
+      const hi = Math.max(...valid);
+      colorizeMapAroundCenter(lat, lon, midVal, lo, hi, "2m Sıcaklığı");
+    } catch (_) {}
+  }
+
+  function bindColorMap() {
+    stripCbar();
+    const mapObj = getLeafletMap();
+    if (!mapObj) return;
+    const c = mapObj.getCenter ? mapObj.getCenter() : { lat: 41.0082, lng: 28.9784 };
+    updateColoredMapFromEcmwf(c.lat, c.lng);
+
+    if (!mapObj._ewColorBound) {
+      mapObj._ewColorBound = true;
+      mapObj.on("click", function(ev) {
+        if (!ev || !ev.latlng) return;
+        updateColoredMapFromEcmwf(ev.latlng.lat, ev.latlng.lng);
+      });
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindColorMap);
+  } else {
+    bindColorMap();
+  }
+  setInterval(stripCbar, 1000);
+})();
+</script>
+<!-- ew-deployment-cbar-removed-map-colored-end -->
 </body>
 </html>
