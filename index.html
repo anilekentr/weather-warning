@@ -3206,5 +3206,90 @@
 </script>
 <!-- EW_UNIFIED_PANELS_COORDS_CBAR_END -->
 
+<!-- EW_REMOVE_LEGACY_PANEL_CBAR_START -->
+<style>
+  [id*="ecmwf-panel" i]:not(#ew-dual-panel):not(#ew-ecmwf-var-bar),
+  [class*="ecmwf-panel" i]:not(#ew-dual-panel):not(#ew-ecmwf-var-bar),
+  [id*="old-cbar" i],
+  [class*="old-cbar" i],
+  [id*="legacy-cbar" i],
+  [class*="legacy-cbar" i],
+  .ew-cbar-legacy {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+</style>
+<script>
+(function () {
+  const KEEP_IDS = new Set([
+    "ew-dual-panel",
+    "ew-panel-coords-top",
+    "ew-panel-coord-vals",
+    "ew-subpanel-live",
+    "ew-subpanel-range",
+    "ew-panel-range-foot",
+    "ew-ecmwf-var-bar",
+    "ew-cbar",
+    "cbar-title",
+    "ew-cbar-grad-bar",
+    "ew-cbar-bins-detail"
+  ]);
+
+  function isProtectedNode(el) {
+    if (!el || el.nodeType !== 1) return true;
+    if (KEEP_IDS.has(el.id)) return true;
+    if (el.closest("#ew-dual-panel, #ew-ecmwf-var-bar, #ew-cbar, .leaflet-control-zoom")) return true;
+    if (el.classList && (el.classList.contains("ew-ecmwf-btn") || el.classList.contains("ew-cbar-chip"))) return true;
+    return false;
+  }
+
+  function purgeLegacyPanelsAndCbars() {
+    const candidates = document.querySelectorAll(
+      "[id*="ecmwf" i], [class*="ecmwf" i], [id*="cbar" i], [class*="cbar" i], [id*="colorbar" i], [class*="colorbar" i]"
+    );
+
+    candidates.forEach(el => {
+      if (isProtectedNode(el)) return;
+      const idOrCls = `${el.id || ""} ${typeof el.className === "string" ? el.className : ""}`.toLowerCase();
+      const isLegacyPanel = (idOrCls.includes("ecmwf") && (idOrCls.includes("panel") || idOrCls.includes("box") || idOrCls.includes("card") || idOrCls.includes("drawer")))
+        && !idOrCls.includes("btn") && !idOrCls.includes("bar-var");
+      const isExtraCbar = (idOrCls.includes("cbar") || idOrCls.includes("colorbar")) && el.id !== "ew-cbar";
+
+      if (isLegacyPanel || isExtraCbar) {
+        el.remove();
+      }
+    });
+
+    const cbar = document.getElementById("ew-cbar");
+    if (cbar) {
+      Array.from(cbar.children).forEach(child => {
+        const cid = child.id || "";
+        const ccls = typeof child.className === "string" ? child.className : "";
+        const isAllowedChild = cid === "cbar-title"
+          || cid === "ew-cbar-grad-bar"
+          || cid === "ew-cbar-bins-detail"
+          || ccls.includes("cbar-title")
+          || ccls.includes("ew-cbar");
+        if (!isAllowedChild && child.tagName !== "STYLE") {
+          child.remove();
+        }
+      });
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", purgeLegacyPanelsAndCbars);
+  } else {
+    purgeLegacyPanelsAndCbars();
+  }
+
+  const obs = new MutationObserver(() => purgeLegacyPanelsAndCbars());
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+  setInterval(purgeLegacyPanelsAndCbars, 900);
+})();
+</script>
+<!-- EW_REMOVE_LEGACY_PANEL_CBAR_END -->
+
 </body>
 </html>
