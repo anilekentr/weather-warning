@@ -5762,135 +5762,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
 
 
-<!-- EW_COORD_INLINE_PLACE_START -->
-<script>
-(function () {
-  const cache = new Map();
-  let lastCoordKey = "";
-  let currentPlace = "";
-  let reqSeq = 0;
 
-  function parseCoordFromText(txt) {
-    if (!txt) return null;
-    const m = txt.match(/(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
-    if (!m) return null;
-    const lat = Number(m[1]);
-    const lon = Number(m[2]);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    return { lat, lon, raw: m[0] };
-  }
-
-  function formatAddress(addr, lat, lon) {
-    const a = addr || {};
-    const il = a.province || a.state || a.city || "";
-    const ilce = a.town || a.county || a.city_district || a.district || "";
-    const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || a.road || "";
-    const parts = [il, ilce].filter(Boolean);
-    if (!parts.length && !mah) return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-    if (mah) return `${parts.join(" / ")} · ${mah}`;
-    return parts.join(" / ");
-  }
-
-  function applyPlaceToCoordBoxes(lat, lon, placeText) {
-    const targetRaw = `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
-    const candidates = Array.from(document.querySelectorAll("div, p, span, b, strong, small, label"));
-
-    for (const el of candidates) {
-      if (el.id === "ew-cursor-tooltip" || el.id === "ew-static-cbar") continue;
-      if (el.children && el.children.length > 3) continue;
-
-      const txt = (el.textContent || "").trim();
-      if (!txt || txt.length > 240) continue;
-      if (!txt.includes("°N,") || !txt.includes("°E")) continue;
-
-      const parsed = parseCoordFromText(txt);
-      if (!parsed) continue;
-
-      let badge = el.querySelector(".ew-inline-place-tag");
-      if (!badge) {
-        badge = document.createElement("span");
-        badge.className = "ew-inline-place-tag";
-        badge.style.cssText = "display:block;font-size:11px;font-weight:700;color:#7dd3fc;margin-top:2px;";
-        el.appendChild(badge);
-      }
-      const line = `Konum: ${placeText}`;
-      if (badge.textContent !== line) {
-        badge.textContent = line;
-      }
-      if (parsed.raw !== targetRaw) {
-        badge.dataset.coordRef = parsed.raw;
-      }
-    }
-  }
-
-  async function resolvePlace(lat, lon) {
-    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    if (cache.has(key)) {
-      currentPlace = cache.get(key);
-      applyPlaceToCoordBoxes(lat, lon, currentPlace);
-      return;
-    }
-
-    const seq = ++reqSeq;
-    currentPlace = "Konum alınıyor...";
-    applyPlaceToCoordBoxes(lat, lon, currentPlace);
-
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1&accept-language=tr`;
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!res.ok || seq !== reqSeq) return;
-      const data = await res.json();
-      const formatted = formatAddress(data.address, lat, lon);
-      cache.set(key, formatted);
-      currentPlace = formatted;
-      applyPlaceToCoordBoxes(lat, lon, currentPlace);
-    } catch (_) {
-      if (seq === reqSeq) {
-        currentPlace = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-        applyPlaceToCoordBoxes(lat, lon, currentPlace);
-      }
-    }
-  }
-
-  function scanAndSync() {
-    const all = Array.from(document.querySelectorAll("div, p, span, b, strong, small, label"));
-    for (const el of all) {
-      if (el.id === "ew-cursor-tooltip") continue;
-      if (el.children && el.children.length > 3) continue;
-      const txt = (el.textContent || "").trim();
-      const parsed = parseCoordFromText(txt);
-      if (parsed) {
-        const k = `${parsed.lat.toFixed(4)},${parsed.lon.toFixed(4)}`;
-        if (k !== lastCoordKey) {
-          lastCoordKey = k;
-          resolvePlace(parsed.lat, parsed.lon);
-        } else if (currentPlace) {
-          applyPlaceToCoordBoxes(parsed.lat, parsed.lon, currentPlace);
-        }
-        break;
-      }
-    }
-  }
-
-  const domObs = new MutationObserver(function () {
-    scanAndSync();
-  });
-
-  function start() {
-    scanAndSync();
-    if (document.body) {
-      domObs.observe(document.body, { childList: true, subtree: true, characterData: true });
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start);
-  } else {
-    start();
-  }
-})();
-</script>
-<!-- EW_COORD_INLINE_PLACE_END -->
 
 
 
@@ -6070,6 +5942,196 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 })();
 </script>
 <!-- EW_CURSOR_PLACE_RIGHT_PANEL_END -->
+
+<!-- EW_FIX_GARBLED_LOC_START -->
+<script>
+(function () {
+  const placeCache = new Map();
+  let activeKey = "";
+  let activePlace = "Konum bekleniyor...";
+  let seq = 0;
+  let timer = null;
+  let busy = false;
+
+  function cleanCoordPair(text) {
+    if (!text) return null;
+    const m = text.match(/(-?\d{1,2}\.\d{3,6})°?N?,\s*(-?\d{1,3}\.\d{3,6})°?E?/i);
+    if (!m) return null;
+    const lat = Number(m[1]);
+    const lon = Number(m[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+      lat,
+      lon,
+      dms: `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`,
+      dec: `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+    };
+  }
+
+  function buildPlaceString(addr, displayName, lat, lon) {
+    const a = addr || {};
+    const il = a.province || a.state || a.city || "";
+    const ilce = a.town || a.county || a.city_district || a.district || a.municipality || "";
+    const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || a.road || "";
+
+    const mainParts = [];
+    if (il) mainParts.push(il);
+    if (ilce && ilce !== il) mainParts.push(ilce);
+
+    if (mainParts.length && mah) {
+      return `${mainParts.join(" / ")} · ${mah}`;
+    }
+    if (mainParts.length) {
+      return mainParts.join(" / ");
+    }
+    if (mah) {
+      return mah;
+    }
+    if (displayName) {
+      const shortDisp = String(displayName).split(",").slice(0, 2).map(s => s.trim()).filter(Boolean).join(" / ");
+      if (shortDisp && !/^\d/.test(shortDisp)) return shortDisp;
+    }
+    return `Bölge (${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)`;
+  }
+
+  function renderAllTargets(lat, lon, placeText) {
+    if (busy) return;
+    busy = true;
+    try {
+      const dms = `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
+      const dec = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+      // Eski hatalı konum etiketlerini temizle
+      document.querySelectorAll(".ew-inline-place-tag").forEach((n) => n.remove());
+
+      const nodes = Array.from(document.querySelectorAll("div, p, span, b, strong, small, label"));
+      for (const el of nodes) {
+        if (el.id === "ew-cursor-tooltip" || el.id === "ew-static-cbar" || el.id === "ew-ui-right") continue;
+        if (el.children && el.children.length > 2) continue;
+
+        const raw = (el.textContent || "").trim();
+        if (!raw || raw.length > 220) continue;
+        if (raw.includes("Konum:") && /\d{5,}/.test(raw)) {
+          el.textContent = dms;
+        }
+      }
+
+      // Sağ panel (#ew-ui-right) koordinat ve il/ilçe satırı
+      const rp = document.getElementById("ew-ui-right");
+      if (rp) {
+        const lines = Array.from(rp.querySelectorAll("div"));
+        if (lines.length >= 1) {
+          lines[0].textContent = `KOORDİNAT: ${dms} (${dec})`;
+        }
+        let locRow = rp.querySelector(".ew-rp-place-line");
+        if (!locRow) {
+          locRow = document.createElement("div");
+          locRow.className = "ew-rp-place-line";
+          locRow.style.cssText = "font-size:12px;font-weight:700;color:#7dd3fc;margin-top:4px;";
+          if (lines.length >= 2) {
+            lines[1].insertAdjacentElement("afterend", locRow);
+          } else {
+            rp.appendChild(locRow);
+          }
+        }
+        locRow.textContent = `İl / İlçe: ${placeText}`;
+      }
+
+      // İmleç kutusu (#ew-cursor-tooltip)
+      const tip = document.getElementById("ew-cursor-tooltip");
+      if (tip && tip.style.display !== "none") {
+        tip.innerHTML = `
+          <div class="ew-ct-coord">${dms}</div>
+          <div class="ew-ct-place">${placeText}</div>
+        `;
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function fetchReversePlace(lat, lon) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (placeCache.has(key)) {
+      activePlace = placeCache.get(key);
+      renderAllTargets(lat, lon, activePlace);
+      return;
+    }
+
+    const mySeq = ++seq;
+    activePlace = "İl / ilçe alınıyor...";
+    renderAllTargets(lat, lon, activePlace);
+
+    for (const zoom of [15, 10]) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=${zoom}&addressdetails=1&accept-language=tr`;
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        if (!res.ok || mySeq !== seq) return;
+        const data = await res.json();
+        const formatted = buildPlaceString(data.address, data.display_name, lat, lon);
+        if (formatted && !formatted.startsWith("Bölge (")) {
+          placeCache.set(key, formatted);
+          activePlace = formatted;
+          renderAllTargets(lat, lon, activePlace);
+          return;
+        }
+      } catch (_) {}
+    }
+
+    if (mySeq === seq) {
+      const fallback = `Açık Alan · ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
+      placeCache.set(key, fallback);
+      activePlace = fallback;
+      renderAllTargets(lat, lon, activePlace);
+    }
+  }
+
+  function scheduleFromCoord(lat, lon) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (key === activeKey) {
+      renderAllTargets(lat, lon, activePlace);
+      return;
+    }
+    activeKey = key;
+    if (placeCache.has(key)) {
+      activePlace = placeCache.get(key);
+      renderAllTargets(lat, lon, activePlace);
+      return;
+    }
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fetchReversePlace(lat, lon), 260);
+  }
+
+  function inspectDomCoord() {
+    if (busy) return;
+    const nodes = Array.from(document.querySelectorAll("div, p, span, small"));
+    for (const el of nodes) {
+      if (el.id === "ew-cursor-tooltip") continue;
+      const txt = (el.textContent || "").trim();
+      const parsed = cleanCoordPair(txt);
+      if (parsed) {
+        scheduleFromCoord(parsed.lat, parsed.lon);
+        break;
+      }
+    }
+  }
+
+  const mo = new MutationObserver(() => {
+    if (!busy) inspectDomCoord();
+  });
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      inspectDomCoord();
+      if (document.body) mo.observe(document.body, { childList: true, subtree: true });
+    });
+  } else {
+    inspectDomCoord();
+    if (document.body) mo.observe(document.body, { childList: true, subtree: true });
+  }
+})();
+</script>
+<!-- EW_FIX_GARBLED_LOC_END -->
 
 </body>
 </html>
