@@ -3464,5 +3464,392 @@
 </script>
 <!-- EW_LAYOUT_CBAR_FULL_MAP_END -->
 
+<!-- EW_GEO_POINT_AND_CLEAN_LAYOUT_START -->
+<style>
+  /* Logo ve Zoom kontrolleri birbirine değmesin */
+  #ew-brand-logo {
+    position: fixed !important;
+    top: 12px !important;
+    left: 14px !important;
+    z-index: 1000 !important;
+    margin: 0 !important;
+  }
+
+  .leaflet-top.leaflet-left {
+    top: 76px !important;
+    left: 14px !important;
+    z-index: 990 !important;
+  }
+
+  .leaflet-top.leaflet-left .leaflet-control-zoom {
+    margin: 0 !important;
+  }
+
+  /* Değişken butonları zoom ve logo ile çakışmadan altında yer alsın */
+  #ew-ecmwf-var-bar {
+    position: fixed !important;
+    top: 156px !important;
+    left: 14px !important;
+    right: auto !important;
+    z-index: 950 !important;
+    max-width: min(410px, calc(100vw - 410px)) !important;
+    max-height: calc(100vh - 265px) !important;
+    overflow-y: auto !important;
+  }
+
+  /* Sağ taraftaki koordinat + il/ilçe/mahalle + noktasal değişken değeri paneli */
+  #ew-dual-panel {
+    position: fixed !important;
+    top: 12px !important;
+    right: 14px !important;
+    left: auto !important;
+    z-index: 995 !important;
+    width: min(360px, calc(100vw - 270px)) !important;
+    border-radius: 14px !important;
+    background: rgba(15, 23, 42, 0.93) !important;
+    border: 1px solid rgba(148, 163, 184, 0.34) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 14px 34px rgba(2, 6, 23, 0.58) !important;
+    color: #f8fafc !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    overflow: hidden !important;
+  }
+
+  #ew-panel-location-banner {
+    padding: 8px 12px;
+    background: rgba(14, 165, 233, 0.16);
+    border-bottom: 1px solid rgba(125, 211, 252, 0.24);
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: #e0f2fe;
+  }
+
+  #ew-panel-location-title {
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #ew-panel-location-sub {
+    font-size: 10.5px;
+    color: #bae6fd;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Orta aşağıda siyah renkli eski buton / sahte cbar öğelerini gizle */
+  #ew-cbar-black,
+  .ew-cbar-black,
+  [id*="bottom-bar" i],
+  [class*="bottom-bar" i],
+  [id*="footer-bar" i],
+  [class*="footer-bar" i] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Tek temiz CBAR */
+  #ew-cbar {
+    position: fixed !important;
+    bottom: 14px !important;
+    left: 50% !important;
+    top: auto !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    z-index: 970 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: min(500px, calc(100vw - 32px)) !important;
+    padding: 8px 12px !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.90) !important;
+    border: 1px solid rgba(148, 163, 184, 0.30) !important;
+    backdrop-filter: blur(10px) !important;
+    box-shadow: 0 10px 26px rgba(2, 6, 23, 0.50) !important;
+    color: #f8fafc !important;
+  }
+</style>
+
+<script>
+(function () {
+  const geoCache = new Map();
+  const pointVarCache = new Map();
+  let selectedPoint = {
+    lat: 41.0082,
+    lon: 28.9784,
+    il: "İstanbul",
+    ilce: "Fatih",
+    mahalle: "Haritaya tıklayın",
+    pointVal: NaN,
+    pointTime: ""
+  };
+  let activeLookupSeq = 0;
+
+  function getActiveOm() {
+    const btn = document.querySelector(".ew-ecmwf-btn.is-active");
+    if (btn && btn.dataset && btn.dataset.om) return btn.dataset.om;
+    try {
+      if (typeof pState !== "undefined" && pState && (pState.varCode || pState.variable)) {
+        return pState.varCode || pState.variable;
+      }
+    } catch (_) {}
+    return "temperature_2m";
+  }
+
+  function getVarMeta(om) {
+    const map = {
+      temperature_2m: { name: "2m Sıcaklık", unit: "°C" },
+      apparent_temperature: { name: "Hissedilen Sıcaklık", unit: "°C" },
+      dew_point_2m: { name: "Çiy Noktası", unit: "°C" },
+      relative_humidity_2m: { name: "Bağıl Nem", unit: "%" },
+      precipitation: { name: "Toplam Yağış", unit: "mm" },
+      rain: { name: "Yağmur", unit: "mm" },
+      snowfall: { name: "Kar Yağışı", unit: "cm" },
+      weather_code: { name: "WMO Kodu", unit: "wmo" },
+      pressure_msl: { name: "Deniz Sev. Basıncı", unit: "hPa" },
+      surface_pressure: { name: "Yüzey Basıncı", unit: "hPa" },
+      cloud_cover: { name: "Toplam Bulut", unit: "%" },
+      cloud_cover_low: { name: "Alçak Bulut", unit: "%" },
+      cloud_cover_mid: { name: "Orta Bulut", unit: "%" },
+      cloud_cover_high: { name: "Yüksek Bulut", unit: "%" },
+      visibility: { name: "Görüş Mesafesi", unit: "m" },
+      wind_speed_10m: { name: "10m Rüzgar Hızı", unit: "km/h" },
+      wind_speed_80m: { name: "80m Rüzgar Hızı", unit: "km/h" },
+      wind_speed_120m: { name: "120m Rüzgar Hızı", unit: "km/h" },
+      wind_direction_10m: { name: "10m Rüzgar Yönü", unit: "°" },
+      wind_gusts_10m: { name: "10m Rüzgar Hamlesi", unit: "km/h" },
+      soil_temperature_0_to_7cm: { name: "Toprak Sıcaklığı", unit: "°C" },
+      soil_moisture_0_to_7cm: { name: "Toprak Nemi", unit: "m³/m³" }
+    };
+    return map[om] || { name: om, unit: "" };
+  }
+
+  function fmtVal(n, unit) {
+    if (!Number.isFinite(n)) return "-";
+    if (unit === "m³/m³") return n.toFixed(3);
+    if (Math.abs(n) >= 100 || unit === "hPa" || unit === "m" || unit === "°") return n.toFixed(1);
+    return n.toFixed(2);
+  }
+
+  function purgeBlackBottomElements() {
+    document.querySelectorAll("div, button, aside, section, nav").forEach(el => {
+      if (!el || el.nodeType !== 1) return;
+      if (el.id === "ew-cbar" || el.id === "cbar-title" || el.id === "ew-cbar-grad-bar" || el.id === "ew-cbar-bins-detail") return;
+      if (el.closest("#ew-cbar, #ew-dual-panel, #ew-ecmwf-var-bar, #ew-brand-logo, #ew-tr-flag-badge, .leaflet-control-zoom")) return;
+      if (el.querySelector("audio")) return;
+
+      const cs = getComputedStyle(el);
+      if (cs.position !== "fixed" && cs.position !== "absolute") return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const isBottomCenter = rect.bottom >= window.innerHeight - 90
+        && rect.left > window.innerWidth * 0.15
+        && rect.right < window.innerWidth * 0.85
+        && rect.height < 110;
+
+      const idCls = `${el.id || ""} ${typeof el.className === "string" ? el.className : ""}`.toLowerCase();
+      const hasLegacyBarHint = idCls.includes("cbar") || idCls.includes("colorbar") || idCls.includes("legend") || idCls.includes("scale");
+
+      if (isBottomCenter || hasLegacyBarHint) {
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("visibility", "hidden", "important");
+        el.style.setProperty("opacity", "0", "important");
+        el.style.setProperty("pointer-events", "none", "important");
+      }
+    });
+  }
+
+  function renderRightPanel() {
+    const panel = document.getElementById("ew-dual-panel");
+    if (!panel) return;
+
+    let locBanner = document.getElementById("ew-panel-location-banner");
+    if (!locBanner) {
+      locBanner = document.createElement("div");
+      locBanner.id = "ew-panel-location-banner";
+      locBanner.innerHTML = `
+        <div id="ew-panel-location-title">İl / İlçe / Mahalle</div>
+        <div id="ew-panel-location-sub">Haritada bir noktaya tıklayın</div>
+      `;
+      const coordsTop = document.getElementById("ew-panel-coords-top");
+      if (coordsTop && coordsTop.nextSibling) {
+        panel.insertBefore(locBanner, coordsTop.nextSibling);
+      } else {
+        panel.prepend(locBanner);
+      }
+    }
+
+    const om = getActiveOm();
+    const meta = getVarMeta(om);
+
+    const coordEl = document.getElementById("ew-panel-coord-vals");
+    if (coordEl && Number.isFinite(selectedPoint.lat) && Number.isFinite(selectedPoint.lon)) {
+      coordEl.textContent = `Lat: ${selectedPoint.lat.toFixed(4)}° · Lon: ${selectedPoint.lon.toFixed(4)}°`;
+    }
+
+    const titleEl = document.getElementById("ew-panel-location-title");
+    const subEl = document.getElementById("ew-panel-location-sub");
+    if (titleEl) {
+      const parts = [selectedPoint.il, selectedPoint.ilce].filter(Boolean);
+      titleEl.textContent = parts.length ? parts.join(" / ") : "Konum Belirleniyor...";
+    }
+    if (subEl) {
+      subEl.textContent = selectedPoint.mahalle ? `Mahalle: ${selectedPoint.mahalle}` : "Mahalle bilgisi aranıyor...";
+    }
+
+    const liveValEl = document.getElementById("ew-sp-live-val");
+    const liveMetaEl = document.getElementById("ew-sp-live-meta");
+    if (liveValEl) {
+      liveValEl.textContent = Number.isFinite(selectedPoint.pointVal)
+        ? `${fmtVal(selectedPoint.pointVal, meta.unit)} ${meta.unit}`.trim()
+        : `- ${meta.unit}`.trim();
+    }
+    if (liveMetaEl) {
+      liveMetaEl.textContent = `${meta.name} (Seçili Nokta)`;
+    }
+
+    const varBadge = document.getElementById("ew-sp-var-badge");
+    const timeBadge = document.getElementById("ew-sp-time-badge");
+    if (varBadge) varBadge.textContent = `${meta.name} [${om}] · ${meta.unit || "-"}`;
+    if (timeBadge && selectedPoint.pointTime) timeBadge.textContent = selectedPoint.pointTime;
+  }
+
+  async function fetchReverseGeocode(lat, lon) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (geoCache.has(key)) return geoCache.get(key);
+
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&accept-language=tr`;
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!res.ok) throw new Error("Nominatim HTTP " + res.status);
+    const data = await res.json();
+    const addr = data && data.address ? data.address : {};
+
+    const il = addr.province || addr.state || addr.city || addr.region || "";
+    const ilce = addr.town || addr.county || addr.city_district || addr.district || addr.municipality || "";
+    const mahalle = addr.neighbourhood || addr.suburb || addr.quarter || addr.village || addr.hamlet || addr.road || (data.display_name ? data.display_name.split(",")[0] : "");
+
+    const parsed = {
+      il: il || "Deniz / Açık Alan",
+      ilce: ilce || "",
+      mahalle: mahalle || "-"
+    };
+    geoCache.set(key, parsed);
+    return parsed;
+  }
+
+  async function fetchPointVariableValue(lat, lon, om) {
+    const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}:${om}`;
+    let payload = pointVarCache.get(cacheKey);
+    if (!payload) {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=${encodeURIComponent(om)}&timezone=auto&forecast_days=7`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("ECMWF Point HTTP " + res.status);
+      payload = await res.json();
+      if (payload && payload.hourly && Array.isArray(payload.hourly[om])) {
+        pointVarCache.set(cacheKey, payload);
+      }
+    }
+
+    const arr = payload && payload.hourly && Array.isArray(payload.hourly[om]) ? payload.hourly[om] : [];
+    const times = payload && payload.hourly && Array.isArray(payload.hourly.time) ? payload.hourly.time : [];
+    let stepIdx = 0;
+    try {
+      if (typeof pState !== "undefined" && pState && Number.isFinite(Number(pState.stepIdx))) {
+        stepIdx = Math.max(0, Number(pState.stepIdx));
+      }
+    } catch (_) {}
+
+    if (!arr.length) return { val: NaN, time: "" };
+    const idx = Math.min(arr.length - 1, stepIdx);
+    const val = Number(arr[idx]);
+    const time = times[idx] ? String(times[idx]).replace("T", " ").slice(0, 16) : "";
+    return { val, time };
+  }
+
+  async function inspectMapPoint(lat, lon) {
+    const seq = ++activeLookupSeq;
+    const om = getActiveOm();
+    selectedPoint.lat = lat;
+    selectedPoint.lon = lon;
+    selectedPoint.il = "Konum yükleniyor...";
+    selectedPoint.ilce = "";
+    selectedPoint.mahalle = "Sorgulanıyor...";
+    selectedPoint.pointVal = NaN;
+    renderRightPanel();
+
+    try {
+      if (typeof pState !== "undefined" && pState) {
+        pState.lat = lat;
+        pState.lon = lon;
+        pState.selectedLat = lat;
+        pState.selectedLon = lon;
+      }
+    } catch (_) {}
+
+    const [geoRes, varRes] = await Promise.allSettled([
+      fetchReverseGeocode(lat, lon),
+      fetchPointVariableValue(lat, lon, om)
+    ]);
+
+    if (seq !== activeLookupSeq) return;
+
+    if (geoRes.status === "fulfilled" && geoRes.value) {
+      selectedPoint.il = geoRes.value.il;
+      selectedPoint.ilce = geoRes.value.ilce;
+      selectedPoint.mahalle = geoRes.value.mahalle;
+    } else {
+      selectedPoint.il = "Koordinat Seçildi";
+      selectedPoint.ilce = "";
+      selectedPoint.mahalle = "-";
+    }
+
+    if (varRes.status === "fulfilled" && varRes.value) {
+      selectedPoint.pointVal = varRes.value.val;
+      selectedPoint.pointTime = varRes.value.time;
+    }
+
+    renderRightPanel();
+  }
+
+  function bindMapClick() {
+    const mapObj = window.map || window._map;
+    if (!mapObj || mapObj.__ewPointClickBound) return;
+    mapObj.__ewPointClickBound = true;
+    mapObj.on("click", e => {
+      if (e && e.latlng && Number.isFinite(e.latlng.lat) && Number.isFinite(e.latlng.lng)) {
+        inspectMapPoint(e.latlng.lat, e.latlng.lng);
+      }
+    });
+  }
+
+  document.addEventListener("click", e => {
+    const btn = e.target && e.target.closest ? e.target.closest(".ew-ecmwf-btn") : null;
+    if (btn && btn.dataset && btn.dataset.om) {
+      setTimeout(() => {
+        if (Number.isFinite(selectedPoint.lat) && Number.isFinite(selectedPoint.lon)) {
+          inspectMapPoint(selectedPoint.lat, selectedPoint.lon);
+        }
+      }, 30);
+    }
+  }, true);
+
+  setInterval(() => {
+    purgeBlackBottomElements();
+    bindMapClick();
+    renderRightPanel();
+  }, 400);
+})();
+</script>
+<!-- EW_GEO_POINT_AND_CLEAN_LAYOUT_END -->
+
 </body>
 </html>
