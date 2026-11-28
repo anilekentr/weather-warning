@@ -1726,10 +1726,9 @@
 <style id="ew-4e4e484-ecmwf-full-sync-style">
   #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale), .ew-inline-hour-btn { display: none !important; }
   .ew-top-cbar-warn { display: none !important; }
-  #ew-range-player-box, #ew-ecmwf-range-player, [id*="date-player"], [id*="time-player"], [id*="range-player"] { display: block !important; visibility: visible !important; opacity: 1 !important; }
   #ew-player-cbar-wrap { display: block !important; opacity: 1 !important; visibility: visible !important; position: fixed !important; top: 12px !important; left: 50% !important; right: auto !important; transform: translateX(-50%) !important; width: min(560px, calc(100vw - 320px)) !important; min-width: 320px !important; z-index: 1600 !important; padding: 8px 12px !important; border-radius: 10px !important; background: rgba(15, 23, 42, 0.94) !important; border: 1px solid rgba(148, 163, 184, 0.45) !important; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45) !important; }
   #ew-player-cbar { height: 14px !important; min-height: 14px !important; border-radius: 6px !important; }
-  .ew-ecmwf-range-box { margin-top: 8px; padding: 8px; border-radius: 8px; background: rgba(9, 19, 34, 0.94); border: 1px solid rgba(148, 163, 184, 0.35); color: #f8fafc; font-size: 11px; line-height: 1.4; }
+  .ew-ecmwf-range-box { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px; border-radius: 8px; background: rgba(9, 19, 34, 0.94); border: 1px solid rgba(148, 163, 184, 0.35); color: #f8fafc; font-size: 11px; line-height: 1.4; }
   .ew-ecmwf-coord-row { margin-top: 4px; padding: 5px 6px; border-radius: 5px; background: rgba(15, 23, 42, 0.8); font-size: 10px; color: #e2e8f0; }
   .ew-ecmwf-range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
   .ew-ecmwf-range-grid label { display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: #cbd5e1; }
@@ -1780,10 +1779,10 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
   };
 
-  const nowHourMs = parseSelectedTimeMs();
+  const initNowMs = parseSelectedTimeMs();
   const pState = {
-    startMs: nowHourMs - 3600000,
-    endMs: nowHourMs + 3600000,
+    startMs: initNowMs - 3600000,
+    endMs: initNowMs + 3600000,
     stepIdx: 1,
     playing: false,
     timer: null,
@@ -1794,6 +1793,7 @@
     neighborhood: "",
     anchorVal: null,
     anchorVar: "",
+    anchorTimeMs: initNowMs,
     lastSig: ""
   };
 
@@ -1827,7 +1827,7 @@
 
     for (let i = leafTexts.length - 1; i >= 0; i--) {
       const t = leafTexts[i];
-      if (t.includes("Min:") || t.includes("Ort:") || t.includes("Max:") || t.includes("Seçili:") || t.includes("Toplam:") || t.includes("Adım:")) continue;
+      if (t.includes("Min:") || t.includes("Ort:") || t.includes("Max:") || t.includes("Seçili:") || t.includes("Aralık:") || t.includes("Adım:")) continue;
       const m = t.match(numUnitRe);
       if (m) {
         const parsed = Number(m[1]);
@@ -1925,13 +1925,15 @@
   }
 
   function getSeriesForVar(v, ctx) {
-    const baseNowMs = parseSelectedTimeMs();
-    const observedNow = readObservedVarValue(v);
-    if (pState.anchorVar !== v.om || Math.abs((pState.anchorVal ?? observedNow) - observedNow) > 0.001) {
+    const varHourMs = parseSelectedTimeMs();
+    const observedAtVarHour = readObservedVarValue(v);
+
+    if (pState.anchorVar !== v.om || Math.abs((pState.anchorVal ?? observedAtVarHour) - observedAtVarHour) > 0.001 || pState.anchorTimeMs !== varHourMs) {
       pState.anchorVar = v.om;
-      pState.anchorVal = observedNow;
-      pState.startMs = baseNowMs - 3600000;
-      pState.endMs = baseNowMs + 3600000;
+      pState.anchorVal = observedAtVarHour;
+      pState.anchorTimeMs = varHourMs;
+      pState.startMs = varHourMs - 3600000;
+      pState.endMs = varHourMs + 3600000;
       pState.stepIdx = 1;
     }
 
@@ -1939,23 +1941,23 @@
     const vals = [];
     for (let i = 0; i <= spanHours; i++) {
       const tMs = pState.startMs + i * 3600000;
-      const relHour = Math.round((tMs - baseNowMs) / 3600000);
+      const relHourFromVar = Math.round((tMs - varHourMs) / 3600000);
       const locShift = (((Math.abs(ctx.lat * 100 + ctx.lng * 100) % 7) - 3) * 0.04) * v.stepDelta;
-      const raw = relHour === 0 ? observedNow : observedNow + relHour * v.stepDelta + locShift;
+      const raw = relHourFromVar === 0 ? observedAtVarHour : observedAtVarHour + relHourFromVar * v.stepDelta + locShift;
       vals.push(clampVal(raw, v));
     }
-    return { totalHours: spanHours, vals, baseNowMs };
+    return { totalHours: spanHours, vals, varHourMs };
   }
 
   function shiftByHours(delta) {
     const d = Number(delta) || 0;
-    const { totalHours, baseNowMs } = getSeriesForVar(getVarDef(), readEcmwfContext());
+    const { totalHours, varHourMs } = getSeriesForVar(getVarDef(), readEcmwfContext());
     if (d === 0) {
       const spanMs = Math.max(3600000, pState.endMs - pState.startMs);
       const halfMs = Math.floor(spanMs / 2);
-      pState.startMs = baseNowMs - halfMs;
+      pState.startMs = varHourMs - halfMs;
       pState.endMs = pState.startMs + spanMs;
-      pState.stepIdx = Math.max(0, Math.min(totalHours, Math.round((baseNowMs - pState.startMs) / 3600000)));
+      pState.stepIdx = Math.max(0, Math.min(totalHours, Math.round((varHourMs - pState.startMs) / 3600000)));
     } else {
       const nextStep = pState.stepIdx + d;
       if (nextStep < 0) {
@@ -2027,7 +2029,7 @@
   function renderEcmwfRangePlayer(v, ctx) {
     const host = findEcmwfPanelHost();
     if (!host) return;
-    const { totalHours, vals } = getSeriesForVar(v, ctx);
+    const { totalHours, vals, varHourMs } = getSeriesForVar(v, ctx);
     pState.stepIdx = Math.max(0, Math.min(totalHours, pState.stepIdx));
     const minVal = Math.min(...vals);
     const maxVal = Math.max(...vals);
@@ -2048,9 +2050,17 @@
       playBtn.addEventListener("click", () => { pState.playing = !pState.playing; if (pState.playing) { pState.timer = setInterval(() => { const { totalHours: th } = getSeriesForVar(getVarDef(), readEcmwfContext()); pState.stepIdx = (pState.stepIdx + 1) > th ? 0 : (pState.stepIdx + 1); renderAll(); }, 650); } else if (pState.timer) { clearInterval(pState.timer); pState.timer = null; } renderAll(); });
     }
 
+    if (box.parentElement !== host) host.appendChild(box);
     box.style.setProperty("display", "block", "important");
+    box.style.setProperty("position", "relative", "important");
+    box.style.setProperty("left", "auto", "important");
+    box.style.setProperty("right", "auto", "important");
+    box.style.setProperty("top", "auto", "important");
+    box.style.setProperty("bottom", "auto", "important");
+    box.style.setProperty("transform", "none", "important");
+
     box.querySelector("#ew-ecmwf-range-heading").innerHTML = `<strong>Saat Aralığı &amp; Oynatıcı (${v.name} [${v.om}] · ${v.unit})</strong>`;
-    box.querySelector("#ew-ecmwf-coord-summary").innerHTML = `<div>Koordinat: <strong>${ctx.lat.toFixed(4)}, ${ctx.lng.toFixed(4)}</strong> · Seçili: <strong>${curVal.toFixed(2)} ${v.unit}</strong></div><div>Konum: <strong>${formatPlaceLine(ctx)}</strong></div>`;
+    box.querySelector("#ew-ecmwf-coord-summary").innerHTML = `<div>Koordinat: <strong>${ctx.lat.toFixed(4)}, ${ctx.lng.toFixed(4)}</strong> · Seçili: <strong>${curVal.toFixed(2)} ${v.unit}</strong></div><div>Konum: <strong>${formatPlaceLine(ctx)}</strong> · Saat: <strong>${toInputVal(varHourMs).replace("T", " ")}</strong></div>`;
     const startInp = box.querySelector("#ew-ecmwf-start-dt"), endInp = box.querySelector("#ew-ecmwf-end-dt");
     if (document.activeElement !== startInp) startInp.value = toInputVal(pState.startMs);
     if (document.activeElement !== endInp) endInp.value = toInputVal(pState.endMs);
@@ -2073,7 +2083,7 @@
     if (!window.L || !window.map) return;
     if (!window._ewRangeMapLayer) window._ewRangeMapLayer = L.layerGroup().addTo(window.map);
     window._ewRangeMapLayer.clearLayers();
-    const hOffset = (pState.startMs + pState.stepIdx * 3600000 - nowHourMs) / 3600000, b = window.map.getBounds ? window.map.getBounds() : null;
+    const hOffset = (pState.startMs + pState.stepIdx * 3600000 - pState.anchorTimeMs) / 3600000, b = window.map.getBounds ? window.map.getBounds() : null;
     const latMin = b ? Math.max(35.0, b.getSouth() - 0.3) : 38.0, latMax = b ? Math.min(44.0, b.getNorth() + 0.3) : 43.0, lngMin = b ? Math.max(25.0, b.getWest() - 0.3) : 25.0, lngMax = b ? Math.min(35.0, b.getEast() + 0.3) : 33.0;
     const rows = 18, cols = 24, dLat = (latMax - latMin) / rows, dLng = (lngMax - lngMin) / cols, span = (v.max - v.min) || 1;
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
@@ -2085,12 +2095,6 @@
   }
 
   function renderAll() {
-    document.querySelectorAll("#ew-range-player-box, [id*="date-player"], [id*="time-player"], [id*="range-player"]").forEach(el => {
-      if (el.id !== "ew-ecmwf-range-player") {
-        el.style.setProperty("display", "block", "important");
-        el.style.setProperty("visibility", "visible", "important");
-      }
-    });
     bindInstantListeners();
     removeMultiHourButtons();
     cleanSelectedTimeParentheses();
