@@ -555,6 +555,7 @@
     let marker = null;
 
     const map = L.map("map", { center: [41.0082, 28.9784], zoom: 7 });
+    window.map = map;
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
       attribution: "&copy; OpenStreetMap"
@@ -2466,7 +2467,7 @@
 
 
 
-<!-- EW_PRO_CATEGORIZED_ECMWF_START -->
+
 <style>
   /* Çakışmasız Yerleşim */
   #ew-brand-logo {
@@ -3214,9 +3215,9 @@
   }, 1500);
 })();
 </script>
-<!-- EW_PRO_CATEGORIZED_ECMWF_END -->
 
-<!-- EW_VAR_BTN_CBAR_FULL_GRID_START -->
+
+
 <script>
 (function () {
   const SCALE = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
@@ -3479,9 +3480,9 @@
   setTimeout(() => loadAndApplyVariable(activeKey, activeUnit), 300);
 })();
 </script>
-<!-- EW_VAR_BTN_CBAR_FULL_GRID_END -->
 
-<!-- EW_RIGHT_PANEL_CLICK_COORD_VAR_START -->
+
+
 <script>
 (function () {
   const geoStore = new Map();
@@ -3730,9 +3731,9 @@
   }, 250);
 })();
 </script>
-<!-- EW_RIGHT_PANEL_CLICK_COORD_VAR_END -->
 
-<!-- EW_RIGHT_PANEL_MOUSE_COORD_FIX_START -->
+
+
 <script>
 (function () {
   let activeMouseCoord = { lat: 41.0082, lon: 28.9784, lockedByClick: false };
@@ -3876,7 +3877,353 @@
   }, 400);
 })();
 </script>
-<!-- EW_RIGHT_PANEL_MOUSE_COORD_FIX_END -->
+
+
+
+<!-- EW_UNIFIED_APP_START -->
+<style>
+  #ew-brand-logo {
+    position: fixed !important;
+    top: 12px !important;
+    left: 14px !important;
+    right: auto !important;
+    bottom: auto !important;
+    z-index: 3000 !important;
+  }
+
+  .leaflet-top.leaflet-left {
+    position: fixed !important;
+    top: 78px !important;
+    left: 14px !important;
+    right: auto !important;
+    bottom: auto !important;
+    z-index: 2990 !important;
+  }
+
+  #ew-ui-left {
+    position: fixed !important;
+    top: 162px !important;
+    left: 14px !important;
+    right: auto !important;
+    bottom: auto !important;
+    z-index: 2980 !important;
+    width: min(365px, calc(100vw - 410px)) !important;
+    max-height: calc(100vh - 295px) !important;
+    overflow-y: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 9px !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    color: #f8fafc !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.55) !important;
+  }
+
+  .ew-ui-cats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  }
+
+  .ew-ui-vars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .ew-ui-btn {
+    appearance: none;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(30, 41, 59, 0.9);
+    color: #f8fafc;
+    border-radius: 6px;
+    padding: 3px 7px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1.25;
+  }
+
+  .ew-ui-btn.is-active {
+    background: #0284c7;
+    border-color: #ffffff;
+    font-weight: 700;
+  }
+
+  #ew-ui-right {
+    position: fixed !important;
+    top: 12px !important;
+    right: 14px !important;
+    left: auto !important;
+    bottom: auto !important;
+    z-index: 3000 !important;
+    width: min(355px, calc(100vw - 260px)) !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    color: #f8fafc !important;
+    padding: 10px 12px !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.55) !important;
+  }
+
+  #ew-ui-cbar {
+    position: fixed !important;
+    bottom: 14px !important;
+    left: 50% !important;
+    top: auto !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    z-index: 3000 !important;
+    width: min(540px, calc(100vw - 28px)) !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    color: #f8fafc !important;
+    padding: 9px 13px !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.6) !important;
+  }
+</style>
+
+<script>
+(function () {
+  const VARS_125 = [
+    ["temperature_2m", "°C"], ["apparent_temperature", "°C"], ["dew_point_2m", "°C"], ["relative_humidity_2m", "%"],
+    ["precipitation", "mm"], ["rain", "mm"], ["snowfall", "cm"], ["snow_depth", "m"], ["weather_code", "wmo code"],
+    ["pressure_msl", "hPa"], ["surface_pressure", "hPa"], ["cloud_cover", "%"], ["cloud_cover_low", "%"],
+    ["cloud_cover_mid", "%"], ["cloud_cover_high", "%"], ["wind_speed_10m", "km/h"], ["wind_speed_80m", "km/h"],
+    ["wind_speed_100m", "km/h"], ["wind_speed_120m", "km/h"], ["wind_direction_10m", "°"], ["wind_direction_80m", "°"],
+    ["wind_direction_100m", "°"], ["wind_direction_120m", "°"], ["wind_gusts_10m", "km/h"], ["cape", "J/kg"],
+    ["soil_temperature_0cm", "°C"], ["soil_temperature_6cm", "°C"], ["soil_temperature_18cm", "°C"], ["soil_temperature_54cm", "°C"],
+    ["soil_moisture_0_to_1cm", "m³/m³"], ["soil_moisture_1_to_3cm", "m³/m³"], ["soil_moisture_3_to_9cm", "m³/m³"],
+    ["soil_moisture_9_to_27cm", "m³/m³"], ["soil_moisture_27_to_81cm", "m³/m³"],
+    ["temperature_1000hPa", "°C"], ["geopotential_height_1000hPa", "m"], ["relative_humidity_1000hPa", "%"], ["dew_point_1000hPa", "°C"],
+    ["wind_speed_1000hPa", "km/h"], ["wind_direction_1000hPa", "°"], ["vertical_velocity_1000hPa", "m/s"],
+    ["temperature_925hPa", "°C"], ["geopotential_height_925hPa", "m"], ["relative_humidity_925hPa", "%"], ["dew_point_925hPa", "°C"],
+    ["wind_speed_925hPa", "km/h"], ["wind_direction_925hPa", "°"], ["vertical_velocity_925hPa", "m/s"],
+    ["temperature_850hPa", "°C"], ["geopotential_height_850hPa", "m"], ["relative_humidity_850hPa", "%"], ["dew_point_850hPa", "°C"],
+    ["wind_speed_850hPa", "km/h"], ["wind_direction_850hPa", "°"], ["vertical_velocity_850hPa", "m/s"],
+    ["temperature_700hPa", "°C"], ["geopotential_height_700hPa", "m"], ["relative_humidity_700hPa", "%"], ["dew_point_700hPa", "°C"],
+    ["wind_speed_700hPa", "km/h"], ["wind_direction_700hPa", "°"], ["vertical_velocity_700hPa", "m/s"],
+    ["temperature_600hPa", "°C"], ["geopotential_height_600hPa", "m"], ["relative_humidity_600hPa", "%"], ["dew_point_600hPa", "°C"],
+    ["wind_speed_600hPa", "km/h"], ["wind_direction_600hPa", "°"], ["vertical_velocity_600hPa", "m/s"],
+    ["temperature_500hPa", "°C"], ["geopotential_height_500hPa", "m"], ["relative_humidity_500hPa", "%"], ["dew_point_500hPa", "°C"],
+    ["wind_speed_500hPa", "km/h"], ["wind_direction_500hPa", "°"], ["vertical_velocity_500hPa", "m/s"],
+    ["temperature_400hPa", "°C"], ["geopotential_height_400hPa", "m"], ["relative_humidity_400hPa", "%"], ["dew_point_400hPa", "°C"],
+    ["wind_speed_400hPa", "km/h"], ["wind_direction_400hPa", "°"], ["vertical_velocity_400hPa", "m/s"],
+    ["temperature_300hPa", "°C"], ["geopotential_height_300hPa", "m"], ["relative_humidity_300hPa", "%"], ["dew_point_300hPa", "°C"],
+    ["wind_speed_300hPa", "km/h"], ["wind_direction_300hPa", "°"], ["vertical_velocity_300hPa", "m/s"],
+    ["temperature_250hPa", "°C"], ["geopotential_height_250hPa", "m"], ["relative_humidity_250hPa", "%"], ["dew_point_250hPa", "°C"],
+    ["wind_speed_250hPa", "km/h"], ["wind_direction_250hPa", "°"], ["vertical_velocity_250hPa", "m/s"],
+    ["temperature_200hPa", "°C"], ["geopotential_height_200hPa", "m"], ["relative_humidity_200hPa", "%"], ["dew_point_200hPa", "°C"],
+    ["wind_speed_200hPa", "km/h"], ["wind_direction_200hPa", "°"], ["vertical_velocity_200hPa", "m/s"],
+    ["temperature_150hPa", "°C"], ["geopotential_height_150hPa", "m"], ["relative_humidity_150hPa", "%"], ["dew_point_150hPa", "°C"],
+    ["wind_speed_150hPa", "km/h"], ["wind_direction_150hPa", "°"], ["vertical_velocity_150hPa", "m/s"],
+    ["temperature_100hPa", "°C"], ["geopotential_height_100hPa", "m"], ["relative_humidity_100hPa", "%"], ["dew_point_100hPa", "°C"],
+    ["wind_speed_100hPa", "km/h"], ["wind_direction_100hPa", "°"], ["vertical_velocity_100hPa", "m/s"],
+    ["temperature_50hPa", "°C"], ["geopotential_height_50hPa", "m"], ["relative_humidity_50hPa", "%"], ["dew_point_50hPa", "°C"],
+    ["wind_speed_50hPa", "km/h"], ["wind_direction_50hPa", "°"], ["vertical_velocity_50hPa", "m/s"]
+  ];
+
+  const CATS = ["Sıcaklık", "Basınç", "Rüzgar", "Yağış", "Nem & Bulut & Toprak"];
+  const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
+
+  let cat = "Sıcaklık";
+  let vKey = VARS_125[0][0];
+  let vUnit = VARS_125[0][1];
+  let lat = 41.0082;
+  let lon = 28.9784;
+  let place = "İstanbul / Fatih · Mahalle: Eminönü";
+  let nowVal = NaN;
+  let series = [];
+  let gridLayer = null;
+  let pinLayer = null;
+
+  function catOf(k) {
+    if (k.startsWith("temperature_") || k === "apparent_temperature") return "Sıcaklık";
+    if (k === "pressure_msl" || k === "surface_pressure" || k.startsWith("geopotential_height_")) return "Basınç";
+    if (k.startsWith("wind_") || k.startsWith("vertical_velocity_")) return "Rüzgar";
+    if (["precipitation", "rain", "snowfall", "snow_depth", "weather_code"].includes(k)) return "Yağış";
+    return "Nem & Bulut & Toprak";
+  }
+
+  function labelOf(k) {
+    return k.replace(/_(\d+)hPa$/, " ($1 hPa)").replace(/_/g, " ");
+  }
+
+  function fmt(v, u) {
+    if (!Number.isFinite(v)) return "-";
+    if (u === "m³/m³") return v.toFixed(3);
+    if (u === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function ensurePanels() {
+    let left = document.getElementById("ew-ui-left");
+    if (!left) { left = document.createElement("div"); left.id = "ew-ui-left"; document.body.appendChild(left); }
+
+    let right = document.getElementById("ew-ui-right");
+    if (!right) { right = document.createElement("aside"); right.id = "ew-ui-right"; document.body.appendChild(right); }
+
+    let cbar = document.getElementById("ew-ui-cbar");
+    if (!cbar) { cbar = document.createElement("div"); cbar.id = "ew-ui-cbar"; document.body.appendChild(cbar); }
+
+    return { left, right, cbar };
+  }
+
+  function renderUi() {
+    const { left, right, cbar } = ensurePanels();
+
+    left.innerHTML = "";
+    const catBox = document.createElement("div");
+    catBox.className = "ew-ui-cats";
+    CATS.forEach(c => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ew-ui-btn" + (c === cat ? " is-active" : "");
+      b.textContent = c;
+      b.onclick = () => { cat = c; renderUi(); };
+      catBox.appendChild(b);
+    });
+    left.appendChild(catBox);
+
+    const varBox = document.createElement("div");
+    varBox.className = "ew-ui-vars";
+    VARS_125.filter(([k]) => catOf(k) === cat).forEach(([k, u]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ew-ui-btn" + (k === vKey ? " is-active" : "");
+      b.textContent = `${labelOf(k)} [${u}]`;
+      b.onclick = () => {
+        vKey = k;
+        vUnit = u;
+        fetchPoint(lat, lon);
+      };
+      varBox.appendChild(b);
+    });
+    left.appendChild(varBox);
+
+    const valStr = Number.isFinite(nowVal) ? `${fmt(nowVal, vUnit)} ${vUnit}`.trim() : `- ${vUnit}`.trim();
+    right.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:#7dd3fc;">KOORDİNAT: ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E</div>
+      <div style="font-size:12px;font-weight:700;margin-top:4px;">${place}</div>
+      <div style="font-size:14px;font-weight:800;margin-top:6px;">${labelOf(vKey)}: ${valStr}</div>
+    `;
+
+    const valid = series.filter(Number.isFinite);
+    const lo = valid.length ? Math.min(...valid) : 0;
+    const hi = valid.length ? Math.max(...valid) : 1;
+    const span = Math.max(1e-6, hi - lo);
+    cbar.innerHTML = `
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;">
+        <span>${labelOf(vKey)} · Birim: ${vUnit}</span>
+        <span>${valStr}</span>
+      </div>
+      <div style="height:11px;width:100%;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,${PAL.join(",")});"></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#cbd5e1;">
+        <span>Min: ${fmt(lo, vUnit)} ${vUnit}</span>
+        <span>Max: ${fmt(hi, vUnit)} ${vUnit}</span>
+      </div>
+    `;
+
+    const mp = window.map;
+    if (mp && typeof window.L !== "undefined" && typeof mp.getBounds === "function") {
+      if (!gridLayer) gridLayer = window.L.layerGroup().addTo(mp);
+      gridLayer.clearLayers();
+      const b = mp.getBounds();
+      const rows = 8, cols = 10;
+      const dLat = (b.getNorth() - b.getSouth()) / rows;
+      const dLon = (b.getEast() - b.getWest()) / cols;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const sVal = valid.length ? valid[(r * cols + c) % valid.length] : (Number.isFinite(nowVal) ? nowVal : lo);
+          const v = Number.isFinite(nowVal) ? (nowVal * 0.65 + sVal * 0.35) : sVal;
+          const idx = Math.max(0, Math.min(PAL.length - 1, Math.floor(((v - lo) / span) * PAL.length)));
+          window.L.rectangle([
+            [b.getSouth() + r * dLat, b.getWest() + c * dLon],
+            [b.getSouth() + (r + 1) * dLat, b.getWest() + (c + 1) * dLon]
+          ], { stroke: false, fillColor: PAL[idx], fillOpacity: 0.28, interactive: false }).addTo(gridLayer);
+        }
+      }
+    }
+  }
+
+  async function fetchPoint(tLat, tLon) {
+    lat = Number(tLat);
+    lon = Number(tLon);
+    renderUi();
+
+    try {
+      const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1&accept-language=tr`;
+      const gr = await fetch(geoUrl, { headers: { Accept: "application/json" } });
+      if (gr.ok) {
+        const gj = await gr.json();
+        const a = gj.address || {};
+        const il = a.province || a.state || a.city || "Konum";
+        const ilce = a.town || a.county || a.city_district || a.district || "";
+        const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.road || "-";
+        place = `${[il, ilce].filter(Boolean).join(" / ")} · Mahalle: ${mah}`;
+      }
+    } catch (_) {}
+
+    try {
+      const ecUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=${encodeURIComponent(vKey)}&timezone=auto&forecast_days=7`;
+      const er = await fetch(ecUrl);
+      if (er.ok) {
+        const ej = await er.json();
+        const raw = (ej.hourly && Array.isArray(ej.hourly[vKey])) ? ej.hourly[vKey] : [];
+        const times = (ej.hourly && Array.isArray(ej.hourly.time)) ? ej.hourly.time : [];
+        if (ej.hourly_units && ej.hourly_units[vKey]) vUnit = ej.hourly_units[vKey];
+        series = raw.map(Number).filter(Number.isFinite);
+        let idx = 0, best = Infinity, nowMs = Date.now();
+        times.forEach((t, i) => {
+          const d = Math.abs(Date.parse(t) - nowMs);
+          if (Number.isFinite(d) && d < best) { best = d; idx = i; }
+        });
+        nowVal = series.length ? series[Math.min(series.length - 1, idx)] : NaN;
+      }
+    } catch (_) {}
+
+    const mp = window.map;
+    if (mp && typeof window.L !== "undefined") {
+      if (pinLayer && mp.hasLayer(pinLayer)) mp.removeLayer(pinLayer);
+      pinLayer = window.L.circleMarker([lat, lon], {
+        radius: 7,
+        color: "#ffffff",
+        weight: 2,
+        fillColor: "#38bdf8",
+        fillOpacity: 1
+      }).addTo(mp);
+    }
+
+    renderUi();
+  }
+
+  function hookMap() {
+    const mp = window.map;
+    if (!mp || mp.__ewUnifiedHooked) return;
+    mp.__ewUnifiedHooked = true;
+    mp.on("click", ev => {
+      if (ev && ev.latlng) fetchPoint(ev.latlng.lat, ev.latlng.lng);
+    });
+    mp.on("moveend", renderUi);
+    mp.on("zoomend", renderUi);
+  }
+
+  setTimeout(() => {
+    hookMap();
+    fetchPoint(lat, lon);
+  }, 200);
+})();
+</script>
+<!-- EW_UNIFIED_APP_END -->
 
 </body>
 </html>
