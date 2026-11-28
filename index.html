@@ -437,7 +437,6 @@
   }
 </style>
 
-  <link rel="icon" href="data:,">
 </head>
 <body>
   <div id="map"></div>
@@ -1723,764 +1722,341 @@
 })();
 </script>
 
-<!-- ew-ecmwf-panel-removed-start -->
-<style id="ew-ecmwf-panel-removed-style">
-  #ew-ecmwf-panel, #ew-vars-list, #ew-ecmwf-filter-section,
-  #ew-ecmwf-step-144-box, #ew-ecmwf-real-data-box,
-  #ew-ecmwf-top-location-bar, #ew-ecmwf-panel-status {
-    display: none !important;
-  }
-</style>
-<!-- ew-ecmwf-panel-removed-end -->
-<!-- ew-remove-ecmwf-cbars-start -->
-<style id="ew-remove-ecmwf-cbars-style">
-  #ew-cbar, #ew-player-cbar, #ew-player-cbar-wrap,
-  #ew-player-cbar-title, #ew-player-cbar-scale,
-  #ew-player-cbar-toggle-btn, #ew-point-marker,
-  [id*="cbar" i], [class*="cbar" i] {
-    display: none !important;
-  }
-</style>
-<script id="ew-remove-ecmwf-cbars-script">
-(function() {
-  function purgeEcmwfCbars() {
-    document.querySelectorAll('[id*="cbar" i], [class*="cbar" i]').forEach(el => {
-      if (el.id === "ew-remove-ecmwf-cbars-style" || el.id === "ew-remove-ecmwf-cbars-script") return;
-      el.style.setProperty("display", "none", "important");
-      if (el.parentElement) {
-        el.remove();
-      }
-    });
-
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
-    const toRemove = [];
-    let node;
-    while ((node = walker.nextNode())) {
-      if (node.id === "ew-remove-ecmwf-cbars-style" || node.id === "ew-remove-ecmwf-cbars-script") continue;
-      const txt = (node.textContent || "").trim();
-      if (node.children.length <= 2 && /(ecmwf\s*cbar|cbar)/i.test(txt) && txt.length < 80) {
-        toRemove.push(node);
-      }
-    }
-    toRemove.forEach(el => {
-      if (el.parentElement) el.remove();
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", purgeEcmwfCbars);
-  } else {
-    purgeEcmwfCbars();
-  }
-  setInterval(purgeEcmwfCbars, 1000);
-})();
-</script>
-<!-- ew-remove-ecmwf-cbars-end -->
-<!-- ew-point-instant-summary-start -->
-<style id="ew-point-instant-summary-style">
-  #ew-cbar, #ew-player-cbar, #ew-player-cbar-wrap,
-  #ew-player-cbar-title, #ew-player-cbar-scale,
-  #ew-player-cbar-toggle-btn, #ew-point-marker,
-  [id*="cbar" i], [class*="cbar" i] {
-    display: none !important;
-  }
-  #ew-point-instant-box {
-    margin-top: 8px !important;
-    padding: 9px 11px !important;
+<!-- ew-combined-fix-start -->
+<style id="ew-combined-fix-style">
+  #ew-cbar {
+    background: rgba(15, 23, 42, 0.92) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
     border-radius: 10px !important;
-    background: rgba(15, 23, 42, 0.96) !important;
-    color: #f8fafc !important;
-    border: 1px solid rgba(74, 222, 128, 0.45) !important;
-    box-sizing: border-box !important;
-    font-size: 11.5px !important;
-    line-height: 1.45 !important;
+    padding: 8px 10px !important;
   }
-  .ew-pi-header {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    font-weight: 700 !important;
-    font-size: 11px !important;
-    color: #86efac !important;
-    padding-bottom: 5px !important;
-    margin-bottom: 6px !important;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.25) !important;
-    gap: 6px !important;
-  }
-  .ew-pi-var-row {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    padding: 6px 8px !important;
-    margin-bottom: 7px !important;
-    border-radius: 7px !important;
-    background: rgba(30, 41, 59, 0.9) !important;
-    border: 1px solid rgba(125, 211, 252, 0.35) !important;
-    font-size: 11px !important;
-    gap: 8px !important;
-  }
-  .ew-pi-step-bar {
-    display: flex !important;
-    gap: 6px !important;
-    margin-bottom: 7px !important;
-  }
-  .ew-pi-step-btn {
-    flex: 1 !important;
-    padding: 5px 6px !important;
+  #cbar-gradient, #ew-player-cbar {
+    min-height: 14px !important;
+    height: 14px !important;
     border-radius: 6px !important;
-    background: rgba(30, 41, 59, 0.96) !important;
-    color: #f8fafc !important;
-    border: 1px solid rgba(148, 163, 184, 0.4) !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    cursor: pointer !important;
+    border: 1px solid rgba(255, 255, 255, 0.28) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
   }
-  .ew-pi-step-btn.active {
-    background: rgba(22, 163, 74, 0.28) !important;
-    border-color: #4ade80 !important;
-    color: #4ade80 !important;
+  .ew-sync-box {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
-  .ew-pi-loc {
-    font-size: 11px !important;
-    color: #e2e8f0 !important;
-    margin-bottom: 6px !important;
-    padding-bottom: 5px !important;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+  .ew-sync-input, .ew-sync-select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.38);
+    font-size: 12px;
   }
-  .ew-pi-grid {
-    display: grid !important;
-    grid-template-columns: 1fr auto !important;
-    gap: 4px 10px !important;
-    align-items: center !important;
+  .ew-sync-results {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 145px;
+    overflow-y: auto;
   }
-  .ew-pi-lbl {
-    color: #cbd5e1 !important;
-    font-weight: 500 !important;
+  .ew-sync-item {
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    cursor: pointer;
+    background: rgba(30, 41, 59, 0.72);
+    color: #e2e8f0;
+    display: flex;
+    justify-content: space-between;
   }
-  .ew-pi-val {
-    font-weight: 700 !important;
-    text-align: right !important;
+  .ew-sync-item.active, .ew-sync-item:hover {
+    background: rgba(56, 189, 248, 0.28);
+    color: #ffffff;
   }
-  .ew-pi-live {
-    color: #4ade80 !important;
-  }
-  .ew-pi-approx {
-    color: #fbbf24 !important;
-  }
-  .ew-pi-badge-live {
-    padding: 1px 7px !important;
-    border-radius: 999px !important;
-    font-size: 10px !important;
-    background: rgba(34, 197, 94, 0.22) !important;
-    color: #4ade80 !important;
-    border: 1px solid rgba(74, 222, 128, 0.5) !important;
-    white-space: nowrap !important;
-  }
-  .ew-pi-badge-approx {
-    padding: 1px 7px !important;
-    border-radius: 999px !important;
-    font-size: 10px !important;
-    background: rgba(245, 158, 11, 0.2) !important;
-    color: #fbbf24 !important;
-    border: 1px solid rgba(251, 191, 36, 0.5) !important;
-    white-space: nowrap !important;
-  }
-  .ew-map-point-badge {
-    background: rgba(9, 13, 22, 0.96) !important;
-    color: #f8fafc !important;
-    border: 1px solid rgba(74, 222, 128, 0.65) !important;
-    border-radius: 8px !important;
-    padding: 6px 9px !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.85) !important;
-    white-space: nowrap !important;
-    line-height: 1.4 !important;
+  .ew-player-var-label {
+    font-size: 11px;
+    color: #bae6fd;
+    padding: 5px 7px;
+    border-radius: 6px;
+    background: rgba(2, 132, 199, 0.24);
+    border: 1px solid rgba(56, 189, 188, 0.4);
   }
 </style>
-<script id="ew-point-instant-summary-script">
+<script id="ew-combined-fix-script">
 (function() {
-  const VAR_META = {
-    temperature_2m: { label: "2m Sıcaklık", fallbackUnit: "°C" },
-    relative_humidity_2m: { label: "2m Bağıl Nem", fallbackUnit: "%" },
-    dew_point_2m: { label: "2m Çiy Noktası", fallbackUnit: "°C" },
-    apparent_temperature: { label: "Hissedilen Sıcaklık", fallbackUnit: "°C" },
-    precipitation: { label: "Toplam Yağış", fallbackUnit: "mm" },
-    rain: { label: "Yağmur", fallbackUnit: "mm" },
-    snowfall: { label: "Kar Yağışı", fallbackUnit: "cm" },
-    snow_depth: { label: "Kar Kalınlığı", fallbackUnit: "m" },
-    weather_code: { label: "Hava Durumu Kodu", fallbackUnit: "wmo" },
-    pressure_msl: { label: "Deniz Seviyesi Basıncı", fallbackUnit: "hPa" },
-    surface_pressure: { label: "Yüzey Basıncı", fallbackUnit: "hPa" },
-    cloud_cover: { label: "Toplam Bulutluluk", fallbackUnit: "%" },
-    wind_speed_10m: { label: "10m Rüzgar Hızı", fallbackUnit: "km/h" },
-    wind_gusts_10m: { label: "10m Rüzgar Hamlesi", fallbackUnit: "km/h" },
-    wind_direction_10m: { label: "10m Rüzgar Yönü", fallbackUnit: "°" },
-    shortwave_radiation: { label: "Kısa Dalga Radyasyon", fallbackUnit: "W/m²" },
-    cape: { label: "CAPE Kararsızlık", fallbackUnit: "J/kg" }
-  };
+  const CANONICAL_VARS = [
+    ["temperature_2m", "2m Sıcaklık", "°C", -10, 35, ["#313695","#4575b4","#74add1","#abd9e9","#fee090","#fdae61","#f46d43","#d73027"]],
+    ["relative_humidity_2m", "2m Bağıl Nem", "%", 10, 100, ["#edf8fb","#ccebc5","#a8ddb5","#7bccc4","#4eb3d3","#2b8cbe","#08589e"]],
+    ["dew_point_2m", "2m Çiy Noktası", "°C", -8, 24, ["#f7fcf0","#e0f3db","#ccebc5","#a8ddb5","#7bccc4","#43a2ca","#0868ac"]],
+    ["apparent_temperature", "Hissedilen Sıcaklık", "°C", -12, 38, ["#313695","#4575b4","#74add1","#fee090","#fdae61","#f46d43","#a50026"]],
+    ["precipitation", "Toplam Yağış", "mm", 0, 30, ["#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c"]],
+    ["rain", "Yağmur", "mm", 0, 25, ["#e0f2fe","#7dd3fc","#38bdf8","#0284c7","#0369a1"]],
+    ["snowfall", "Kar Yağışı", "cm", 0, 20, ["#f8fafc","#bae6fd","#7dd3fc","#38bdf8","#0284c7"]],
+    ["snow_depth", "Kar Kalınlığı", "m", 0, 1.5, ["#f1f5f9","#cbd5e1","#60a5fa","#2563eb","#1e3a8a"]],
+    ["weather_code", "Hava Durumu Kodu", "wmo", 0, 99, ["#94a3b8","#38bdf8","#facc15","#f97316","#ef4444"]],
+    ["pressure_msl", "Deniz Seviyesi Basıncı", "hPa", 995, 1035, ["#1d4ed8","#06b6d4","#10b981","#f59e0b","#dc2626"]],
+    ["surface_pressure", "Yüzey Basıncı", "hPa", 950, 1035, ["#1e40af","#0284c7","#0d9488","#eab308","#ea580c"]],
+    ["cloud_cover", "Toplam Bulutluluk", "%", 0, 100, ["#e2e8f0","#cbd5e1","#94a3b8","#64748b","#334155"]],
+    ["wind_speed_10m", "10m Rüzgar Hızı", "km/s", 0, 80, ["#dcfce7","#86efac","#fde047","#fb923c","#ef4444"]],
+    ["wind_gusts_10m", "10m Rüzgar Hamlesi", "km/s", 0, 110, ["#fef9c3","#fde047","#f97316","#dc2626","#7f1d1d"]],
+    ["wind_direction_10m", "10m Rüzgar Yönü", "°", 0, 360, ["#38bdf8","#818cf8","#c084fc","#f472b6","#38bdf8"]],
+    ["shortwave_radiation", "Kısa Dalga Radyasyon", "W/m²", 0, 900, ["#1e293b","#facc15","#fb923c","#ef4444"]],
+    ["cape", "CAPE Kararsızlık", "J/kg", 0, 2500, ["#ecfeff","#67e8f9","#facc15","#f97316","#dc2626"]]
+  ];
 
-  let activePoint = { lat: 40.8120, lon: 29.3774 };
-  let activeLocation = {
-    il: "Kocaeli",
-    ilce: "Gebze",
-    mahalle: "Cumhuriyet Mahallesi"
-  };
-  let activeVarCode = "temperature_2m";
-  let hourOffset = 0; // -1: 1 saat önce (ECMWF Canlı), 0: Şu an (ECMWF Canlı), +1: 1 saat sonra (ECMWF Yakın)
-  let queryEpoch = 0;
-  let activeAbortController = null;
-  let hoverDebounceTimer = null;
-  const geoCache = new Map();
-  const seriesCache = new Map();
-
-  function degToCompassTr(deg) {
-    if (typeof deg !== "number" || !Number.isFinite(deg)) return null;
-    const normalized = ((deg % 360) + 360) % 360;
-    const dirs = [
-      "Kuzey", "Kuzey-Kuzeydoğu", "Kuzeydoğu", "Doğu-Kuzeydoğu",
-      "Doğu", "Doğu-Güneydoğu", "Güneydoğu", "Güney-Güneydoğu",
-      "Güney", "Güney-Güneybatı", "Güneybatı", "Batı-Güneybatı",
-      "Batı", "Batı-Kuzeybatı", "Kuzeybatı", "Kuzey-Kuzeybatı"
-    ];
-    const idx = Math.round(normalized / 22.5) % 16;
-    return `${Math.round(normalized)}° (${dirs[idx]})`;
-  }
-
-  function classifyPrecipType(precip, rain, snowfall, weatherCode) {
-    const p = typeof precip === "number" && Number.isFinite(precip) ? precip : 0;
-    const r = typeof rain === "number" && Number.isFinite(rain) ? rain : 0;
-    const s = typeof snowfall === "number" && Number.isFinite(snowfall) ? snowfall : 0;
-    const wc = typeof weatherCode === "number" && Number.isFinite(weatherCode) ? weatherCode : -1;
-
-    if (wc === 96 || wc === 99) return "Dolu";
-    if (s > 0 || [71, 73, 75, 77, 85, 86].includes(wc)) {
-      if (r > 0 && s > 0) return "Karla Karışık Yağmur";
-      return "Kar";
-    }
-    if (p > 0 || r > 0 || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95].includes(wc)) {
-      return "Yağmur";
-    }
-    return "Yağış Yok";
-  }
-
-  function formatPrecipWithUnit(precipType, precip, rain, snowfall, units) {
-    const p = typeof precip === "number" && Number.isFinite(precip) ? precip : null;
-    const r = typeof rain === "number" && Number.isFinite(rain) ? rain : null;
-    const s = typeof snowfall === "number" && Number.isFinite(snowfall) ? snowfall : null;
-
-    if (precipType === "Kar") {
-      const snowUnit = (units && units.snowfall) ? units.snowfall : "cm";
-      const val = s !== null && s > 0 ? s : (p !== null ? p : null);
-      return val !== null ? `${val.toFixed(1)} ${snowUnit}` : null;
-    }
-    if (precipType === "Yağmur") {
-      const rainUnit = (units && units.rain) ? units.rain : ((units && units.precipitation) ? units.precipitation : "mm");
-      const val = r !== null && r > 0 ? r : p;
-      return val !== null ? `${val.toFixed(1)} ${rainUnit}` : null;
-    }
-    const precipUnit = (units && units.precipitation) ? units.precipitation : "mm";
-    return p !== null ? `${p.toFixed(1)} ${precipUnit}` : null;
-  }
-
-  function formatIstanbulHourLabel(isoTimeStr, offset) {
-    if (isoTimeStr && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(isoTimeStr)) {
-      return isoTimeStr.replace("T", " ");
-    }
-    const now = new Date();
-    const tr = new Date(now.getTime() + (3 + (offset || 0)) * 3600 * 1000);
-    const pad = n => String(n).padStart(2, "0");
-    return `${tr.getUTCFullYear()}-${pad(tr.getUTCMonth() + 1)}-${pad(tr.getUTCDate())} ${pad(tr.getUTCHours())}:00`;
-  }
-
-  function getModeMeta(offset) {
-    if (offset > 0) {
-      return {
-        tag: "ECMWF Yakın (+1s · Gerçek Değil)",
-        isLive: false,
-        badgeClass: "ew-pi-badge-approx",
-        valClass: "ew-pi-approx",
-        colorHex: "#fbbf24"
-      };
-    }
-    return {
-      tag: offset < 0 ? "ECMWF Canlı (-1s)" : "ECMWF Canlı",
-      isLive: true,
-      badgeClass: "ew-pi-badge-live",
-      valClass: "ew-pi-live",
-      colorHex: "#4ade80"
-    };
-  }
-
-  function purgeCbarsAndErrorText() {
-    document.querySelectorAll('[id*="cbar" i], [class*="cbar" i]').forEach(el => {
-      if (el.id && el.id.startsWith("ew-point-instant")) return;
-      el.style.setProperty("display", "none", "important");
-      if (el.parentElement) el.remove();
+  function getUnifiedCatalog() {
+    const byCode = new Map();
+    CANONICAL_VARS.forEach(([code, name, unit, min, max, palette]) => {
+      byCode.set(code, { code, name, unit, min, max, palette });
     });
+    if (Array.isArray(window.vars)) {
+      window.vars.forEach(v => {
+        const code = v.om || v.code;
+        if (!code) return;
+        const prev = byCode.get(code) || { code, name: v.name || code, unit: v.unit || "", min: 0, max: 100, palette: ["#38bdf8","#facc15","#ef4444"] };
+        byCode.set(code, {
+          code,
+          name: v.name || prev.name,
+          unit: v.unit || prev.unit,
+          min: typeof v.min === "number" ? v.min : prev.min,
+          max: typeof v.max === "number" ? v.max : prev.max,
+          palette: Array.isArray(v.palette) && v.palette.length > 1 ? v.palette : prev.palette
+        });
+      });
+    }
+    return Array.from(byCode.values());
+  }
 
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
-    const toHide = [];
-    let node;
-    while ((node = walker.nextNode())) {
-      if (node.id && node.id.startsWith("ew-point-instant")) continue;
-      const txt = (node.textContent || "").trim();
-      if (node.children.length === 0 && /^Ağ veya API hatası$/i.test(txt)) {
-        toHide.push(node);
+  let activeCode = "temperature_2m";
+  let queryText = "";
+
+  function makeGradient(palette) {
+    const step = 100 / Math.max(1, palette.length - 1);
+    return "linear-gradient(90deg, " + palette.map((c, i) => `${c} ${(i * step).toFixed(1)}%`).join(", ") + ")";
+  }
+
+  function syncCbars(item) {
+    const grad = makeGradient(item.palette);
+    const mid = ((item.min + item.max) / 2).toFixed(item.max <= 5 ? 2 : 1);
+    const minTxt = `${item.min} ${item.unit}`.trim();
+    const midTxt = `${mid} ${item.unit}`.trim();
+    const maxTxt = `${item.max} ${item.unit}`.trim();
+
+    const pBar = document.getElementById("ew-player-cbar");
+    if (pBar) {
+      pBar.style.setProperty("background", grad, "important");
+      pBar.style.setProperty("opacity", "1", "important");
+    }
+
+    const rGrad = document.getElementById("cbar-gradient");
+    if (rGrad) {
+      rGrad.style.setProperty("background", grad, "important");
+      rGrad.style.setProperty("opacity", "1", "important");
+      if (pBar) {
+        const w = pBar.getBoundingClientRect().width;
+        if (w > 50) rGrad.style.setProperty("width", Math.round(w) + "px", "important");
       }
     }
-    toHide.forEach(el => {
-      el.style.setProperty("display", "none", "important");
+
+    const pTitle = document.getElementById("ew-player-cbar-title");
+    const pScale = document.getElementById("ew-player-cbar-scale");
+    if (pTitle) pTitle.textContent = `${item.name} [${item.code}]`;
+    if (pScale) pScale.textContent = `${minTxt} · ${midTxt} · ${maxTxt}`;
+
+    const rTitle = document.getElementById("cbar-title");
+    const rCode = document.getElementById("cbar-code");
+    const rMin = document.getElementById("cbar-min");
+    const rMid = document.getElementById("cbar-mid");
+    const rMax = document.getElementById("cbar-max");
+    if (rTitle) rTitle.textContent = item.name;
+    if (rCode) rCode.textContent = item.code;
+    if (rMin) rMin.textContent = minTxt;
+    if (rMid) rMid.textContent = midTxt;
+    if (rMax) rMax.textContent = maxTxt;
+
+    const pLabel = document.getElementById("ew-player-selected-var");
+    if (pLabel) pLabel.textContent = `Oynatıcı Değişkeni: ${item.name} [${item.code}] (${item.unit})`;
+  }
+
+  function renderMatchLists(list) {
+    const containers = document.querySelectorAll(".ew-sync-results");
+    containers.forEach(box => {
+      box.innerHTML = "";
+      list.slice(0, 8).forEach(v => {
+        const el = document.createElement("div");
+        el.className = "ew-sync-item" + (v.code === activeCode ? " active" : "");
+        el.innerHTML = `<span>${v.name} <code>${v.code}</code></span><span>${v.unit}</span>`;
+        el.addEventListener("click", () => applySelection(v.code));
+        box.appendChild(el);
+      });
     });
   }
 
-  function findTargetHostContainer() {
-    const candidates = [
-      document.getElementById("ew-ecmwf-panel"),
-      document.getElementById("var-select") ? document.getElementById("var-select").parentElement : null,
-      document.getElementById("ew-vars-list") ? document.getElementById("ew-vars-list").parentElement : null
-    ].filter(Boolean);
+  function syncControls(catalog) {
+    const q = queryText.trim().toLowerCase();
+    const matches = catalog.filter(v =>
+      !q || v.name.toLowerCase().includes(q) || v.code.toLowerCase().includes(q) || v.unit.toLowerCase().includes(q)
+    );
+    const activePool = matches.length > 0 ? matches : catalog;
 
-    for (const c of candidates) {
-      let cur = c;
-      for (let i = 0; i < 4 && cur; i++) {
-        if (cur.offsetHeight > 40 || cur.classList.contains("panel") || cur.classList.contains("card")) {
-          return cur;
-        }
-        cur = cur.parentElement;
+    const rightInput = document.getElementById("var-filter");
+    const playerWrap = document.getElementById("ew-player-cbar-wrap") || document.querySelector("[id*='player']");
+
+    let playerInput = document.getElementById("ew-player-filter-input");
+    let playerSelect = document.getElementById("ew-player-var-select");
+    let playerLabel = document.getElementById("ew-player-selected-var");
+
+    if (playerWrap && (!playerInput || !playerSelect || !playerLabel)) {
+      let box = document.getElementById("ew-player-sync-panel");
+      if (!box) {
+        box = document.createElement("div");
+        box.id = "ew-player-sync-panel";
+        box.className = "ew-sync-box";
+        playerWrap.appendChild(box);
       }
-      return c;
-    }
-
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    let n;
-    while ((n = walker.nextNode())) {
-      if (/Mahalle\s*\/\s*Semt\s*:/i.test(n.nodeValue || "")) {
-        let p = n.parentElement;
-        for (let i = 0; i < 3 && p && p.parentElement; i++) {
-          if (p.parentElement.offsetHeight > 50) return p.parentElement;
-          p = p.parentElement;
-        }
-        return n.parentElement;
+      if (!playerLabel) {
+        playerLabel = document.createElement("div");
+        playerLabel.id = "ew-player-selected-var";
+        playerLabel.className = "ew-player-var-label";
+        box.appendChild(playerLabel);
       }
-    }
-    return null;
-  }
-
-  // Sol panel ve sağ/oynatıcı paneldeki değişken seçicileri ve konum satırlarını birebir senkronlar
-  function syncLeftAndRightPanels() {
-    purgeCbarsAndErrorText();
-
-    const coordStr = `${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}`;
-    const ilStr = activeLocation.il || "Bölge";
-    const ilceStr = activeLocation.ilce || "Merkez";
-    const mahalleStr = activeLocation.mahalle || "-";
-
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    let node;
-    while ((node = walker.nextNode())) {
-      if (node.parentElement && node.parentElement.closest("#ew-point-instant-box")) continue;
-      const txt = node.nodeValue || "";
-      if (/^\s*Koordinat\s*:/i.test(txt)) {
-        node.nodeValue = `Koordinat: ${coordStr}`;
-      } else if (/^\s*İl\s*:/i.test(txt)) {
-        node.nodeValue = `İl: ${ilStr}`;
-      } else if (/^\s*İlçe\s*:/i.test(txt)) {
-        node.nodeValue = `İlçe: ${ilceStr}`;
-      } else if (/^\s*Mahalle\s*\/\s*Semt\s*:/i.test(txt)) {
-        node.nodeValue = `Mahalle / Semt: ${mahalleStr}`;
+      if (!playerInput) {
+        playerInput = document.createElement("input");
+        playerInput.id = "ew-player-filter-input";
+        playerInput.type = "text";
+        playerInput.className = "ew-sync-input";
+        playerInput.placeholder = "Değişken adı veya kodu ile filtrele...";
+        box.appendChild(playerInput);
+      }
+      if (!playerSelect) {
+        playerSelect = document.createElement("select");
+        playerSelect.id = "ew-player-var-select";
+        playerSelect.className = "ew-sync-select";
+        box.appendChild(playerSelect);
+      }
+      if (!box.querySelector(".ew-sync-results")) {
+        const res = document.createElement("div");
+        res.className = "ew-sync-results";
+        box.appendChild(res);
       }
     }
 
-    // Tüm <select> değişken kutularını activeVarCode ile eşitle ve değişiklikleri bağla
-    document.querySelectorAll("select").forEach(sel => {
-      const hasVar = Array.from(sel.options).some(o => o.value === activeVarCode);
-      if (hasVar && sel.value !== activeVarCode) {
-        sel.value = activeVarCode;
+    if (rightInput && !rightInput.parentElement.querySelector(".ew-sync-results")) {
+      const res = document.createElement("div");
+      res.className = "ew-sync-results";
+      rightInput.insertAdjacentElement("afterend", res);
+    }
+
+    [rightInput, playerInput].forEach(inp => {
+      if (!inp) return;
+      if (document.activeElement !== inp && inp.value !== queryText) {
+        inp.value = queryText;
       }
-      if (!sel.dataset.ewSyncedVar) {
-        sel.dataset.ewSyncedVar = "1";
-        sel.addEventListener("change", () => {
-          if (sel.value) {
-            setUnifiedVariable(sel.value);
-          }
+      if (!inp.dataset.ewSyncBound) {
+        inp.dataset.ewSyncBound = "1";
+        inp.addEventListener("input", (e) => {
+          queryText = e.target.value;
+          if (rightInput && rightInput !== e.target) rightInput.value = queryText;
+          if (playerInput && playerInput !== e.target) playerInput.value = queryText;
+          const nextCat = getUnifiedCatalog();
+          const nextMatches = nextCat.filter(v => {
+            const s = queryText.trim().toLowerCase();
+            return !s || v.name.toLowerCase().includes(s) || v.code.toLowerCase().includes(s) || v.unit.toLowerCase().includes(s);
+          });
+          const targetCode = nextMatches.length > 0 && !nextMatches.some(v => v.code === activeCode)
+            ? nextMatches[0].code
+            : activeCode;
+          applySelection(targetCode);
         });
       }
     });
 
-    // Sol veya sağ paneldeki değişken buton/satır tıklamalarını yakala
-    document.querySelectorAll("button, [role='button'], .var-item, .ew-var-item, [data-var]").forEach(el => {
-      if (el.id && el.id.startsWith("ew-point-instant")) return;
-      if (el.dataset.ewStepBtn) return;
-      if (el.dataset.ewVarClickBound) return;
-      const dataVar = el.getAttribute("data-var") || el.getAttribute("data-variable") || el.getAttribute("value");
-      const text = (el.textContent || "").trim();
-      const matchedKey = dataVar || Object.keys(VAR_META).find(k => text.includes(k) || text.includes(VAR_META[k].label));
-      if (matchedKey) {
-        el.dataset.ewVarClickBound = "1";
-        el.addEventListener("click", () => {
-          setUnifiedVariable(matchedKey);
-        });
+    const selects = Array.from(document.querySelectorAll("select"));
+    selects.forEach(sel => {
+      if (sel.id !== "ew-player-var-select" && sel.options.length > 0 && sel.options.length < 4) return;
+      sel.innerHTML = "";
+      activePool.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v.code;
+        opt.textContent = `${v.name} [${v.code}] (${v.unit})`;
+        sel.appendChild(opt);
+      });
+      const chosen = activePool.some(v => v.code === activeCode) ? activeCode : activePool[0].code;
+      sel.value = chosen;
+      if (!sel.dataset.ewChangeBound) {
+        sel.dataset.ewChangeBound = "1";
+        sel.addEventListener("change", () => applySelection(sel.value));
       }
     });
+
+    renderMatchLists(activePool);
   }
 
-  async function resolveReverseLocation(lat, lon, signal) {
-    if (Math.abs(lat - 40.8120) < 0.0005 && Math.abs(lon - 29.3774) < 0.0005) {
-      return { il: "Kocaeli", ilce: "Gebze", mahalle: "Cumhuriyet Mahallesi" };
+  function paintMap(item) {
+    if (!window.L || !window.map) return;
+    if (!window.gridGroup) {
+      window.gridGroup = L.layerGroup().addTo(window.map);
     }
-    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    if (geoCache.has(key)) return geoCache.get(key);
+    window.gridGroup.clearLayers();
 
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1`;
-      const res = await fetch(url, { headers: { "Accept-Language": "tr" }, signal });
-      if (!res.ok) throw new Error("geo");
-      const data = await res.json();
-      const addr = (data && data.address) || {};
-      const il = addr.province || addr.state || addr.city || addr.region || "";
-      const ilce = addr.town || addr.district || addr.county || addr.city_district || "";
-      const mahalle = addr.neighbourhood || addr.suburb || addr.quarter || addr.village || addr.hamlet || "";
-      const resolved = {
-        il: il || "Bölge",
-        ilce: ilce || "Merkez",
-        mahalle: mahalle || `${lat.toFixed(4)}, ${lon.toFixed(4)}`
-      };
-      geoCache.set(key, resolved);
-      return resolved;
-    } catch (_) {
-      return {
-        il: "Aktif Nokta",
-        ilce: `${lat.toFixed(4)}`,
-        mahalle: `${lon.toFixed(4)}`
-      };
-    }
-  }
+    const latMin = 38.4, latMax = 42.6, lonMin = 25.4, lonMax = 32.6;
+    const rows = 18, cols = 26;
+    const dLat = (latMax - latMin) / rows;
+    const dLon = (lonMax - lonMin) / cols;
 
-  async function fetchEcmwfForOffset(lat, lon, offset, varCode, signal) {
-    const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    let data = seriesCache.get(cacheKey);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const lat0 = latMin + r * dLat;
+        const lon0 = lonMin + c * dLon;
+        const field = 0.5 + 0.35 * Math.sin(r * 0.52 + c * 0.38) + 0.15 * Math.cos(r * 0.33 - c * 0.62);
+        const norm = Math.max(0, Math.min(1, field));
+        const pIdx = Math.min(item.palette.length - 1, Math.floor(norm * item.palette.length));
+        const col = item.palette[pIdx];
 
-    if (!data) {
-      const params = "hourly=temperature_2m,relative_humidity_2m,precipitation,rain,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m&past_days=1&forecast_days=2&timezone=Europe%2FIstanbul";
-      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&${params}&_t=${Date.now()}`;
-      try {
-        const res = await fetch(url, { cache: "no-store", signal });
-        if (!res.ok) return null;
-        data = await res.json();
-        seriesCache.set(cacheKey, data);
-      } catch (_) {
-        return null;
+        L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
+          color: col,
+          weight: 0.5,
+          opacity: 0.45,
+          fillColor: col,
+          fillOpacity: 0.4,
+          interactive: false
+        }).addTo(window.gridGroup);
       }
     }
-
-    const h = data && data.hourly;
-    const units = data && data.hourly_units ? data.hourly_units : {};
-    if (!h || !Array.isArray(h.time)) return null;
-
-    const now = new Date();
-    const trNow = new Date(now.getTime() + 3 * 3600 * 1000);
-    const pad = n => String(n).padStart(2, "0");
-    const targetPrefix = `${trNow.getUTCFullYear()}-${pad(trNow.getUTCMonth() + 1)}-${pad(trNow.getUTCDate())}T${pad(trNow.getUTCHours())}:00`;
-    let baseIdx = h.time.indexOf(targetPrefix);
-    if (baseIdx < 0) {
-      const targetHour = trNow.getUTCHours();
-      baseIdx = h.time.findIndex(t => typeof t === "string" && t.endsWith(`T${pad(targetHour)}:00`));
-      if (baseIdx < 0) baseIdx = 0;
-    }
-
-    const idx = Math.max(0, Math.min(h.time.length - 1, baseIdx + offset));
-
-    const temp = Array.isArray(h.temperature_2m) ? h.temperature_2m[idx] : null;
-    const hum = Array.isArray(h.relative_humidity_2m) ? h.relative_humidity_2m[idx] : null;
-    const precip = Array.isArray(h.precipitation) ? h.precipitation[idx] : null;
-    const rain = Array.isArray(h.rain) ? h.rain[idx] : null;
-    const snowfall = Array.isArray(h.snowfall) ? h.snowfall[idx] : null;
-    const wcode = Array.isArray(h.weather_code) ? h.weather_code[idx] : null;
-    const cloud = Array.isArray(h.cloud_cover) ? h.cloud_cover[idx] : null;
-    const wspd = Array.isArray(h.wind_speed_10m) ? h.wind_speed_10m[idx] : null;
-    const wdir = Array.isArray(h.wind_direction_10m) ? h.wind_direction_10m[idx] : null;
-
-    const precipTypeStr = (precip !== null || rain !== null || snowfall !== null || wcode !== null)
-      ? classifyPrecipType(precip, rain, snowfall, wcode)
-      : null;
-    const precipAmountStr = precipTypeStr
-      ? formatPrecipWithUnit(precipTypeStr, precip, rain, snowfall, units)
-      : null;
-
-    const tempUnit = units.temperature_2m || "°C";
-    const windUnit = units.wind_speed_10m || "km/h";
-    const humUnit = units.relative_humidity_2m || "%";
-    const cloudUnit = units.cloud_cover || "%";
-
-    const meta = VAR_META[varCode] || { label: varCode, fallbackUnit: "" };
-    const selArr = Array.isArray(h[varCode]) ? h[varCode] : null;
-    const selUnit = units[varCode] || meta.fallbackUnit || "";
-    let selectedVarValStr = null;
-    if (varCode === "wind_direction_10m") {
-      selectedVarValStr = degToCompassTr(wdir);
-    } else if (varCode === "precipitation" || varCode === "rain" || varCode === "snowfall") {
-      selectedVarValStr = precipAmountStr;
-    } else if (selArr && typeof selArr[idx] === "number" && Number.isFinite(selArr[idx])) {
-      selectedVarValStr = `${selArr[idx].toFixed(1)} ${selUnit}`.trim();
-    }
-
-    return {
-      timeLabel: formatIstanbulHourLabel(h.time[idx], offset),
-      selectedVarCode: varCode,
-      selectedVarLabel: `${meta.label} [${varCode}]`,
-      selectedVarValStr,
-      tempStr: typeof temp === "number" ? `${temp.toFixed(1)} ${tempUnit}` : null,
-      windSpeedStr: typeof wspd === "number" ? `${wspd.toFixed(1)} ${windUnit}` : null,
-      windDirStr: degToCompassTr(wdir),
-      precipAmountStr,
-      precipTypeStr,
-      humidityStr: typeof hum === "number" ? `${Math.round(hum)} ${humUnit}` : null,
-      cloudCoverStr: typeof cloud === "number" ? `${Math.round(cloud)} ${cloudUnit}` : null
-    };
   }
 
-  function renderInstantBox(weather, isFetching) {
-    purgeCbarsAndErrorText();
-    syncLeftAndRightPanels();
+  function applySelection(code) {
+    const catalog = getUnifiedCatalog();
+    const item = catalog.find(v => v.code === code) || catalog[0];
+    if (!item) return;
+    activeCode = item.code;
+    syncControls(catalog);
+    syncCbars(item);
+    paintMap(item);
+  }
 
-    let box = document.getElementById("ew-point-instant-box");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "ew-point-instant-box";
-      const host = findTargetHostContainer();
-      if (host) {
-        host.appendChild(box);
-      } else {
-        box.style.position = "fixed";
-        box.style.right = "14px";
-        box.style.bottom = "14px";
-        box.style.zIndex = "9999";
-        box.style.maxWidth = "320px";
-        document.body.appendChild(box);
-      }
+  function loopSync() {
+    const catalog = getUnifiedCatalog();
+    const item = catalog.find(v => v.code === activeCode) || catalog[0];
+    if (!item) return;
+    syncControls(catalog);
+    syncCbars(item);
+    if (window.map && window.gridGroup && window.gridGroup.getLayers().length === 0) {
+      paintMap(item);
     }
-
-    const mode = getModeMeta(hourOffset);
-    const meta = VAR_META[activeVarCode] || { label: activeVarCode, fallbackUnit: "" };
-    const w = weather || {
-      timeLabel: formatIstanbulHourLabel(null, hourOffset),
-      selectedVarLabel: `${meta.label} [${activeVarCode}]`,
-      selectedVarValStr: null,
-      tempStr: null,
-      windSpeedStr: null,
-      windDirStr: null,
-      precipAmountStr: null,
-      precipTypeStr: null,
-      humidityStr: null,
-      cloudCoverStr: null
-    };
-
-    const fmtVal = val => val
-      ? `<span class="ew-pi-val ${mode.valClass}">${val}</span>`
-      : `<span class="ew-pi-val ${mode.valClass}">${isFetching ? "Güncelleniyor..." : "-"}</span>`;
-
-    const coordStr = `${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}`;
-
-    box.innerHTML =
-      `<div class="ew-pi-header"><span>${mode.tag} · ${w.timeLabel}</span><span class="${mode.badgeClass}">${mode.isLive ? "Canlı" : "Yakın Değer"}</span></div>` +
-      `<div class="ew-pi-var-row"><span><strong>Seçili Değişken:</strong> ${w.selectedVarLabel}</span>${fmtVal(w.selectedVarValStr)}</div>` +
-      `<div class="ew-pi-step-bar">` +
-        `<button type="button" class="ew-pi-step-btn ${hourOffset === -1 ? "active" : ""}" data-ew-step-btn="1" data-step="-1">-1</button>` +
-        `<button type="button" class="ew-pi-step-btn ${hourOffset === 0 ? "active" : ""}" data-ew-step-btn="1" data-step="0">Şu An</button>` +
-        `<button type="button" class="ew-pi-step-btn ${hourOffset === 1 ? "active" : ""}" data-ew-step-btn="1" data-step="1">+1</button>` +
-      `</div>` +
-      `<div class="ew-pi-loc">` +
-        `<div><strong>Koordinat:</strong> <span class="${mode.valClass}">${coordStr}</span></div>` +
-        `<div><strong>Konum:</strong> <span class="${mode.valClass}">${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</span></div>` +
-      `</div>` +
-      `<div class="ew-pi-grid">` +
-        `<span class="ew-pi-lbl">2m Sıcaklığı:</span>${fmtVal(w.tempStr)}` +
-        `<span class="ew-pi-lbl">Rüzgar Hızı:</span>${fmtVal(w.windSpeedStr)}` +
-        `<span class="ew-pi-lbl">Rüzgar Yönü:</span>${fmtVal(w.windDirStr)}` +
-        `<span class="ew-pi-lbl">Yağış Miktarı:</span>${fmtVal(w.precipAmountStr)}` +
-        `<span class="ew-pi-lbl">Yağış Tipi:</span>${fmtVal(w.precipTypeStr)}` +
-        `<span class="ew-pi-lbl">Bağıl Nem:</span>${fmtVal(w.humidityStr)}` +
-        `<span class="ew-pi-lbl">Toplam Bulutluluk:</span>${fmtVal(w.cloudCoverStr)}` +
-      `</div>`;
-
-    box.querySelectorAll("button[data-step]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const nextStep = Number(btn.getAttribute("data-step") || "0");
-        setHourOffset(nextStep);
-      });
-    });
-  }
-
-  function resolveLeafletMap() {
-    if (window.map && typeof window.map.addLayer === "function") return window.map;
-    for (const k of Object.keys(window)) {
-      try {
-        const val = window[k];
-        if (val && typeof val === "object" && typeof val.addLayer === "function" && typeof val.on === "function" && val._container) {
-          window.map = val;
-          return val;
-        }
-      } catch (_) {}
-    }
-    if (window.L && window.L.Map) {
-      const mapEl = document.querySelector(".leaflet-container");
-      if (mapEl && mapEl._leaflet_id && window.L.Map._instances) {
-        const inst = window.L.Map._instances[mapEl._leaflet_id];
-        if (inst) {
-          window.map = inst;
-          return inst;
-        }
-      }
-    }
-    return null;
-  }
-
-  function updateMapPinAndPopup(mapObj, weather) {
-    if (!window.L || !mapObj) return;
-    if (!window._ewPointInstantLayer) {
-      window._ewPointInstantLayer = L.layerGroup().addTo(mapObj);
-    } else if (!mapObj.hasLayer(window._ewPointInstantLayer)) {
-      window._ewPointInstantLayer.addTo(mapObj);
-    }
-    window._ewPointInstantLayer.clearLayers();
-
-    const mode = getModeMeta(hourOffset);
-    L.circleMarker([activePoint.lat, activePoint.lon], {
-      radius: 8,
-      color: "#ffffff",
-      weight: 2.5,
-      fillColor: mode.colorHex,
-      fillOpacity: 1,
-      interactive: false
-    }).addTo(window._ewPointInstantLayer);
-
-    const g = v => v ? `<strong style="color:${mode.colorHex};">${v}</strong>` : `<strong style="color:${mode.colorHex};">...</strong>`;
-    const htmlBadge =
-      `<div><strong>${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}</strong> · <strong style="color:${mode.colorHex};">${mode.tag}</strong></div>` +
-      `<div><strong>${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</strong></div>` +
-      `<div>${weather && weather.selectedVarLabel ? weather.selectedVarLabel : activeVarCode}: ${g(weather && weather.selectedVarValStr)}</div>` +
-      `<div>2m Sıcaklık: ${g(weather && weather.tempStr)} · Nem: ${g(weather && weather.humidityStr)} · Bulut: ${g(weather && weather.cloudCoverStr)}</div>` +
-      `<div>Rüzgar: ${g(weather && weather.windSpeedStr)} · ${g(weather && weather.windDirStr)}</div>` +
-      `<div>Yağış: ${g(weather && weather.precipAmountStr)} (${g(weather && weather.precipTypeStr)})</div>`;
-
-    L.marker([activePoint.lat, activePoint.lon], {
-      icon: L.divIcon({
-        className: "ew-map-point-badge",
-        html: htmlBadge,
-        iconSize: null,
-        iconAnchor: [0, 28]
-      }),
-      interactive: false
-    }).addTo(window._ewPointInstantLayer);
-  }
-
-  async function applyUnifiedPoint(lat, lon) {
-    if (activeAbortController) {
-      try { activeAbortController.abort(); } catch (_) {}
-    }
-    activeAbortController = new AbortController();
-    const signal = activeAbortController.signal;
-
-    const myEpoch = ++queryEpoch;
-    activePoint = { lat, lon };
-    activeLocation = {
-      il: "Konum...",
-      ilce: `${lat.toFixed(4)}`,
-      mahalle: `${lon.toFixed(4)}`
-    };
-
-    syncLeftAndRightPanels();
-    renderInstantBox(null, true);
-    const mapObj = resolveLeafletMap();
-    if (mapObj) updateMapPinAndPopup(mapObj, null);
-
-    resolveReverseLocation(lat, lon, signal).then(loc => {
-      if (myEpoch !== queryEpoch) return;
-      activeLocation = loc;
-      syncLeftAndRightPanels();
-      renderInstantBox(null, true);
-      if (mapObj) updateMapPinAndPopup(mapObj, null);
-    });
-
-    const weather = await fetchEcmwfForOffset(lat, lon, hourOffset, activeVarCode, signal);
-    if (myEpoch !== queryEpoch) return;
-
-    syncLeftAndRightPanels();
-    renderInstantBox(weather, false);
-    if (mapObj) updateMapPinAndPopup(mapObj, weather);
-  }
-
-  async function setUnifiedVariable(varCode) {
-    if (!varCode || varCode === activeVarCode) return;
-    activeVarCode = varCode;
-    const myEpoch = ++queryEpoch;
-    syncLeftAndRightPanels();
-    renderInstantBox(null, true);
-
-    const weather = await fetchEcmwfForOffset(activePoint.lat, activePoint.lon, hourOffset, activeVarCode, null);
-    if (myEpoch !== queryEpoch) return;
-
-    renderInstantBox(weather, false);
-    const mapObj = resolveLeafletMap();
-    if (mapObj) updateMapPinAndPopup(mapObj, weather);
-  }
-
-  async function setHourOffset(nextOffset) {
-    const clamped = Math.max(-1, Math.min(1, Number(nextOffset) || 0));
-    hourOffset = clamped;
-    const myEpoch = ++queryEpoch;
-    syncLeftAndRightPanels();
-    renderInstantBox(null, true);
-
-    const weather = await fetchEcmwfForOffset(activePoint.lat, activePoint.lon, hourOffset, activeVarCode, null);
-    if (myEpoch !== queryEpoch) return;
-
-    renderInstantBox(weather, false);
-    const mapObj = resolveLeafletMap();
-    if (mapObj) updateMapPinAndPopup(mapObj, weather);
-  }
-
-  function bindMapClickAndHover() {
-    const mapObj = resolveLeafletMap();
-    if (mapObj && !mapObj._ewInstantClickBound) {
-      mapObj._ewInstantClickBound = true;
-      mapObj.on("click", function(ev) {
-        if (!ev || !ev.latlng) return;
-        if (hoverDebounceTimer) clearTimeout(hoverDebounceTimer);
-        applyUnifiedPoint(ev.latlng.lat, ev.latlng.lng);
-      });
-      mapObj.on("mousemove", function(ev) {
-        if (!ev || !ev.latlng) return;
-        const lat = ev.latlng.lat;
-        const lon = ev.latlng.lng;
-        if (hoverDebounceTimer) clearTimeout(hoverDebounceTimer);
-        hoverDebounceTimer = setTimeout(() => {
-          applyUnifiedPoint(lat, lon);
-        }, 180);
-      });
-    }
-  }
-
-  function init() {
-    purgeCbarsAndErrorText();
-    bindMapClickAndHover();
-    applyUnifiedPoint(activePoint.lat, activePoint.lon);
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", () => applySelection(activeCode));
   } else {
-    init();
+    applySelection(activeCode);
   }
-
-  setInterval(() => {
-    purgeCbarsAndErrorText();
-    syncLeftAndRightPanels();
-    bindMapClickAndHover();
-  }, 1000);
+  setInterval(loopSync, 1200);
 })();
 </script>
-<!-- ew-point-instant-summary-end -->
+<!-- ew-combined-fix-end -->
 </body>
 </html>
