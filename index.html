@@ -4988,5 +4988,444 @@
 </script>
 <!-- EW_SIMPLE_125_PANEL_CBAR_END -->
 
+<!-- EW_CATEGORY_ALL_VARS_CBAR_START -->
+<style>
+  #ew-ecmwf-var-bar {
+    position: fixed !important;
+    left: 14px !important;
+    right: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    width: min(350px, calc(100vw - 415px)) !important;
+    max-height: calc(100vh - 285px) !important;
+    overflow-y: auto !important;
+    padding: 8px !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    backdrop-filter: blur(8px) !important;
+    z-index: 985 !important;
+  }
+
+  .ew-cat-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .ew-cat-main-btn {
+    appearance: none;
+    border: 1px solid rgba(125, 211, 252, 0.35);
+    background: rgba(30, 41, 59, 0.9);
+    color: #e0f2fe;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .ew-cat-main-btn.is-active {
+    background: #0284c7;
+    border-color: #ffffff;
+    color: #ffffff;
+  }
+
+  .ew-cat-vars-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(148, 163, 184, 0.20);
+  }
+
+  .ew-cat-var-item-btn {
+    appearance: none;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: rgba(30, 41, 59, 0.85);
+    color: #f1f5f9;
+    padding: 3px 6px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    line-height: 1.25;
+  }
+
+  .ew-cat-var-item-btn:hover {
+    border-color: #38bdf8;
+    color: #ffffff;
+  }
+
+  .ew-cat-var-item-btn.is-active {
+    background: #0284c7;
+    border-color: #bae6fd;
+    color: #ffffff;
+    font-weight: 700;
+  }
+</style>
+
+<script>
+(function () {
+  const ALL_125 = [
+    ["temperature_2m", "°C"],
+    ["apparent_temperature", "°C"],
+    ["dew_point_2m", "°C"],
+    ["relative_humidity_2m", "%"],
+    ["precipitation", "mm"],
+    ["rain", "mm"],
+    ["snowfall", "cm"],
+    ["snow_depth", "m"],
+    ["weather_code", "wmo code"],
+    ["pressure_msl", "hPa"],
+    ["surface_pressure", "hPa"],
+    ["cloud_cover", "%"],
+    ["cloud_cover_low", "%"],
+    ["cloud_cover_mid", "%"],
+    ["cloud_cover_high", "%"],
+    ["wind_speed_10m", "km/h"],
+    ["wind_speed_80m", "km/h"],
+    ["wind_speed_100m", "km/h"],
+    ["wind_speed_120m", "km/h"],
+    ["wind_direction_10m", "°"],
+    ["wind_direction_80m", "°"],
+    ["wind_direction_100m", "°"],
+    ["wind_direction_120m", "°"],
+    ["wind_gusts_10m", "km/h"],
+    ["cape", "J/kg"],
+    ["soil_temperature_0cm", "°C"],
+    ["soil_temperature_6cm", "°C"],
+    ["soil_temperature_18cm", "°C"],
+    ["soil_temperature_54cm", "°C"],
+    ["soil_moisture_0_to_1cm", "m³/m³"],
+    ["soil_moisture_1_to_3cm", "m³/m³"],
+    ["soil_moisture_3_to_9cm", "m³/m³"],
+    ["soil_moisture_9_to_27cm", "m³/m³"],
+    ["soil_moisture_27_to_81cm", "m³/m³"],
+    ["temperature_1000hPa", "°C"],
+    ["geopotential_height_1000hPa", "m"],
+    ["relative_humidity_1000hPa", "%"],
+    ["dew_point_1000hPa", "°C"],
+    ["wind_speed_1000hPa", "km/h"],
+    ["wind_direction_1000hPa", "°"],
+    ["vertical_velocity_1000hPa", "m/s"],
+    ["temperature_925hPa", "°C"],
+    ["geopotential_height_925hPa", "m"],
+    ["relative_humidity_925hPa", "%"],
+    ["dew_point_925hPa", "°C"],
+    ["wind_speed_925hPa", "km/h"],
+    ["wind_direction_925hPa", "°"],
+    ["vertical_velocity_925hPa", "m/s"],
+    ["temperature_850hPa", "°C"],
+    ["geopotential_height_850hPa", "m"],
+    ["relative_humidity_850hPa", "%"],
+    ["dew_point_850hPa", "°C"],
+    ["wind_speed_850hPa", "km/h"],
+    ["wind_direction_850hPa", "°"],
+    ["vertical_velocity_850hPa", "m/s"],
+    ["temperature_700hPa", "°C"],
+    ["geopotential_height_700hPa", "m"],
+    ["relative_humidity_700hPa", "%"],
+    ["dew_point_700hPa", "°C"],
+    ["wind_speed_700hPa", "km/h"],
+    ["wind_direction_700hPa", "°"],
+    ["vertical_velocity_700hPa", "m/s"],
+    ["temperature_600hPa", "°C"],
+    ["geopotential_height_600hPa", "m"],
+    ["relative_humidity_600hPa", "%"],
+    ["dew_point_600hPa", "°C"],
+    ["wind_speed_600hPa", "km/h"],
+    ["wind_direction_600hPa", "°"],
+    ["vertical_velocity_600hPa", "m/s"],
+    ["temperature_500hPa", "°C"],
+    ["geopotential_height_500hPa", "m"],
+    ["relative_humidity_500hPa", "%"],
+    ["dew_point_500hPa", "°C"],
+    ["wind_speed_500hPa", "km/h"],
+    ["wind_direction_500hPa", "°"],
+    ["vertical_velocity_500hPa", "m/s"],
+    ["temperature_400hPa", "°C"],
+    ["geopotential_height_400hPa", "m"],
+    ["relative_humidity_400hPa", "%"],
+    ["dew_point_400hPa", "°C"],
+    ["wind_speed_400hPa", "km/h"],
+    ["wind_direction_400hPa", "°"],
+    ["vertical_velocity_400hPa", "m/s"],
+    ["temperature_300hPa", "°C"],
+    ["geopotential_height_300hPa", "m"],
+    ["relative_humidity_300hPa", "%"],
+    ["dew_point_300hPa", "°C"],
+    ["wind_speed_300hPa", "km/h"],
+    ["wind_direction_300hPa", "°"],
+    ["vertical_velocity_300hPa", "m/s"],
+    ["temperature_250hPa", "°C"],
+    ["geopotential_height_250hPa", "m"],
+    ["relative_humidity_250hPa", "%"],
+    ["dew_point_250hPa", "°C"],
+    ["wind_speed_250hPa", "km/h"],
+    ["wind_direction_250hPa", "°"],
+    ["vertical_velocity_250hPa", "m/s"],
+    ["temperature_200hPa", "°C"],
+    ["geopotential_height_200hPa", "m"],
+    ["relative_humidity_200hPa", "%"],
+    ["dew_point_200hPa", "°C"],
+    ["wind_speed_200hPa", "km/h"],
+    ["wind_direction_200hPa", "°"],
+    ["vertical_velocity_200hPa", "m/s"],
+    ["temperature_150hPa", "°C"],
+    ["geopotential_height_150hPa", "m"],
+    ["relative_humidity_150hPa", "%"],
+    ["dew_point_150hPa", "°C"],
+    ["wind_speed_150hPa", "km/h"],
+    ["wind_direction_150hPa", "°"],
+    ["vertical_velocity_150hPa", "m/s"],
+    ["temperature_100hPa", "°C"],
+    ["geopotential_height_100hPa", "m"],
+    ["relative_humidity_100hPa", "%"],
+    ["dew_point_100hPa", "°C"],
+    ["wind_speed_100hPa", "km/h"],
+    ["wind_direction_100hPa", "°"],
+    ["vertical_velocity_100hPa", "m/s"],
+    ["temperature_50hPa", "°C"],
+    ["geopotential_height_50hPa", "m"],
+    ["relative_humidity_50hPa", "%"],
+    ["dew_point_50hPa", "°C"],
+    ["wind_speed_50hPa", "km/h"],
+    ["wind_direction_50hPa", "°"],
+    ["vertical_velocity_50hPa", "m/s"]
+  ];
+
+  const CAT_LIST = ["Sıcaklık", "Basınç", "Rüzgar", "Yağış", "Nem & Bulut & Toprak"];
+  const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
+
+  let selectedCat = "Sıcaklık";
+  let selectedVar = ALL_125[0][0];
+  let selectedUnit = ALL_125[0][1];
+  let pickedLatLon = null;
+  const dataCache = new Map();
+
+  function classifyVar(key) {
+    if (key.startsWith("temperature_") || key === "apparent_temperature") return "Sıcaklık";
+    if (key === "pressure_msl" || key === "surface_pressure" || key.startsWith("geopotential_height_")) return "Basınç";
+    if (key.startsWith("wind_") || key.startsWith("vertical_velocity_")) return "Rüzgar";
+    if (["precipitation", "rain", "snowfall", "snow_depth", "weather_code"].includes(key)) return "Yağış";
+    return "Nem & Bulut & Toprak";
+  }
+
+  function labelVar(key) {
+    return key.replace(/_(\d+)hPa$/, " ($1 hPa)").replace(/_/g, " ");
+  }
+
+  function fmt(v, unit) {
+    if (!Number.isFinite(v)) return "-";
+    if (unit === "m³/m³") return v.toFixed(3);
+    if (unit === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || unit === "hPa" || unit === "m" || unit === "°" || unit === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function currentLatLon() {
+    if (pickedLatLon && Number.isFinite(pickedLatLon.lat) && Number.isFinite(pickedLatLon.lon)) {
+      return pickedLatLon;
+    }
+    const cEl = document.getElementById("ew-coord-text");
+    if (cEl && cEl.textContent) {
+      const m = cEl.textContent.match(/(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
+      if (m) {
+        const lat = Number(m[1]), lon = Number(m[2]);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+      }
+    }
+    const mp = window.map || window._map;
+    if (mp && typeof mp.getCenter === "function") {
+      const c = mp.getCenter();
+      if (c && Number.isFinite(c.lat) && Number.isFinite(c.lng)) return { lat: c.lat, lon: c.lng };
+    }
+    return { lat: 41.0082, lon: 28.9784 };
+  }
+
+  function paintCbar(key, unit, info) {
+    selectedVar = key;
+    selectedUnit = unit || selectedUnit || "";
+    const cbar = document.getElementById("ew-cbar");
+    if (!cbar) return;
+
+    const pt = currentLatLon();
+    const coordStr = `${pt.lat.toFixed(4)}°N, ${pt.lon.toFixed(4)}°E`;
+    const nowVal = info && Number.isFinite(info.nowVal) ? info.nowVal : NaN;
+    const valStr = Number.isFinite(nowVal) ? `${fmt(nowVal, selectedUnit)} ${selectedUnit}`.trim() : `- ${selectedUnit}`.trim();
+
+    const nameEl = document.getElementById("ew-cbar-name") || document.getElementById("cbar-title");
+    const curEl = document.getElementById("ew-cbar-cur");
+    const gradEl = document.getElementById("ew-cbar-gradient") || document.getElementById("ew-cbar-grad-bar");
+    const binsEl = document.getElementById("ew-cbar-bins") || document.getElementById("ew-cbar-bins-detail");
+
+    if (nameEl) nameEl.textContent = `${labelVar(key)} [${selectedUnit || "-"}] · ${coordStr}`;
+    if (curEl) curEl.textContent = `${labelVar(key)}: ${valStr}`;
+
+    const series = (info && Array.isArray(info.series)) ? info.series.filter(Number.isFinite) : [];
+    if (gradEl && binsEl && series.length) {
+      let lo = Math.min(...series);
+      let hi = Math.max(...series);
+      if (lo === hi) { lo -= 1; hi += 1; }
+      const n = 6;
+      const step = (hi - lo) / n;
+      const stops = [];
+      const pills = [];
+      for (let i = 0; i < n; i++) {
+        const a = lo + i * step;
+        const b = i === n - 1 ? hi : lo + (i + 1) * step;
+        const col = PAL[Math.min(PAL.length - 1, Math.floor((i / n) * PAL.length))];
+        stops.push(`${col} ${((i / (n - 1)) * 100).toFixed(1)}%`);
+        pills.push(`<span class="ew-bin-pill" style="border-left:4px solid ${col};">${fmt(a, selectedUnit)}..${fmt(b, selectedUnit)}</span>`);
+      }
+      gradEl.style.background = `linear-gradient(90deg, ${stops.join(", ")})`;
+      binsEl.innerHTML = pills.join("");
+    }
+
+    const liveCard = document.getElementById("ew-m-live");
+    const liveSub = document.getElementById("ew-m-live-sub");
+    if (liveCard) liveCard.textContent = valStr;
+    if (liveSub) liveSub.textContent = `${labelVar(key)} (${selectedUnit || "-"})`;
+
+    document.querySelectorAll(".ew-cat-var-item-btn").forEach(b => {
+      b.classList.toggle("is-active", b.dataset.key === key);
+    });
+  }
+
+  async function fetchAndBindVar(key, unit, pt) {
+    const c = pt || currentLatLon();
+    const cacheKey = `${c.lat.toFixed(3)},${c.lon.toFixed(3)}:${key}`;
+    if (dataCache.has(cacheKey)) {
+      const hit = dataCache.get(cacheKey);
+      paintCbar(key, hit.unit || unit, hit);
+      return;
+    }
+
+    paintCbar(key, unit, null);
+
+    try {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${c.lat.toFixed(4)}&longitude=${c.lon.toFixed(4)}&hourly=${encodeURIComponent(key)}&timezone=auto&forecast_days=7`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const json = await res.json();
+      const raw = (json && json.hourly && Array.isArray(json.hourly[key])) ? json.hourly[key] : [];
+      const times = (json && json.hourly && Array.isArray(json.hourly.time)) ? json.hourly.time : [];
+      const uApi = (json && json.hourly_units && json.hourly_units[key]) ? json.hourly_units[key] : unit;
+      const series = raw.map(Number).filter(Number.isFinite);
+
+      let bestIdx = 0, bestDiff = Infinity;
+      const nowMs = Date.now();
+      for (let i = 0; i < times.length; i++) {
+        const ms = Date.parse(times[i]);
+        if (Number.isFinite(ms) && Math.abs(ms - nowMs) < bestDiff) {
+          bestDiff = Math.abs(ms - nowMs);
+          bestIdx = i;
+        }
+      }
+      const nowVal = series.length ? series[Math.min(series.length - 1, bestIdx)] : NaN;
+      const pack = { series, nowVal, unit: uApi };
+      dataCache.set(cacheKey, pack);
+      if (selectedVar === key) {
+        paintCbar(key, uApi, pack);
+      }
+    } catch (_) {}
+  }
+
+  function drawCategoriesAndVars() {
+    let bar = document.getElementById("ew-ecmwf-var-bar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "ew-ecmwf-var-bar";
+      document.body.appendChild(bar);
+    }
+
+    bar.querySelectorAll(".ew-simple-top-row, .ew-simple-list, .ew-cat-btn-row, .ew-cat-vars-wrap").forEach(el => el.remove());
+
+    const catRow = document.createElement("div");
+    catRow.className = "ew-cat-btn-row";
+
+    const varsWrap = document.createElement("div");
+    varsWrap.className = "ew-cat-vars-wrap";
+
+    function showVarsForCategory(catName) {
+      selectedCat = catName;
+      catRow.querySelectorAll(".ew-cat-main-btn").forEach(btn => {
+        btn.classList.toggle("is-active", btn.dataset.cat === catName);
+      });
+
+      varsWrap.innerHTML = "";
+      const items = ALL_125.filter(([k]) => classifyVar(k) === catName);
+      items.forEach(([k, u]) => {
+        const vBtn = document.createElement("button");
+        vBtn.type = "button";
+        vBtn.className = "ew-cat-var-item-btn" + (k === selectedVar ? " is-active" : "");
+        vBtn.dataset.key = k;
+        vBtn.dataset.unit = u;
+        vBtn.textContent = `${labelVar(k)} [${u}]`;
+        vBtn.addEventListener("click", ev => {
+          ev.stopPropagation();
+          fetchAndBindVar(k, u, currentLatLon());
+        });
+        varsWrap.appendChild(vBtn);
+      });
+    }
+
+    CAT_LIST.forEach(cat => {
+      const cBtn = document.createElement("button");
+      cBtn.type = "button";
+      cBtn.className = "ew-cat-main-btn" + (cat === selectedCat ? " is-active" : "");
+      cBtn.dataset.cat = cat;
+      const cnt = ALL_125.filter(([k]) => classifyVar(k) === cat).length;
+      cBtn.textContent = `${cat} (${cnt})`;
+      cBtn.addEventListener("click", ev => {
+        ev.stopPropagation();
+        showVarsForCategory(cat);
+      });
+      catRow.appendChild(cBtn);
+    });
+
+    bar.appendChild(catRow);
+    bar.appendChild(varsWrap);
+    showVarsForCategory(selectedCat);
+  }
+
+  function bindMapClickForCbar() {
+    const mp = window.map || window._map;
+    if (!mp || typeof mp.on !== "function" || mp.__ewCatMapBound) return;
+    mp.__ewCatMapBound = true;
+    mp.on("click", function (ev) {
+      if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
+        pickedLatLon = { lat: Number(ev.latlng.lat), lon: Number(ev.latlng.lng) };
+        fetchAndBindVar(selectedVar, selectedUnit, pickedLatLon);
+      }
+    });
+  }
+
+  function initCatPanel() {
+    drawCategoriesAndVars();
+    bindMapClickForCbar();
+    const cur = ALL_125.find(([k]) => k === selectedVar) || ALL_125[0];
+    fetchAndBindVar(cur[0], cur[1], currentLatLon());
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(initCatPanel, 200));
+  } else {
+    setTimeout(initCatPanel, 200);
+  }
+
+  setInterval(() => {
+    bindMapClickForCbar();
+    const bar = document.getElementById("ew-ecmwf-var-bar");
+    if (bar && bar.querySelectorAll(".ew-cat-var-item-btn").length === 0) {
+      drawCategoriesAndVars();
+    }
+  }, 1500);
+})();
+</script>
+<!-- EW_CATEGORY_ALL_VARS_CBAR_END -->
+
 </body>
 </html>
