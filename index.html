@@ -1722,8 +1722,8 @@
 })();
 </script>
 
-<!-- ew-4e4e484-ecmwf-player-start -->
-<style id="ew-4e4e484-ecmwf-player-style">
+<!-- ew-4e4e484-var-sync-start -->
+<style id="ew-4e4e484-var-sync-style">
   #ew-range-player-box, #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale) {
     display: none !important;
   }
@@ -1844,29 +1844,29 @@
     border-color: #f87171;
   }
 </style>
-<script id="ew-4e4e484-ecmwf-player-script">
+<script id="ew-4e4e484-var-sync-script">
 (function() {
   const LEFT_STEPS = [-12, -6, -3];
   const RIGHT_STEPS = [3, 6, 12];
 
   const VAR_RANGES = {
-    temperature_2m: { min: -10, max: 38, palette: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"] },
-    apparent_temperature: { min: -12, max: 40, palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#a50026"] },
-    dew_point_2m: { min: -8, max: 24, palette: ["#f7fcf0", "#ccebc5", "#7bccc4", "#2b8cbe", "#08589e"] },
-    relative_humidity_2m: { min: 15, max: 100, palette: ["#fef0d9", "#fdcc8a", "#fc8d59", "#2b8cbe", "#045a8d"] },
-    precipitation: { min: 0, max: 25, palette: ["#eff3ff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"] },
-    rain: { min: 0, max: 25, palette: ["#e0f2fe", "#7dd3fc", "#38bdf8", "#0284c7", "#0369a1"] },
-    showers: { min: 0, max: 20, palette: ["#ecfeff", "#67e8f9", "#22d3ee", "#0284c7", "#1e3a8a"] },
-    snowfall: { min: 0, max: 20, palette: ["#f8fafc", "#bae6fd", "#38bdf8", "#0284c7", "#1e3a8a"] },
-    snow_depth: { min: 0, max: 1.5, palette: ["#f1f5f9", "#cbd5e1", "#60a5fa", "#2563eb", "#1e3a8a"] },
-    pressure_msl: { min: 995, max: 1035, palette: ["#1d4ed8", "#06b6d4", "#10b981", "#f59e0b", "#dc2626"] },
-    surface_pressure: { min: 950, max: 1035, palette: ["#1e40af", "#0284c7", "#0d9488", "#eab308", "#ea580c"] },
-    cloud_cover: { min: 0, max: 100, palette: ["#f8fafc", "#cbd5e1", "#64748b", "#334155"] },
-    wind_speed_10m: { min: 0, max: 75, palette: ["#dcfce7", "#86efac", "#fde047", "#fb923c", "#ef4444"] },
-    wind_gusts_10m: { min: 0, max: 105, palette: ["#fef9c3", "#fde047", "#f97316", "#dc2626", "#7f1d1d"] },
-    wind_direction_10m: { min: 0, max: 360, palette: ["#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#38bdf8"] },
-    shortwave_radiation: { min: 0, max: 900, palette: ["#1e293b", "#facc15", "#fb923c", "#ef4444"] },
-    cape: { min: 0, max: 2500, palette: ["#ecfeff", "#67e8f9", "#facc15", "#f97316", "#dc2626"] }
+    temperature_2m: { min: -10, max: 38, unit: "°C", palette: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"] },
+    apparent_temperature: { min: -12, max: 40, unit: "°C", palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#a50026"] },
+    dew_point_2m: { min: -8, max: 24, unit: "°C", palette: ["#f7fcf0", "#ccebc5", "#7bccc4", "#2b8cbe", "#08589e"] },
+    relative_humidity_2m: { min: 15, max: 100, unit: "%", palette: ["#fef0d9", "#fdcc8a", "#fc8d59", "#2b8cbe", "#045a8d"] },
+    precipitation: { min: 0, max: 25, unit: "mm", palette: ["#eff3ff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"] },
+    rain: { min: 0, max: 25, unit: "mm", palette: ["#e0f2fe", "#7dd3fc", "#38bdf8", "#0284c7", "#0369a1"] },
+    showers: { min: 0, max: 20, unit: "mm", palette: ["#ecfeff", "#67e8f9", "#22d3ee", "#0284c7", "#1e3a8a"] },
+    snowfall: { min: 0, max: 20, unit: "cm", palette: ["#f8fafc", "#bae6fd", "#38bdf8", "#0284c7", "#1e3a8a"] },
+    snow_depth: { min: 0, max: 1.5, unit: "m", palette: ["#f1f5f9", "#cbd5e1", "#60a5fa", "#2563eb", "#1e3a8a"] },
+    pressure_msl: { min: 995, max: 1035, unit: "hPa", palette: ["#1d4ed8", "#06b6d4", "#10b981", "#f59e0b", "#dc2626"] },
+    surface_pressure: { min: 950, max: 1035, unit: "hPa", palette: ["#1e40af", "#0284c7", "#0d9488", "#eab308", "#ea580c"] },
+    cloud_cover: { min: 0, max: 100, unit: "%", palette: ["#f8fafc", "#cbd5e1", "#64748b", "#334155"] },
+    wind_speed_10m: { min: 0, max: 75, unit: "km/s", palette: ["#dcfce7", "#86efac", "#fde047", "#fb923c", "#ef4444"] },
+    wind_gusts_10m: { min: 0, max: 105, unit: "km/s", palette: ["#fef9c3", "#fde047", "#f97316", "#dc2626", "#7f1d1d"] },
+    wind_direction_10m: { min: 0, max: 360, unit: "°", palette: ["#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#38bdf8"] },
+    shortwave_radiation: { min: 0, max: 900, unit: "W/m²", palette: ["#1e293b", "#facc15", "#fb923c", "#ef4444"] },
+    cape: { min: 0, max: 2500, unit: "J/kg", palette: ["#ecfeff", "#67e8f9", "#facc15", "#f97316", "#dc2626"] }
   };
 
   function toInputVal(ms) {
@@ -1884,10 +1884,27 @@
     timer: null
   };
 
+  function extractUnitFromText(txt) {
+    if (!txt) return "";
+    const m = txt.match(/\(([^()]+)\)\s*$/);
+    return m ? m[1].trim() : "";
+  }
+
   function getVarDef() {
     const base = (window.sel && typeof window.sel === "object") ? window.sel : {};
-    const om = base.om || "temperature_2m";
+    const varSelect = document.getElementById("var-select");
+    const selectedOption = varSelect && varSelect.selectedOptions && varSelect.selectedOptions[0];
+    const om = (varSelect && varSelect.value) || base.om || "temperature_2m";
     const preset = VAR_RANGES[om];
+
+    const optionLabel = selectedOption ? (selectedOption.textContent || "").trim() : "";
+    const cleanOptionName = optionLabel.replace(/\s*\([^()]+\)\s*$/, "").trim();
+    const name = base.name || cleanOptionName || om;
+
+    const cbarTitleEl = document.getElementById("cbar-title") || document.getElementById("ew-player-cbar-title");
+    const cbarUnit = extractUnitFromText(cbarTitleEl ? cbarTitleEl.textContent : "");
+    const unit = base.unit || cbarUnit || (preset && preset.unit) || "-";
+
     const minVal = preset ? preset.min : (typeof base.min === "number" ? base.min : 0);
     const maxVal = preset ? preset.max : (typeof base.max === "number" ? base.max : 100);
     const palette = preset
@@ -1895,12 +1912,17 @@
       : (Array.isArray(base.palette) && base.palette.length > 1
         ? base.palette
         : ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]);
+
     if (window.sel && typeof window.sel === "object") {
+      window.sel.om = om;
+      window.sel.name = name;
+      window.sel.unit = unit;
       window.sel.min = minVal;
       window.sel.max = maxVal;
       window.sel.palette = palette;
     }
-    return { om, name: base.name || om, unit: base.unit || "-", min: minVal, max: maxVal, palette };
+
+    return { om, name, unit, min: minVal, max: maxVal, palette };
   }
 
   function colorByRange(val, v) {
@@ -2016,7 +2038,7 @@
       box.id = "ew-ecmwf-range-player";
       box.className = "ew-ecmwf-range-box";
       box.innerHTML = `
-        <div><strong>Saat Aralığı & Oynatıcı (${v.name})</strong></div>
+        <div id="ew-ecmwf-range-heading"></div>
         <div class="ew-ecmwf-range-grid">
           <label>Giriş Saati
             <input id="ew-ecmwf-start-dt" type="datetime-local" />
@@ -2073,6 +2095,11 @@
       });
     }
 
+    const headingEl = box.querySelector("#ew-ecmwf-range-heading");
+    if (headingEl) {
+      headingEl.innerHTML = `<strong>Saat Aralığı &amp; Oynatıcı (${v.name} [${v.om}] · ${v.unit})</strong>`;
+    }
+
     const startInp = box.querySelector("#ew-ecmwf-start-dt");
     const endInp = box.querySelector("#ew-ecmwf-end-dt");
     if (document.activeElement !== startInp) startInp.value = toInputVal(pState.startMs);
@@ -2121,7 +2148,7 @@
       const q25 = Number((v.min + (v.max - v.min) * 0.25).toFixed(2));
       const q50 = Number(((v.min + v.max) / 2).toFixed(2));
       const q75 = Number((v.min + (v.max - v.min) * 0.75).toFixed(2));
-      scale.textContent = `${v.min} ${v.unit} · ${q25} · ${q50} · ${q75} · ${v.max} ${v.unit}`;
+      scale.textContent = `${v.min} ${v.unit} · ${q25} ${v.unit} · ${q50} ${v.unit} · ${q75} ${v.unit} · ${v.max} ${v.unit}`;
     }
   }
 
@@ -2164,9 +2191,18 @@
     }
   }
 
+  function bindVarSelectListener() {
+    const varSelect = document.getElementById("var-select");
+    if (varSelect && !varSelect._ewVarSyncBound) {
+      varSelect._ewVarSyncBound = true;
+      varSelect.addEventListener("change", () => setTimeout(renderAll, 20));
+    }
+  }
+
   function renderAll() {
     const leftPlayer = document.getElementById("ew-range-player-box");
     if (leftPlayer) leftPlayer.style.setProperty("display", "none", "important");
+    bindVarSelectListener();
     ensureInlineHourButtons();
     const v = getVarDef();
     renderTopCbar(v);
@@ -2179,9 +2215,9 @@
   } else {
     renderAll();
   }
-  setInterval(renderAll, 900);
+  setInterval(renderAll, 800);
 })();
 </script>
-<!-- ew-4e4e484-ecmwf-player-end -->
+<!-- ew-4e4e484-var-sync-end -->
 </body>
 </html>
