@@ -5158,5 +5158,247 @@
 </script>
 <!-- EW_FORCE_SELECTED_VAR_ON_CLICK_END -->
 
+<!-- EW_FIX_POPUP_VAR_PLACE_START -->
+<script>
+(function () {
+  const VAR_LOOKUP = [
+    ["wind_gusts_10m", "wind gusts 10m", "km/h"],
+    ["wind_speed_10m", "wind speed 10m", "km/h"],
+    ["wind_speed_80m", "wind speed 80m", "km/h"],
+    ["wind_speed_100m", "wind speed 100m", "km/h"],
+    ["wind_speed_120m", "wind speed 120m", "km/h"],
+    ["wind_direction_10m", "wind direction 10m", "°"],
+    ["temperature_2m", "temperature 2m", "°C"],
+    ["apparent_temperature", "apparent temperature", "°C"],
+    ["precipitation", "precipitation", "mm"],
+    ["rain", "rain", "mm"],
+    ["pressure_msl", "pressure msl", "hPa"],
+    ["relative_humidity_2m", "relative humidity 2m", "%"]
+  ];
+
+  const state = {
+    key: "wind_gusts_10m",
+    label: "wind gusts 10m",
+    unit: "km/h",
+    value: NaN,
+    min: NaN,
+    max: NaN,
+    lat: 40.2942,
+    lon: 27.9272,
+    il: "",
+    ilce: "",
+    mahalle: "",
+    placeLine: ""
+  };
+
+  let seq = 0;
+  const geoCache = new Map();
+  const dataCache = new Map();
+
+  function cleanVarLabel(key, raw) {
+    if (key) {
+      return String(key)
+        .replace(/_(\d+)hPa$/, " ($1 hPa)")
+        .replace(/_(\d+)m$/, " ($1 m)")
+        .replace(/_/g, " ")
+        .trim();
+    }
+    return String(raw || "variable").replace(/\[[^\]]+\]/g, "").trim();
+  }
+
+  function fmt(v, u) {
+    if (!Number.isFinite(v)) return "-";
+    if (u === "m³/m³") return v.toFixed(3);
+    if (u === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function buildPopupHtml() {
+    const coordStr = `${state.lat.toFixed(4)}°N, ${state.lon.toFixed(4)}°E`;
+    const locStr = state.placeLine || `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
+    const valStr = Number.isFinite(state.value)
+      ? `${fmt(state.value, state.unit)} ${state.unit}`.trim()
+      : `- ${state.unit}`.trim();
+    return `<div><b>${locStr}</b><br/>${coordStr}<br/><b>${state.label}:</b> ${valStr}</div>`;
+  }
+
+  function syncOpenPopupsAndPanels() {
+    const valStr = Number.isFinite(state.value)
+      ? `${fmt(state.value, state.unit)} ${state.unit}`.trim()
+      : `- ${state.unit}`.trim();
+    const coordStr = `${state.lat.toFixed(4)}°N, ${state.lon.toFixed(4)}°E`;
+    const popupHtml = buildPopupHtml();
+
+    // Haritadaki açık popup içeriklerini güncelle
+    document.querySelectorAll(".leaflet-popup-content").forEach(el => {
+      el.innerHTML = popupHtml;
+    });
+
+    // Sağ paneli güncelle
+    const right = document.getElementById("ew-ui-right") || document.getElementById("ew-dual-panel");
+    if (right) {
+      right.innerHTML = `
+        <div style="font-size:11px;font-weight:700;color:#7dd3fc;">KOORDİNAT: ${coordStr}</div>
+        <div style="font-size:12px;font-weight:700;margin-top:4px;">${state.placeLine || "-"}</div>
+        <div style="font-size:14px;font-weight:800;margin-top:6px;">${state.label} [${state.unit}]: ${valStr}</div>
+      `;
+    }
+
+    // CBAR'ı güncelle
+    const cbar = document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar");
+    if (cbar) {
+      const minStr = Number.isFinite(state.min) ? `${fmt(state.min, state.unit)} ${state.unit}`.trim() : "-";
+      const maxStr = Number.isFinite(state.max) ? `${fmt(state.max, state.unit)} ${state.unit}`.trim() : "-";
+      cbar.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;">
+          <span style="color:#e0f2fe;">${state.label} · Birim: ${state.unit}</span>
+          <span style="color:#ffffff;background:rgba(2,132,199,0.42);border:1px solid rgba(125,211,252,0.5);border-radius:6px;padding:2px 9px;">${valStr}</span>
+        </div>
+        <div style="height:11px;width:100%;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,#313695,#4575b4,#74add1,#abd9e9,#fee090,#fdae61,#f46d43,#d73027);"></div>
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#cbd5e1;">
+          <span>Nokta: ${coordStr}</span>
+          <span>Aralık: ${minStr} .. ${maxStr}</span>
+        </div>
+      `;
+    }
+  }
+
+  async function refreshLocationAndVariable(lat, lon) {
+    const mySeq = ++seq;
+    state.lat = Number(lat);
+    state.lon = Number(lon);
+    state.value = NaN;
+    syncOpenPopupsAndPanels();
+
+    const gKey = `${state.lat.toFixed(4)},${state.lon.toFixed(4)}`;
+    if (geoCache.has(gKey)) {
+      state.placeLine = geoCache.get(gKey);
+      syncOpenPopupsAndPanels();
+    } else {
+      try {
+        const gUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(state.lat)}&lon=${encodeURIComponent(state.lon)}&zoom=17&addressdetails=1&accept-language=tr`;
+        const gr = await fetch(gUrl, { headers: { Accept: "application/json" } });
+        if (gr.ok && mySeq === seq) {
+          const gj = await gr.json();
+          const a = gj.address || {};
+          const il = a.province || a.state || a.city || "Konum";
+          const ilce = a.town || a.county || a.city_district || a.district || "";
+          const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.road || "-";
+          const line = `${[il, ilce].filter(Boolean).join(" / ")} · Mahalle: ${mah}`;
+          geoCache.set(gKey, line);
+          state.placeLine = line;
+          syncOpenPopupsAndPanels();
+        }
+      } catch (_) {}
+    }
+
+    const dKey = `${state.lat.toFixed(3)},${state.lon.toFixed(3)}:${state.key}`;
+    if (dataCache.has(dKey)) {
+      const hit = dataCache.get(dKey);
+      state.value = hit.value;
+      state.min = hit.min;
+      state.max = hit.max;
+      state.unit = hit.unit || state.unit;
+      syncOpenPopupsAndPanels();
+      return;
+    }
+
+    try {
+      const eUrl = `https://api.open-meteo.com/v1/ecmwf?latitude=${state.lat.toFixed(4)}&longitude=${state.lon.toFixed(4)}&hourly=${encodeURIComponent(state.key)}&timezone=auto&forecast_days=7`;
+      const er = await fetch(eUrl);
+      if (!er.ok || mySeq !== seq) return;
+      const ej = await er.json();
+      const raw = (ej && ej.hourly && Array.isArray(ej.hourly[state.key])) ? ej.hourly[state.key] : [];
+      const times = (ej && ej.hourly && Array.isArray(ej.hourly.time)) ? ej.hourly.time : [];
+      const unit = (ej && ej.hourly_units && ej.hourly_units[state.key]) ? ej.hourly_units[state.key] : state.unit;
+      const nums = raw.map(Number).filter(Number.isFinite);
+      if (nums.length) {
+        let idx = 0, best = Infinity, nowMs = Date.now();
+        times.forEach((t, i) => {
+          const d = Math.abs(Date.parse(t) - nowMs);
+          if (Number.isFinite(d) && d < best) { best = d; idx = i; }
+        });
+        const pack = {
+          value: nums[Math.min(nums.length - 1, idx)],
+          min: Math.min(...nums),
+          max: Math.max(...nums),
+          unit
+        };
+        dataCache.set(dKey, pack);
+        state.value = pack.value;
+        state.min = pack.min;
+        state.max = pack.max;
+        state.unit = pack.unit;
+      }
+      syncOpenPopupsAndPanels();
+    } catch (_) {}
+  }
+
+  document.addEventListener("click", function (ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (!btn) return;
+    const raw = (btn.textContent || "").trim();
+    const low = raw.toLowerCase();
+
+    let key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey || btn.dataset.om)) || "";
+    let unit = (btn.dataset && btn.dataset.unit) || "";
+    let label = "";
+
+    const um = raw.match(/\[([^\]]+)\]/);
+    if (!unit && um) unit = um[1].trim();
+
+    if (!key) {
+      for (const [k, lbl, u] of VAR_LOOKUP) {
+        if (low.includes(lbl) || low.includes(k.toLowerCase().replace(/_/g, " ")) || (low.includes("gust") && k === "wind_gusts_10m")) {
+          key = k;
+          label = lbl;
+          if (!unit) unit = u;
+          break;
+        }
+      }
+    }
+
+    if (!key && raw.includes("[")) {
+      label = raw.split("[")[0].trim();
+      key = label.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
+    }
+
+    if (key) {
+      state.key = key;
+      state.label = label || cleanVarLabel(key, raw);
+      if (unit) state.unit = unit;
+      refreshLocationAndVariable(state.lat, state.lon);
+    }
+  }, true);
+
+  function hookLeaflet() {
+    const mp = window.map || window._map;
+    if (mp && typeof mp.on === "function" && !mp.__ewPopupFixBound) {
+      mp.__ewPopupFixBound = true;
+      mp.on("click", function (ev) {
+        if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
+          refreshLocationAndVariable(ev.latlng.lat, ev.latlng.lng);
+        }
+      });
+      mp.on("popupopen", function () {
+        setTimeout(syncOpenPopupsAndPanels, 20);
+      });
+    }
+  }
+
+  setInterval(() => {
+    hookLeaflet();
+    syncOpenPopupsAndPanels();
+  }, 400);
+
+  setTimeout(() => {
+    hookLeaflet();
+    refreshLocationAndVariable(state.lat, state.lon);
+  }, 250);
+})();
+</script>
+<!-- EW_FIX_POPUP_VAR_PLACE_END -->
+
 </body>
 </html>
