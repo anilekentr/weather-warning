@@ -1806,6 +1806,18 @@
     border-bottom: 1px solid rgba(148, 163, 184, 0.25) !important;
     gap: 6px !important;
   }
+  .ew-pi-var-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 6px 8px !important;
+    margin-bottom: 7px !important;
+    border-radius: 7px !important;
+    background: rgba(30, 41, 59, 0.9) !important;
+    border: 1px solid rgba(125, 211, 252, 0.35) !important;
+    font-size: 11px !important;
+    gap: 8px !important;
+  }
   .ew-pi-step-bar {
     display: flex !important;
     gap: 6px !important;
@@ -1887,13 +1899,33 @@
 </style>
 <script id="ew-point-instant-summary-script">
 (function() {
-  // Tek ortak nokta durumu: sayfadaki tüm konum etiketleri, harita ve kutu bu tek noktayı gösterir
+  const VAR_META = {
+    temperature_2m: { label: "2m Sıcaklık", fallbackUnit: "°C" },
+    relative_humidity_2m: { label: "2m Bağıl Nem", fallbackUnit: "%" },
+    dew_point_2m: { label: "2m Çiy Noktası", fallbackUnit: "°C" },
+    apparent_temperature: { label: "Hissedilen Sıcaklık", fallbackUnit: "°C" },
+    precipitation: { label: "Toplam Yağış", fallbackUnit: "mm" },
+    rain: { label: "Yağmur", fallbackUnit: "mm" },
+    snowfall: { label: "Kar Yağışı", fallbackUnit: "cm" },
+    snow_depth: { label: "Kar Kalınlığı", fallbackUnit: "m" },
+    weather_code: { label: "Hava Durumu Kodu", fallbackUnit: "wmo" },
+    pressure_msl: { label: "Deniz Seviyesi Basıncı", fallbackUnit: "hPa" },
+    surface_pressure: { label: "Yüzey Basıncı", fallbackUnit: "hPa" },
+    cloud_cover: { label: "Toplam Bulutluluk", fallbackUnit: "%" },
+    wind_speed_10m: { label: "10m Rüzgar Hızı", fallbackUnit: "km/h" },
+    wind_gusts_10m: { label: "10m Rüzgar Hamlesi", fallbackUnit: "km/h" },
+    wind_direction_10m: { label: "10m Rüzgar Yönü", fallbackUnit: "°" },
+    shortwave_radiation: { label: "Kısa Dalga Radyasyon", fallbackUnit: "W/m²" },
+    cape: { label: "CAPE Kararsızlık", fallbackUnit: "J/kg" }
+  };
+
   let activePoint = { lat: 40.8120, lon: 29.3774 };
   let activeLocation = {
     il: "Kocaeli",
     ilce: "Gebze",
     mahalle: "Cumhuriyet Mahallesi"
   };
+  let activeVarCode = "temperature_2m";
   let hourOffset = 0; // -1: 1 saat önce (ECMWF Canlı), 0: Şu an (ECMWF Canlı), +1: 1 saat sonra (ECMWF Yakın)
   let queryEpoch = 0;
   let activeAbortController = null;
@@ -2034,9 +2066,10 @@
     return null;
   }
 
-  // Sayfadaki tüm Koordinat / İl / İlçe / Mahalle satırlarını tek bir noktaya eşitler (çift konum birleşmesini önler)
-  function syncAllLocationTextEverywhere() {
+  // Sol panel ve sağ/oynatıcı paneldeki değişken seçicileri ve konum satırlarını birebir senkronlar
+  function syncLeftAndRightPanels() {
     purgeCbarsAndErrorText();
+
     const coordStr = `${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}`;
     const ilStr = activeLocation.il || "Bölge";
     const ilceStr = activeLocation.ilce || "Merkez";
@@ -2057,6 +2090,38 @@
         node.nodeValue = `Mahalle / Semt: ${mahalleStr}`;
       }
     }
+
+    // Tüm <select> değişken kutularını activeVarCode ile eşitle ve değişiklikleri bağla
+    document.querySelectorAll("select").forEach(sel => {
+      const hasVar = Array.from(sel.options).some(o => o.value === activeVarCode);
+      if (hasVar && sel.value !== activeVarCode) {
+        sel.value = activeVarCode;
+      }
+      if (!sel.dataset.ewSyncedVar) {
+        sel.dataset.ewSyncedVar = "1";
+        sel.addEventListener("change", () => {
+          if (sel.value) {
+            setUnifiedVariable(sel.value);
+          }
+        });
+      }
+    });
+
+    // Sol veya sağ paneldeki değişken buton/satır tıklamalarını yakala
+    document.querySelectorAll("button, [role='button'], .var-item, .ew-var-item, [data-var]").forEach(el => {
+      if (el.id && el.id.startsWith("ew-point-instant")) return;
+      if (el.dataset.ewStepBtn) return;
+      if (el.dataset.ewVarClickBound) return;
+      const dataVar = el.getAttribute("data-var") || el.getAttribute("data-variable") || el.getAttribute("value");
+      const text = (el.textContent || "").trim();
+      const matchedKey = dataVar || Object.keys(VAR_META).find(k => text.includes(k) || text.includes(VAR_META[k].label));
+      if (matchedKey) {
+        el.dataset.ewVarClickBound = "1";
+        el.addEventListener("click", () => {
+          setUnifiedVariable(matchedKey);
+        });
+      }
+    });
   }
 
   async function resolveReverseLocation(lat, lon, signal) {
@@ -2091,7 +2156,7 @@
     }
   }
 
-  async function fetchEcmwfForOffset(lat, lon, offset, signal) {
+  async function fetchEcmwfForOffset(lat, lon, offset, varCode, signal) {
     const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
     let data = seriesCache.get(cacheKey);
 
@@ -2110,7 +2175,7 @@
 
     const h = data && data.hourly;
     const units = data && data.hourly_units ? data.hourly_units : {};
-    if (!h || !Array.isArray(h.time) || !Array.isArray(h.temperature_2m)) return null;
+    if (!h || !Array.isArray(h.time)) return null;
 
     const now = new Date();
     const trNow = new Date(now.getTime() + 3 * 3600 * 1000);
@@ -2125,7 +2190,7 @@
 
     const idx = Math.max(0, Math.min(h.time.length - 1, baseIdx + offset));
 
-    const temp = h.temperature_2m[idx];
+    const temp = Array.isArray(h.temperature_2m) ? h.temperature_2m[idx] : null;
     const hum = Array.isArray(h.relative_humidity_2m) ? h.relative_humidity_2m[idx] : null;
     const precip = Array.isArray(h.precipitation) ? h.precipitation[idx] : null;
     const rain = Array.isArray(h.rain) ? h.rain[idx] : null;
@@ -2147,8 +2212,23 @@
     const humUnit = units.relative_humidity_2m || "%";
     const cloudUnit = units.cloud_cover || "%";
 
+    const meta = VAR_META[varCode] || { label: varCode, fallbackUnit: "" };
+    const selArr = Array.isArray(h[varCode]) ? h[varCode] : null;
+    const selUnit = units[varCode] || meta.fallbackUnit || "";
+    let selectedVarValStr = null;
+    if (varCode === "wind_direction_10m") {
+      selectedVarValStr = degToCompassTr(wdir);
+    } else if (varCode === "precipitation" || varCode === "rain" || varCode === "snowfall") {
+      selectedVarValStr = precipAmountStr;
+    } else if (selArr && typeof selArr[idx] === "number" && Number.isFinite(selArr[idx])) {
+      selectedVarValStr = `${selArr[idx].toFixed(1)} ${selUnit}`.trim();
+    }
+
     return {
       timeLabel: formatIstanbulHourLabel(h.time[idx], offset),
+      selectedVarCode: varCode,
+      selectedVarLabel: `${meta.label} [${varCode}]`,
+      selectedVarValStr,
       tempStr: typeof temp === "number" ? `${temp.toFixed(1)} ${tempUnit}` : null,
       windSpeedStr: typeof wspd === "number" ? `${wspd.toFixed(1)} ${windUnit}` : null,
       windDirStr: degToCompassTr(wdir),
@@ -2161,7 +2241,7 @@
 
   function renderInstantBox(weather, isFetching) {
     purgeCbarsAndErrorText();
-    syncAllLocationTextEverywhere();
+    syncLeftAndRightPanels();
 
     let box = document.getElementById("ew-point-instant-box");
     if (!box) {
@@ -2181,8 +2261,11 @@
     }
 
     const mode = getModeMeta(hourOffset);
+    const meta = VAR_META[activeVarCode] || { label: activeVarCode, fallbackUnit: "" };
     const w = weather || {
       timeLabel: formatIstanbulHourLabel(null, hourOffset),
+      selectedVarLabel: `${meta.label} [${activeVarCode}]`,
+      selectedVarValStr: null,
       tempStr: null,
       windSpeedStr: null,
       windDirStr: null,
@@ -2200,10 +2283,11 @@
 
     box.innerHTML =
       `<div class="ew-pi-header"><span>${mode.tag} · ${w.timeLabel}</span><span class="${mode.badgeClass}">${mode.isLive ? "Canlı" : "Yakın Değer"}</span></div>` +
+      `<div class="ew-pi-var-row"><span><strong>Seçili Değişken:</strong> ${w.selectedVarLabel}</span>${fmtVal(w.selectedVarValStr)}</div>` +
       `<div class="ew-pi-step-bar">` +
-        `<button type="button" class="ew-pi-step-btn ${hourOffset === -1 ? "active" : ""}" data-step="-1">-1</button>` +
-        `<button type="button" class="ew-pi-step-btn ${hourOffset === 0 ? "active" : ""}" data-step="0">Şu An</button>` +
-        `<button type="button" class="ew-pi-step-btn ${hourOffset === 1 ? "active" : ""}" data-step="1">+1</button>` +
+        `<button type="button" class="ew-pi-step-btn ${hourOffset === -1 ? "active" : ""}" data-ew-step-btn="1" data-step="-1">-1</button>` +
+        `<button type="button" class="ew-pi-step-btn ${hourOffset === 0 ? "active" : ""}" data-ew-step-btn="1" data-step="0">Şu An</button>` +
+        `<button type="button" class="ew-pi-step-btn ${hourOffset === 1 ? "active" : ""}" data-ew-step-btn="1" data-step="1">+1</button>` +
       `</div>` +
       `<div class="ew-pi-loc">` +
         `<div><strong>Koordinat:</strong> <span class="${mode.valClass}">${coordStr}</span></div>` +
@@ -2274,6 +2358,7 @@
     const htmlBadge =
       `<div><strong>${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}</strong> · <strong style="color:${mode.colorHex};">${mode.tag}</strong></div>` +
       `<div><strong>${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</strong></div>` +
+      `<div>${weather && weather.selectedVarLabel ? weather.selectedVarLabel : activeVarCode}: ${g(weather && weather.selectedVarValStr)}</div>` +
       `<div>2m Sıcaklık: ${g(weather && weather.tempStr)} · Nem: ${g(weather && weather.humidityStr)} · Bulut: ${g(weather && weather.cloudCoverStr)}</div>` +
       `<div>Rüzgar: ${g(weather && weather.windSpeedStr)} · ${g(weather && weather.windDirStr)}</div>` +
       `<div>Yağış: ${g(weather && weather.precipAmountStr)} (${g(weather && weather.precipTypeStr)})</div>`;
@@ -2304,7 +2389,7 @@
       mahalle: `${lon.toFixed(4)}`
     };
 
-    syncAllLocationTextEverywhere();
+    syncLeftAndRightPanels();
     renderInstantBox(null, true);
     const mapObj = resolveLeafletMap();
     if (mapObj) updateMapPinAndPopup(mapObj, null);
@@ -2312,16 +2397,31 @@
     resolveReverseLocation(lat, lon, signal).then(loc => {
       if (myEpoch !== queryEpoch) return;
       activeLocation = loc;
-      syncAllLocationTextEverywhere();
+      syncLeftAndRightPanels();
       renderInstantBox(null, true);
       if (mapObj) updateMapPinAndPopup(mapObj, null);
     });
 
-    const weather = await fetchEcmwfForOffset(lat, lon, hourOffset, signal);
+    const weather = await fetchEcmwfForOffset(lat, lon, hourOffset, activeVarCode, signal);
     if (myEpoch !== queryEpoch) return;
 
-    syncAllLocationTextEverywhere();
+    syncLeftAndRightPanels();
     renderInstantBox(weather, false);
+    if (mapObj) updateMapPinAndPopup(mapObj, weather);
+  }
+
+  async function setUnifiedVariable(varCode) {
+    if (!varCode || varCode === activeVarCode) return;
+    activeVarCode = varCode;
+    const myEpoch = ++queryEpoch;
+    syncLeftAndRightPanels();
+    renderInstantBox(null, true);
+
+    const weather = await fetchEcmwfForOffset(activePoint.lat, activePoint.lon, hourOffset, activeVarCode, null);
+    if (myEpoch !== queryEpoch) return;
+
+    renderInstantBox(weather, false);
+    const mapObj = resolveLeafletMap();
     if (mapObj) updateMapPinAndPopup(mapObj, weather);
   }
 
@@ -2329,10 +2429,10 @@
     const clamped = Math.max(-1, Math.min(1, Number(nextOffset) || 0));
     hourOffset = clamped;
     const myEpoch = ++queryEpoch;
-    syncAllLocationTextEverywhere();
+    syncLeftAndRightPanels();
     renderInstantBox(null, true);
 
-    const weather = await fetchEcmwfForOffset(activePoint.lat, activePoint.lon, hourOffset, null);
+    const weather = await fetchEcmwfForOffset(activePoint.lat, activePoint.lon, hourOffset, activeVarCode, null);
     if (myEpoch !== queryEpoch) return;
 
     renderInstantBox(weather, false);
@@ -2375,7 +2475,7 @@
 
   setInterval(() => {
     purgeCbarsAndErrorText();
-    syncAllLocationTextEverywhere();
+    syncLeftAndRightPanels();
     bindMapClickAndHover();
   }, 1000);
 })();
