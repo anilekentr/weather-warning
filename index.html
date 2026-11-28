@@ -5760,5 +5760,182 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </script>
 <!-- EW_MOUSE_POINT_DATA_END -->
 
+<!-- EW_CURSOR_PLACE_RIGHT_PANEL_START -->
+<style>
+  #ew-cursor-tooltip {
+    position: fixed;
+    pointer-events: none;
+    z-index: 99998;
+    display: none;
+    max-width: 290px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid rgba(125, 211, 252, 0.5);
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 11px;
+    line-height: 1.38;
+    box-shadow: 0 8px 20px rgba(2, 6, 23, 0.55);
+  }
+  .ew-ct-coord {
+    font-weight: 700;
+    color: #7dd3fc;
+  }
+  .ew-ct-place {
+    font-weight: 600;
+    color: #f8fafc;
+    margin-top: 2px;
+  }
+</style>
+
+<script>
+(function () {
+  const geoCache = new Map();
+  let hoverTimer = null;
+  let hoverSeq = 0;
+
+  let curHover = {
+    lat: 41.0082,
+    lon: 28.9784,
+    place: "Konum aranıyor...",
+    visible: false,
+    x: 0,
+    y: 0
+  };
+
+  function getMap() {
+    if (window.map && typeof window.map.mouseEventToLatLng === "function") return window.map;
+    if (window._map && typeof window._map.mouseEventToLatLng === "function") return window._map;
+    return null;
+  }
+
+  function ensureTip() {
+    let tip = document.getElementById("ew-cursor-tooltip");
+    if (!tip) {
+      tip = document.createElement("div");
+      tip.id = "ew-cursor-tooltip";
+      document.body.appendChild(tip);
+    }
+    return tip;
+  }
+
+  function formatPlaceFromAddress(addr, lat, lon) {
+    const a = addr || {};
+    const il = a.province || a.state || a.city || "Açık Deniz / Bölge";
+    const ilce = a.town || a.county || a.city_district || a.district || "";
+    const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.road || "-";
+    const base = [il, ilce].filter(Boolean).join(" / ");
+    if (!base) return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    return `${base} · Mahalle: ${mah}`;
+  }
+
+  function pushToRightPanel() {
+    const rp = document.getElementById("ew-ui-right");
+    if (!rp) return;
+
+    const cStr = `${curHover.lat.toFixed(4)}°N, ${curHover.lon.toFixed(4)}°E`;
+    let valLine = "";
+    const cbar = document.getElementById("ew-static-cbar");
+    if (cbar) {
+      const topSpans = cbar.querySelectorAll(".ew-sc-row span");
+      if (topSpans.length >= 2) {
+        valLine = `${topSpans[0].textContent}: ${topSpans[1].textContent}`;
+      }
+    }
+
+    rp.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:#7dd3fc;">KOORDİNAT: ${cStr}</div>
+      <div style="font-size:12px;font-weight:700;margin-top:4px;color:#f8fafc;">${curHover.place}</div>
+      ${valLine ? `<div style="font-size:13px;font-weight:800;margin-top:6px;color:#e0f2fe;">${valLine}</div>` : ""}
+    `;
+  }
+
+  function renderTip() {
+    const tip = ensureTip();
+    if (!curHover.visible) {
+      tip.style.display = "none";
+      return;
+    }
+
+    const cStr = `${curHover.lat.toFixed(4)}°N, ${curHover.lon.toFixed(4)}°E`;
+    tip.innerHTML = `
+      <div class="ew-ct-coord">${cStr}</div>
+      <div class="ew-ct-place">${curHover.place}</div>
+    `;
+
+    const pad = 14;
+    const w = tip.offsetWidth || 220;
+    const h = tip.offsetHeight || 44;
+    const left = Math.min(window.innerWidth - w - 10, Math.max(10, curHover.x + pad));
+    const top = Math.min(window.innerHeight - h - 10, Math.max(10, curHover.y + pad));
+
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+    tip.style.display = "block";
+  }
+
+  async function lookupPlace(lat, lon) {
+    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+    if (geoCache.has(key)) {
+      curHover.place = geoCache.get(key);
+      renderTip();
+      pushToRightPanel();
+      return;
+    }
+
+    const seq = ++hoverSeq;
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1&accept-language=tr`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok || seq !== hoverSeq) return;
+      const json = await res.json();
+      const text = formatPlaceFromAddress(json.address, lat, lon);
+      geoCache.set(key, text);
+      curHover.place = text;
+      renderTip();
+      pushToRightPanel();
+    } catch (_) {}
+  }
+
+  document.addEventListener("mousemove", function (ev) {
+    const mp = getMap();
+    const mapEl = document.getElementById("map");
+    if (!mp || !mapEl || !mapEl.contains(ev.target)) {
+      if (curHover.visible) {
+        curHover.visible = false;
+        renderTip();
+      }
+      return;
+    }
+
+    try {
+      const ll = mp.mouseEventToLatLng(ev);
+      if (!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
+
+      curHover.lat = Number(ll.lat);
+      curHover.lon = Number(ll.lng);
+      curHover.x = ev.clientX;
+      curHover.y = ev.clientY;
+      curHover.visible = true;
+
+      const cacheKey = `${curHover.lat.toFixed(3)},${curHover.lon.toFixed(3)}`;
+      if (geoCache.has(cacheKey)) {
+        curHover.place = geoCache.get(cacheKey);
+        pushToRightPanel();
+      }
+
+      renderTip();
+
+      if (hoverTimer) clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(function () {
+        lookupPlace(curHover.lat, curHover.lon);
+      }, 420);
+    } catch (_) {}
+  }, true);
+})();
+</script>
+<!-- EW_CURSOR_PLACE_RIGHT_PANEL_END -->
+
 </body>
 </html>
