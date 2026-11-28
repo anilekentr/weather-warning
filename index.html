@@ -2490,25 +2490,28 @@
   #ew-ecmwf-step-144-box, #ew-ecmwf-real-data-box,
   #ew-ecmwf-top-location-bar, #ew-ecmwf-panel-status,
   #ew-player-below-cbar-row, #ew-player-sync-row,
-  #ew-player-controls-row, #ew-range-player-box {
+  #ew-player-controls-row, #ew-range-player-box,
+  [data-ew-legacy-panel="1"] {
     display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
 
   #ew-unified-ecmwf-panel {
     position: fixed !important;
-    top: 14px !important;
-    right: 14px !important;
-    width: 360px !important;
-    max-width: calc(100vw - 28px) !important;
-    max-height: calc(100vh - 28px) !important;
+    top: 12px !important;
+    right: 12px !important;
+    width: 368px !important;
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 24px) !important;
     overflow-y: auto !important;
-    z-index: 9999 !important;
+    z-index: 10050 !important;
     padding: 12px !important;
     border-radius: 12px !important;
-    background: rgba(9, 15, 28, 0.96) !important;
+    background: rgba(9, 15, 28, 0.97) !important;
     color: #f8fafc !important;
-    border: 1px solid rgba(74, 222, 128, 0.45) !important;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65) !important;
+    border: 1px solid rgba(74, 222, 128, 0.5) !important;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.72) !important;
     box-sizing: border-box !important;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     font-size: 12px !important;
@@ -2564,11 +2567,11 @@
     white-space: nowrap !important;
   }
 
-  .ew-u-loc-card, .ew-u-core-card, .ew-u-player-card {
+  .ew-u-loc-card, .ew-u-core-card, .ew-u-player-card, .ew-u-picker-card {
     padding: 8px 10px !important;
     border-radius: 9px !important;
-    background: rgba(15, 23, 42, 0.92) !important;
-    border: 1px solid rgba(148, 163, 184, 0.22) !important;
+    background: rgba(15, 23, 42, 0.94) !important;
+    border: 1px solid rgba(148, 163, 184, 0.24) !important;
     margin-bottom: 8px !important;
   }
   .ew-u-loc-line {
@@ -2583,6 +2586,40 @@
   }
   .ew-u-muted {
     color: #94a3b8 !important;
+  }
+
+  .ew-u-picker-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin-bottom: 6px !important;
+  }
+  .ew-u-select, .ew-u-coord-inp {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 5px 6px !important;
+    border-radius: 6px !important;
+    background: rgba(9, 13, 22, 0.96) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    font-size: 10.5px !important;
+  }
+  .ew-u-coord-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr auto !important;
+    gap: 5px !important;
+    align-items: center !important;
+  }
+  .ew-u-go-btn {
+    padding: 5px 9px !important;
+    border-radius: 6px !important;
+    border: 1px solid #38bdf8 !important;
+    background: rgba(2, 132, 199, 0.28) !important;
+    color: #7dd3fc !important;
+    font-weight: 800 !important;
+    font-size: 10.5px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
   }
 
   .ew-u-play-toolbar {
@@ -2764,7 +2801,7 @@
     display: flex !important;
     flex-direction: column !important;
     gap: 4px !important;
-    max-height: 220px !important;
+    max-height: 210px !important;
     overflow-y: auto !important;
   }
   .ew-u-var-btn {
@@ -2793,19 +2830,37 @@
     white-space: nowrap !important;
   }
   .ew-map-point-badge {
-    background: rgba(9, 15, 28, 0.96) !important;
+    background: rgba(9, 15, 28, 0.97) !important;
     color: #f8fafc !important;
+    border: 1px solid rgba(74, 222, 128, 0.55) !important;
     border-radius: 8px !important;
     padding: 6px 9px !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.85) !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.88) !important;
     white-space: nowrap !important;
     line-height: 1.35 !important;
   }
 </style>
 <script id="ew-ecmwf-player-engine-script">
 (function() {
+  const PROVINCE_PRESETS = [
+    { il: "Kocaeli", ilce: "Gebze", mahalle: "Cumhuriyet Mahallesi", lat: 40.8120, lon: 29.3774 },
+    { il: "İstanbul", ilce: "Fatih", mahalle: "Eminönü / Merkez", lat: 41.0082, lon: 28.9784 },
+    { il: "İstanbul", ilce: "Kadıköy", mahalle: "Caferağa", lat: 40.9909, lon: 29.0289 },
+    { il: "İstanbul", ilce: "Büyükçekmece", mahalle: "Sahil / Marmara", lat: 41.0209, lon: 28.5858 },
+    { il: "Bursa", ilce: "Osmangazi", mahalle: "Merkez", lat: 40.1885, lon: 29.0610 },
+    { il: "Sakarya", ilce: "Adapazarı", mahalle: "Merkez", lat: 40.7569, lon: 30.3781 },
+    { il: "Tekirdağ", ilce: "Süleymanpaşa", mahalle: "Sahil", lat: 40.9780, lon: 27.5110 },
+    { il: "Balıkesir", ilce: "Karesi", mahalle: "Merkez", lat: 39.6484, lon: 27.8826 },
+    { il: "Çanakkale", ilce: "Merkez", mahalle: "Boğaz Hattı", lat: 40.1553, lon: 26.4142 },
+    { il: "Yalova", ilce: "Merkez", mahalle: "Sahil", lat: 40.6500, lon: 29.2667 },
+    { il: "Edirne", ilce: "Merkez", mahalle: "Merkez", lat: 41.6771, lon: 26.5557 },
+    { il: "Kırklareli", ilce: "Merkez", mahalle: "Merkez", lat: 41.7333, lon: 27.2167 },
+    { il: "İzmir", ilce: "Konak", mahalle: "Alsancak", lat: 38.4237, lon: 27.1428 },
+    { il: "Ankara", ilce: "Çankaya", mahalle: "Kızılay", lat: 39.9334, lon: 32.8597 }
+  ];
+
   const ALL_ECMWF_VARS = [
     ["temperature_2m", "2m Sıcaklığı", "°C"],
     ["relative_humidity_2m", "Bağıl Nem", "%"],
@@ -2843,7 +2898,6 @@
     ["et0_fao_evapotranspiration", "Referans ET0", "mm"]
   ];
 
-  // Oynatıcının ilerleme adımı seçenekleri (saat)
   const STEP_HOUR_OPTIONS = [1, 3, 6, 12, 18, 24, 72, 120, 144, 168];
 
   let activePoint = { lat: 40.8120, lon: 29.3774 };
@@ -2853,7 +2907,7 @@
     mahalle: "Cumhuriyet Mahallesi"
   };
   let activeVarCode = "temperature_2m";
-  let stepHours = 1; // Seçilen adım: 1s, 3s, 6s, 12s, 18s, 24s, 72s, 120s, 144s, 168s
+  let stepHours = 1;
   let isPlaying = false;
   let playTimer = null;
   let playCursorIdx = 0;
@@ -2869,17 +2923,27 @@
   const geoCache = new Map();
   const seriesCache = new Map();
 
-  function degToCompassTr(deg) {
+  function degOnlyAndTrDir(deg) {
     if (typeof deg !== "number" || !Number.isFinite(deg)) return null;
-    const normalized = ((deg % 360) + 360) % 360;
+    const norm = ((deg % 360) + 360) % 360;
     const dirs = [
       "Kuzey", "Kuzey-Kuzeydoğu", "Kuzeydoğu", "Doğu-Kuzeydoğu",
       "Doğu", "Doğu-Güneydoğu", "Güneydoğu", "Güney-Güneydoğu",
       "Güney", "Güney-Güneybatı", "Güneybatı", "Batı-Güneybatı",
       "Batı", "Batı-Kuzeybatı", "Kuzeybatı", "Kuzey-Kuzeybatı"
     ];
-    const idx = Math.round(normalized / 22.5) % 16;
-    return `${Math.round(normalized)}° (${dirs[idx]})`;
+    const idx = Math.round(norm / 22.5) % 16;
+    const roundedDeg = Math.round(norm);
+    return {
+      deg: roundedDeg,
+      trDir: dirs[idx],
+      text: `${roundedDeg}° · ${dirs[idx]}`
+    };
+  }
+
+  function degToCompassTr(deg) {
+    const info = degOnlyAndTrDir(deg);
+    return info ? `${info.deg}° (${info.trDir})` : null;
   }
 
   function classifyPrecipType(precip, rain, snowfall, weatherCode) {
@@ -2934,7 +2998,6 @@
     return isoStr.slice(0, 16);
   }
 
-  // Adım büyüklüğüne tam bölünmeyen saat/aralık değerini en yakın uygun kat değere yuvarlar (ör. 25s -> 24s veya 27s)
   function snapHoursToStepMultiple(hoursVal, stepVal, minAllowed, maxAllowed) {
     const st = Math.max(1, Number(stepVal) || 1);
     const lowFloor = Math.max(24, Math.ceil(minAllowed / st) * st);
@@ -2946,6 +3009,13 @@
     if (upperMult > maxAllowed) return lowerMult;
     if (lowerMult < lowFloor) return upperMult;
     return (hoursVal - lowerMult) <= (upperMult - hoursVal) ? lowerMult : upperMult;
+  }
+
+  function getCurrentIstanbulIsoPrefix() {
+    const now = new Date();
+    const tr = new Date(now.getTime() + 3 * 3600 * 1000);
+    const pad = n => String(n).padStart(2, "0");
+    return `${tr.getUTCFullYear()}-${pad(tr.getUTCMonth() + 1)}-${pad(tr.getUTCDate())}T${pad(tr.getUTCHours())}:00`;
   }
 
   function getModeInfo(timeIso, playing) {
@@ -2981,13 +3051,6 @@
     };
   }
 
-  function getCurrentIstanbulIsoPrefix() {
-    const now = new Date();
-    const tr = new Date(now.getTime() + 3 * 3600 * 1000);
-    const pad = n => String(n).padStart(2, "0");
-    return `${tr.getUTCFullYear()}-${pad(tr.getUTCMonth() + 1)}-${pad(tr.getUTCDate())}T${pad(tr.getUTCHours())}:00`;
-  }
-
   function colorFromDynamicMinMax(val, minV, maxV, paletteStops) {
     const stops = paletteStops || ["#2563eb", "#06b6d4", "#22c55e", "#eab308", "#f97316", "#ef4444"];
     if (typeof val !== "number" || !Number.isFinite(val)) return stops[2];
@@ -3005,19 +3068,34 @@
     return ["#3b82f6", "#22c55e", "#eab308", "#f97316", "#ef4444"];
   }
 
-  function cleanupLegacyUi() {
+  // Diğer tüm panelleri ve CBAR kalıntılarını gizle; yalnızca #ew-unified-ecmwf-panel açık kalsın
+  function hideAllCompetingPanels() {
+    const keepPanel = document.getElementById("ew-unified-ecmwf-panel");
+
     document.querySelectorAll('[id*="cbar" i], [class*="cbar" i]').forEach(el => {
-      if (el.id && (el.id.startsWith("ew-unified") || el.id.startsWith("ew-ecmwf-player"))) return;
-      if (el.closest && el.closest("#ew-unified-ecmwf-panel")) return;
+      if (keepPanel && (el === keepPanel || keepPanel.contains(el))) return;
+      el.setAttribute("data-ew-legacy-panel", "1");
       el.style.setProperty("display", "none", "important");
+    });
+
+    const allFixedOrPanels = document.querySelectorAll("aside, section, .panel, [class*='panel' i], [id*='panel' i]");
+    allFixedOrPanels.forEach(el => {
+      if (!keepPanel || el === keepPanel || keepPanel.contains(el) || el.contains(keepPanel)) return;
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      const isFloating = (style.position === "fixed" || style.position === "absolute") && rect.width >= 180 && rect.height >= 90;
+      const isLeafletControl = el.classList && (el.classList.contains("leaflet-control-container") || el.closest(".leaflet-control-container"));
+      if (isFloating && !isLeafletControl) {
+        el.setAttribute("data-ew-legacy-panel", "1");
+        el.style.setProperty("display", "none", "important");
+      }
     });
 
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
     const hideList = [];
     let node;
     while ((node = walker.nextNode())) {
-      if (node.id && (node.id.startsWith("ew-unified") || node.id.startsWith("ew-ecmwf-player"))) continue;
-      if (node.closest && node.closest("#ew-unified-ecmwf-panel")) continue;
+      if (keepPanel && (node === keepPanel || keepPanel.contains(node))) continue;
       const txt = (node.textContent || "").trim();
       if (node.children.length === 0 && /^Ağ veya API hatası$/i.test(txt)) {
         hideList.push(node);
@@ -3027,8 +3105,11 @@
   }
 
   async function resolveReverseLocation(lat, lon, signal) {
-    if (Math.abs(lat - 40.8120) < 0.0005 && Math.abs(lon - 29.3774) < 0.0005) {
-      return { il: "Kocaeli", ilce: "Gebze", mahalle: "Cumhuriyet Mahallesi" };
+    const preset = PROVINCE_PRESETS.find(
+      p => Math.abs(p.lat - lat) < 0.002 && Math.abs(p.lon - lon) < 0.002
+    );
+    if (preset) {
+      return { il: preset.il, ilce: preset.ilce, mahalle: preset.mahalle };
     }
     const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
     if (geoCache.has(key)) return geoCache.get(key);
@@ -3048,7 +3129,7 @@
       return resolved;
     } catch (_) {
       return {
-        il: "Seçili Nokta",
+        il: "Seçili Koordinat",
         ilce: `${lat.toFixed(4)}`,
         mahalle: `${lon.toFixed(4)}`
       };
@@ -3085,7 +3166,6 @@
     return hourOnly >= 0 ? hourOnly : Math.floor(times.length / 2);
   }
 
-  // Minimum 1 gün (24 saat) aralık + seçilen adım büyüklüğüne uygun ardışık saat adımları üretir
   function buildSteppedIndices(times, startCandidateIso, endCandidateIso, chosenStepHours) {
     if (!Array.isArray(times) || !times.length) return { indices: [], startIso: null, endIso: null, effectiveSpanHours: 24 };
     const firstIso = times[0];
@@ -3101,7 +3181,7 @@
     sMs = Math.max(firstMs, Math.min(lastMs, sMs));
     eMs = Math.max(firstMs, Math.min(lastMs, eMs));
 
-    let rawSpanHours = Math.max(24, Math.round((eMs - sMs) / (3600 * 1000)));
+    const rawSpanHours = Math.max(24, Math.round((eMs - sMs) / (3600 * 1000)));
     const snappedSpanHours = snapHoursToStepMultiple(rawSpanHours, st, 24, totalAvailableHours);
 
     eMs = Math.min(lastMs, sMs + snappedSpanHours * 3600 * 1000);
@@ -3119,7 +3199,6 @@
     }
     if (endIdx < startIdx) endIdx = Math.min(times.length - 1, startIdx + Math.max(24, st));
 
-    // Geçmişten geleceğe seçilen stepHours kadar ardışık adımlarla ilerleyen indeks dizisi
     const stepped = [];
     for (let i = startIdx; i <= endIdx; i += st) {
       stepped.push(i);
@@ -3144,24 +3223,6 @@
     rangeStartIso = res.startIso;
     rangeEndIso = res.endIso;
     return res;
-  }
-
-  function degOnlyAndTrDir(deg) {
-    if (typeof deg !== "number" || !Number.isFinite(deg)) return null;
-    const norm = ((deg % 360) + 360) % 360;
-    const dirs = [
-      "Kuzey", "Kuzey-Kuzeydoğu", "Kuzeydoğu", "Doğu-Kuzeydoğu",
-      "Doğu", "Doğu-Güneydoğu", "Güneydoğu", "Güney-Güneydoğu",
-      "Güney", "Güney-Güneybatı", "Güneybatı", "Batı-Güneybatı",
-      "Batı", "Batı-Kuzeybatı", "Kuzeybatı", "Kuzey-Kuzeybatı"
-    ];
-    const idx = Math.round(norm / 22.5) % 16;
-    const roundedDeg = Math.round(norm);
-    return {
-      deg: roundedDeg,
-      trDir: dirs[idx],
-      text: `${roundedDeg}° · ${dirs[idx]}`
-    };
   }
 
   function computeRangeStatsForVar(data, varCode, indices) {
@@ -3347,12 +3408,15 @@
       panel.id = "ew-unified-ecmwf-panel";
       document.body.appendChild(panel);
     }
+    panel.style.setProperty("display", "block", "important");
+    panel.style.setProperty("visibility", "visible", "important");
     return panel;
   }
 
   function renderPanel(payload, isFetching) {
-    cleanupLegacyUi();
     const panel = ensurePanel();
+    hideAllCompetingPanels();
+
     const curIso = payload ? payload.rawTimeIso : null;
     const mode = getModeInfo(curIso, isPlaying);
     const coordStr = `${activePoint.lat.toFixed(4)}, ${activePoint.lon.toFixed(4)}`;
@@ -3408,6 +3472,11 @@
       return `<button type="button" class="ew-u-off-chip ${act ? "active" : ""}" data-step-hours="${st}">${st}s</button>`;
     }).join("");
 
+    const ilOptionsHtml = PROVINCE_PRESETS.map((p, idx) => {
+      const isMatch = p.il === activeLocation.il && Math.abs(p.lat - activePoint.lat) < 0.05 && Math.abs(p.lon - activePoint.lon) < 0.05;
+      return `<option value="${idx}" ${isMatch ? "selected" : ""}>${p.il} — ${p.ilce}</option>`;
+    }).join("");
+
     panel.innerHTML =
       `<div class="ew-u-top">` +
         `<div>` +
@@ -3415,6 +3484,23 @@
           `<div class="ew-u-sub">${mode.label} · ${timeLabel}</div>` +
         `</div>` +
         `<span class="${mode.badgeClass}">${mode.badge}</span>` +
+      `</div>` +
+      `<div class="ew-u-picker-card">` +
+        `<div class="ew-u-picker-row">` +
+          `<div>` +
+            `<label class="ew-u-field-lbl" for="ew-u-il-select">İl / Nokta Seçimi</label>` +
+            `<select id="ew-u-il-select" class="ew-u-select">${ilOptionsHtml}</select>` +
+          `</div>` +
+          `<div>` +
+            `<label class="ew-u-field-lbl">Aktif Konum</label>` +
+            `<div style="font-size:10.5px;font-weight:700;color:#e2e8f0;padding-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${activeLocation.il} / ${activeLocation.ilce}</div>` +
+          `</div>` +
+        `</div>` +
+        `<div class="ew-u-coord-bar">` +
+          `<input id="ew-u-lat-inp" class="ew-u-coord-inp" type="number" step="0.0001" value="${activePoint.lat.toFixed(4)}" placeholder="Enlem" />` +
+          `<input id="ew-u-lon-inp" class="ew-u-coord-inp" type="number" step="0.0001" value="${activePoint.lon.toFixed(4)}" placeholder="Boylam" />` +
+          `<button type="button" id="ew-u-go-coord" class="ew-u-go-btn">Koordinata Git</button>` +
+        `</div>` +
       `</div>` +
       `<div class="ew-u-loc-card">` +
         `<div class="ew-u-loc-line"><span class="ew-u-muted">Koordinat:</span><strong class="${mode.valClass}">${coordStr}</strong></div>` +
@@ -3436,7 +3522,7 @@
             `<input id="ew-u-end-dt" class="ew-u-date-inp" type="datetime-local" min="${minDtAttr}" max="${maxDtAttr}" value="${endVal}" />` +
           `</div>` +
         `</div>` +
-        `<div class="ew-u-step-label">İlerleme Adımı (${stepHours}s · Bölünmeyen aralık tam kata yuvarlanır):</div>` +
+        `<div class="ew-u-step-label">İlerleme Adımı (${stepHours}s):</div>` +
         `<div class="ew-u-offsets-wrap">${stepChipsHtml}</div>` +
         `<input id="ew-u-scrubber" class="ew-u-scrubber" type="range" min="0" max="${Math.max(0, sliceLen - 1)}" value="${slicePos}" />` +
         `<div class="ew-u-stats-box">` +
@@ -3464,6 +3550,37 @@
       `<input id="ew-u-search-input" class="ew-u-search" type="text" placeholder="ECMWF değişken ara..." value="${searchFilter.replace(/"/g, "&quot;")}" />` +
       `<div class="ew-u-vars-head"><span>ECMWF Değişkenleri</span><span>${entries.length} adet</span></div>` +
       `<div id="ew-u-vars-list" class="ew-u-vars-list">${varsHtml}</div>`;
+
+    const ilSelect = document.getElementById("ew-u-il-select");
+    if (ilSelect) {
+      ilSelect.addEventListener("change", () => {
+        const idx = Number(ilSelect.value);
+        const chosen = PROVINCE_PRESETS[idx];
+        if (!chosen) return;
+        activeLocation = { il: chosen.il, ilce: chosen.ilce, mahalle: chosen.mahalle };
+        const mapObj = resolveLeafletMap();
+        if (mapObj && typeof mapObj.setView === "function") {
+          mapObj.setView([chosen.lat, chosen.lon], Math.max(mapObj.getZoom ? mapObj.getZoom() : 9, 9));
+        }
+        refreshPoint(chosen.lat, chosen.lon);
+      });
+    }
+
+    const goCoordBtn = document.getElementById("ew-u-go-coord");
+    const latInp = document.getElementById("ew-u-lat-inp");
+    const lonInp = document.getElementById("ew-u-lon-inp");
+    if (goCoordBtn && latInp && lonInp) {
+      goCoordBtn.addEventListener("click", () => {
+        const nextLat = parseFloat(latInp.value);
+        const nextLon = parseFloat(lonInp.value);
+        if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
+        const mapObj = resolveLeafletMap();
+        if (mapObj && typeof mapObj.setView === "function") {
+          mapObj.setView([nextLat, nextLon], Math.max(mapObj.getZoom ? mapObj.getZoom() : 10, 10));
+        }
+        refreshPoint(nextLat, nextLon);
+      });
+    }
 
     const playBtn = document.getElementById("ew-u-play-toggle");
     if (playBtn) {
@@ -3601,16 +3718,16 @@
       : mode.accent;
 
     L.circleMarker([activePoint.lat, activePoint.lon], {
-      radius: 17,
+      radius: 18,
       color: pinColor,
-      weight: 2,
+      weight: 2.5,
       fillColor: pinColor,
-      fillOpacity: 0.22,
+      fillOpacity: 0.25,
       interactive: false
     }).addTo(window._ewUnifiedPointLayer);
 
     L.circleMarker([activePoint.lat, activePoint.lon], {
-      radius: 8,
+      radius: 9,
       color: "#ffffff",
       weight: 2.5,
       fillColor: pinColor,
@@ -3650,7 +3767,6 @@
     }
   }
 
-  // Geçmişten geleceğe seçilen saat adımıyla ardışık ve yavaş oynatma
   function startPlayback() {
     if (!lastPayload || !lastPayload.data || !lastPayload.data.hourly) return;
     stopPlayback();
@@ -3778,7 +3894,7 @@
 
   function boot() {
     ensurePanel();
-    cleanupLegacyUi();
+    hideAllCompetingPanels();
     bindMapInteractions();
     refreshPoint(activePoint.lat, activePoint.lon);
   }
@@ -3790,7 +3906,7 @@
   }
 
   setInterval(() => {
-    cleanupLegacyUi();
+    hideAllCompetingPanels();
     bindMapInteractions();
   }, 1200);
 })();
