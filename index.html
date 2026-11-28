@@ -5943,195 +5943,322 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </script>
 <!-- EW_CURSOR_PLACE_RIGHT_PANEL_END -->
 
-<!-- EW_FIX_GARBLED_LOC_START -->
+
+
+<!-- EW_PANELS_CLEAN_FIX_START -->
+<style>
+  #ew-ui-right,
+  #ew-static-cbar {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  #ew-ui-right {
+    position: fixed !important;
+    top: 16px !important;
+    right: 16px !important;
+    z-index: 9000 !important;
+    min-width: 240px !important;
+    max-width: 340px !important;
+    padding: 12px 14px !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    color: #f8fafc !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+  }
+  #ew-static-cbar {
+    position: fixed !important;
+    bottom: 14px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 9000 !important;
+    width: min(560px, calc(100vw - 28px)) !important;
+    padding: 10px 14px !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.94) !important;
+    border: 1px solid rgba(148, 163, 184, 0.38) !important;
+    color: #f8fafc !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+  }
+  #ew-cursor-tooltip {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9500;
+    display: none;
+    max-width: 300px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(125, 211, 252, 0.5);
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 11px;
+    line-height: 1.38;
+  }
+  .ew-sc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .ew-sc-sub {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    color: #cbd5e1;
+    margin-top: 5px;
+  }
+  .ew-sc-scale {
+    height: 10px;
+    width: 100%;
+    border-radius: 5px;
+    margin-top: 6px;
+    background: linear-gradient(90deg, #313695, #4575b4, #74add1, #abd9e9, #fee090, #fdae61, #f46d43, #d73027);
+  }
+</style>
+
 <script>
 (function () {
-  const placeCache = new Map();
-  let activeKey = "";
-  let activePlace = "Konum bekleniyor...";
-  let seq = 0;
-  let timer = null;
-  let busy = false;
+  const CATS = new Set([
+    "sıcaklık", "basınç", "rüzgar", "yağış",
+    "nem & bulut & toprak", "nem / bulut / toprak",
+    "temperature", "pressure", "wind", "precipitation"
+  ]);
 
-  function cleanCoordPair(text) {
-    if (!text) return null;
-    const m = text.match(/(-?\d{1,2}\.\d{3,6})°?N?,\s*(-?\d{1,3}\.\d{3,6})°?E?/i);
-    if (!m) return null;
-    const lat = Number(m[1]);
-    const lon = Number(m[2]);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    return {
-      lat,
-      lon,
-      dms: `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`,
-      dec: `${lat.toFixed(4)}, ${lon.toFixed(4)}`
-    };
+  const geoCache = new Map();
+  const state = {
+    lat: 41.0082,
+    lon: 28.9784,
+    place: "İstanbul / Fatih · Mahalle: Eminönü",
+    key: "temperature_2m",
+    name: "temperature 2m",
+    unit: "°C",
+    val: NaN
+  };
+
+  let dataSeq = 0;
+  let geoSeq = 0;
+  let hoverTimer = null;
+
+  function ensurePanels() {
+    let rp = document.getElementById("ew-ui-right");
+    if (!rp) {
+      rp = document.createElement("div");
+      rp.id = "ew-ui-right";
+      document.body.appendChild(rp);
+    }
+    let cbar = document.getElementById("ew-static-cbar");
+    if (!cbar) {
+      cbar = document.createElement("div");
+      cbar.id = "ew-static-cbar";
+      document.body.appendChild(cbar);
+    }
+    let tip = document.getElementById("ew-cursor-tooltip");
+    if (!tip) {
+      tip = document.createElement("div");
+      tip.id = "ew-cursor-tooltip";
+      document.body.appendChild(tip);
+    }
+    return { rp, cbar, tip };
   }
 
-  function buildPlaceString(addr, displayName, lat, lon) {
+  function fmtVal(v, u) {
+    if (!Number.isFinite(v)) return "-";
+    if (u === "m³/m³") return v.toFixed(3);
+    if (u === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function formatPlace(addr, lat, lon) {
     const a = addr || {};
     const il = a.province || a.state || a.city || "";
     const ilce = a.town || a.county || a.city_district || a.district || a.municipality || "";
     const mah = a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || a.road || "";
-
-    const mainParts = [];
-    if (il) mainParts.push(il);
-    if (ilce && ilce !== il) mainParts.push(ilce);
-
-    if (mainParts.length && mah) {
-      return `${mainParts.join(" / ")} · ${mah}`;
-    }
-    if (mainParts.length) {
-      return mainParts.join(" / ");
-    }
-    if (mah) {
-      return mah;
-    }
-    if (displayName) {
-      const shortDisp = String(displayName).split(",").slice(0, 2).map(s => s.trim()).filter(Boolean).join(" / ");
-      if (shortDisp && !/^\d/.test(shortDisp)) return shortDisp;
-    }
-    return `Bölge (${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)`;
+    const head = [il, ilce].filter(Boolean).join(" / ");
+    if (head && mah) return `${head} · ${mah}`;
+    if (head) return head;
+    if (mah) return mah;
+    return `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
   }
 
-  function renderAllTargets(lat, lon, placeText) {
-    if (busy) return;
-    busy = true;
-    try {
-      const dms = `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
-      const dec = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  function paintPanels() {
+    const { rp, cbar } = ensurePanels();
+    const coordStr = `${state.lat.toFixed(4)}°N, ${state.lon.toFixed(4)}°E`;
+    const valStr = Number.isFinite(state.val)
+      ? `${fmtVal(state.val, state.unit)} ${state.unit}`.trim()
+      : `- ${state.unit}`.trim();
 
-      // Eski hatalı konum etiketlerini temizle
-      document.querySelectorAll(".ew-inline-place-tag").forEach((n) => n.remove());
+    cbar.innerHTML = `
+      <div class="ew-sc-row">
+        <span>${state.name} · Birim: ${state.unit}</span>
+        <span>${valStr}</span>
+      </div>
+      <div class="ew-sc-scale"></div>
+      <div class="ew-sc-sub">
+        <span>${coordStr}</span>
+        <span>${state.place}</span>
+      </div>
+    `;
 
-      const nodes = Array.from(document.querySelectorAll("div, p, span, b, strong, small, label"));
-      for (const el of nodes) {
-        if (el.id === "ew-cursor-tooltip" || el.id === "ew-static-cbar" || el.id === "ew-ui-right") continue;
-        if (el.children && el.children.length > 2) continue;
-
-        const raw = (el.textContent || "").trim();
-        if (!raw || raw.length > 220) continue;
-        if (raw.includes("Konum:") && /\d{5,}/.test(raw)) {
-          el.textContent = dms;
-        }
-      }
-
-      // Sağ panel (#ew-ui-right) koordinat ve il/ilçe satırı
-      const rp = document.getElementById("ew-ui-right");
-      if (rp) {
-        const lines = Array.from(rp.querySelectorAll("div"));
-        if (lines.length >= 1) {
-          lines[0].textContent = `KOORDİNAT: ${dms} (${dec})`;
-        }
-        let locRow = rp.querySelector(".ew-rp-place-line");
-        if (!locRow) {
-          locRow = document.createElement("div");
-          locRow.className = "ew-rp-place-line";
-          locRow.style.cssText = "font-size:12px;font-weight:700;color:#7dd3fc;margin-top:4px;";
-          if (lines.length >= 2) {
-            lines[1].insertAdjacentElement("afterend", locRow);
-          } else {
-            rp.appendChild(locRow);
-          }
-        }
-        locRow.textContent = `İl / İlçe: ${placeText}`;
-      }
-
-      // İmleç kutusu (#ew-cursor-tooltip)
-      const tip = document.getElementById("ew-cursor-tooltip");
-      if (tip && tip.style.display !== "none") {
-        tip.innerHTML = `
-          <div class="ew-ct-coord">${dms}</div>
-          <div class="ew-ct-place">${placeText}</div>
-        `;
-      }
-    } finally {
-      busy = false;
-    }
+    rp.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:#7dd3fc;">${coordStr}</div>
+      <div style="font-size:12px;font-weight:700;color:#f8fafc;margin-top:4px;">${state.place}</div>
+      <div style="font-size:13px;font-weight:800;color:#e0f2fe;margin-top:6px;">${state.name} [${state.unit}]: ${valStr}</div>
+    `;
   }
 
-  async function fetchReversePlace(lat, lon) {
+  async function resolvePlace(lat, lon, isHover, clientX, clientY) {
     const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    if (placeCache.has(key)) {
-      activePlace = placeCache.get(key);
-      renderAllTargets(lat, lon, activePlace);
+    const { tip } = ensurePanels();
+    const coordStr = `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
+
+    if (geoCache.has(key)) {
+      const cached = geoCache.get(key);
+      if (isHover) {
+        tip.innerHTML = `<div style="font-weight:700;color:#7dd3fc;">${coordStr}</div><div style="margin-top:2px;">${cached}</div>`;
+        tip.style.left = `${Math.min(window.innerWidth - 280, clientX + 14)}px`;
+        tip.style.top = `${Math.min(window.innerHeight - 60, clientY + 14)}px`;
+        tip.style.display = "block";
+      } else {
+        state.place = cached;
+        paintPanels();
+      }
       return;
     }
 
-    const mySeq = ++seq;
-    activePlace = "İl / ilçe alınıyor...";
-    renderAllTargets(lat, lon, activePlace);
+    const seq = ++geoSeq;
+    if (isHover) {
+      tip.innerHTML = `<div style="font-weight:700;color:#7dd3fc;">${coordStr}</div><div style="margin-top:2px;color:#cbd5e1;">İl / ilçe aranıyor...</div>`;
+      tip.style.left = `${Math.min(window.innerWidth - 280, clientX + 14)}px`;
+      tip.style.top = `${Math.min(window.innerHeight - 60, clientY + 14)}px`;
+      tip.style.display = "block";
+    }
 
-    for (const zoom of [15, 10]) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=16&addressdetails=1&accept-language=tr`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok || seq !== geoSeq) return;
+      const json = await res.json();
+      const text = formatPlace(json.address, lat, lon);
+      geoCache.set(key, text);
+      if (isHover) {
+        tip.innerHTML = `<div style="font-weight:700;color:#7dd3fc;">${coordStr}</div><div style="margin-top:2px;">${text}</div>`;
+        tip.style.display = "block";
+      } else if (state.lat.toFixed(4) === lat.toFixed(4) && state.lon.toFixed(4) === lon.toFixed(4)) {
+        state.place = text;
+        paintPanels();
+      }
+    } catch (_) {}
+  }
+
+  async function fetchVariableValue() {
+    const seq = ++dataSeq;
+    paintPanels();
+    try {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${state.lat.toFixed(4)}&longitude=${state.lon.toFixed(4)}&hourly=${encodeURIComponent(state.key)}&timezone=auto&forecast_days=7`;
+      const res = await fetch(url);
+      if (!res.ok || seq !== dataSeq) return;
+      const json = await res.json();
+      const arr = (json && json.hourly && Array.isArray(json.hourly[state.key])) ? json.hourly[state.key] : [];
+      const times = (json && json.hourly && Array.isArray(json.hourly.time)) ? json.hourly.time : [];
+      if (json && json.hourly_units && json.hourly_units[state.key]) {
+        state.unit = json.hourly_units[state.key];
+      }
+      const nums = arr.map(Number).filter(Number.isFinite);
+      if (nums.length) {
+        let bestIdx = 0, bestDiff = Infinity, now = Date.now();
+        times.forEach((t, i) => {
+          const d = Math.abs(Date.parse(t) - now);
+          if (Number.isFinite(d) && d < bestDiff) { bestDiff = d; bestIdx = i; }
+        });
+        state.val = nums[Math.min(nums.length - 1, bestIdx)];
+      }
+      paintPanels();
+    } catch (_) {}
+  }
+
+  function getMap() {
+    return window.map || window._map || null;
+  }
+
+  document.addEventListener("click", function (ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (btn) {
+      const raw = (btn.textContent || "").trim();
+      if (!raw || CATS.has(raw.toLowerCase())) return;
+      const um = raw.match(/\[([^\]]+)\]/);
+      const unit = (btn.dataset && btn.dataset.unit) || (um ? um[1].trim() : "");
+      const name = raw.replace(/\[[^\]]+\]/g, "").trim();
+      if (!name) return;
+      state.name = name;
+      state.key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey)) ||
+        name.replace(/\s*\([^)]+\)/g, "").trim().replace(/\s+/g, "_");
+      if (unit) state.unit = unit;
+      state.val = NaN;
+      fetchVariableValue();
+      return;
+    }
+
+    const mp = getMap();
+    const mapEl = document.getElementById("map");
+    if (mp && mapEl && mapEl.contains(ev.target) && typeof mp.mouseEventToLatLng === "function") {
       try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=${zoom}&addressdetails=1&accept-language=tr`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        if (!res.ok || mySeq !== seq) return;
-        const data = await res.json();
-        const formatted = buildPlaceString(data.address, data.display_name, lat, lon);
-        if (formatted && !formatted.startsWith("Bölge (")) {
-          placeCache.set(key, formatted);
-          activePlace = formatted;
-          renderAllTargets(lat, lon, activePlace);
-          return;
+        const ll = mp.mouseEventToLatLng(ev);
+        if (ll && Number.isFinite(ll.lat) && Number.isFinite(ll.lng)) {
+          state.lat = Number(ll.lat);
+          state.lon = Number(ll.lng);
+          state.val = NaN;
+          resolvePlace(state.lat, state.lon, false);
+          fetchVariableValue();
         }
       } catch (_) {}
     }
+  }, true);
 
-    if (mySeq === seq) {
-      const fallback = `Açık Alan · ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
-      placeCache.set(key, fallback);
-      activePlace = fallback;
-      renderAllTargets(lat, lon, activePlace);
-    }
-  }
-
-  function scheduleFromCoord(lat, lon) {
-    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    if (key === activeKey) {
-      renderAllTargets(lat, lon, activePlace);
+  document.addEventListener("mousemove", function (ev) {
+    const mp = getMap();
+    const mapEl = document.getElementById("map");
+    const { tip } = ensurePanels();
+    if (!mp || !mapEl || !mapEl.contains(ev.target) || typeof mp.mouseEventToLatLng !== "function") {
+      tip.style.display = "none";
       return;
     }
-    activeKey = key;
-    if (placeCache.has(key)) {
-      activePlace = placeCache.get(key);
-      renderAllTargets(lat, lon, activePlace);
-      return;
-    }
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => fetchReversePlace(lat, lon), 260);
-  }
+    try {
+      const ll = mp.mouseEventToLatLng(ev);
+      if (!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
+      const lat = Number(ll.lat);
+      const lon = Number(ll.lng);
+      const coordStr = `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
+      const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+      const cached = geoCache.get(key) || "İl / ilçe aranıyor...";
 
-  function inspectDomCoord() {
-    if (busy) return;
-    const nodes = Array.from(document.querySelectorAll("div, p, span, small"));
-    for (const el of nodes) {
-      if (el.id === "ew-cursor-tooltip") continue;
-      const txt = (el.textContent || "").trim();
-      const parsed = cleanCoordPair(txt);
-      if (parsed) {
-        scheduleFromCoord(parsed.lat, parsed.lon);
-        break;
-      }
-    }
-  }
+      tip.innerHTML = `<div style="font-weight:700;color:#7dd3fc;">${coordStr}</div><div style="margin-top:2px;">${cached}</div>`;
+      tip.style.left = `${Math.min(window.innerWidth - 280, ev.clientX + 14)}px`;
+      tip.style.top = `${Math.min(window.innerHeight - 60, ev.clientY + 14)}px`;
+      tip.style.display = "block";
 
-  const mo = new MutationObserver(() => {
-    if (!busy) inspectDomCoord();
-  });
+      if (hoverTimer) clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(() => resolvePlace(lat, lon, true, ev.clientX, ev.clientY), 320);
+    } catch (_) {}
+  }, true);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      inspectDomCoord();
-      if (document.body) mo.observe(document.body, { childList: true, subtree: true });
+      paintPanels();
+      fetchVariableValue();
     });
   } else {
-    inspectDomCoord();
-    if (document.body) mo.observe(document.body, { childList: true, subtree: true });
+    paintPanels();
+    fetchVariableValue();
   }
 })();
 </script>
-<!-- EW_FIX_GARBLED_LOC_END -->
+<!-- EW_PANELS_CLEAN_FIX_END -->
 
 </body>
 </html>
