@@ -4225,5 +4225,165 @@
 </script>
 <!-- EW_UNIFIED_APP_END -->
 
+<!-- EW_EXACT_VAR_CBAR_START -->
+<script>
+(function () {
+  const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
+  const LABEL_TO_VAR = new Map([
+    ["precipitation", ["precipitation", "mm"]],
+    ["rain", ["rain", "mm"]],
+    ["snowfall", ["snowfall", "cm"]],
+    ["snow depth", ["snow_depth", "m"]],
+    ["weather code", ["weather_code", "wmo code"]],
+    ["temperature 2m", ["temperature_2m", "°C"]],
+    ["apparent temperature", ["apparent_temperature", "°C"]],
+    ["dew point 2m", ["dew_point_2m", "°C"]],
+    ["relative humidity 2m", ["relative_humidity_2m", "%"]],
+    ["pressure msl", ["pressure_msl", "hPa"]],
+    ["surface pressure", ["surface_pressure", "hPa"]],
+    ["wind speed 10m", ["wind_speed_10m", "km/h"]],
+    ["wind gusts 10m", ["wind_gusts_10m", "km/h"]],
+    ["cloud cover", ["cloud_cover", "%"]],
+    ["cape", ["cape", "J/kg"]]
+  ]);
+
+  let lockedKey = null;
+  let lockedUnit = null;
+  let lockedLabel = null;
+  let lockedValText = null;
+  let lockedSeries = null;
+
+  function cleanTitle(rawKey, fallbackText) {
+    if (rawKey) {
+      return String(rawKey).replace(/_(\d+)hPa$/, " ($1 hPa)").replace(/_/g, " ").trim();
+    }
+    if (fallbackText) {
+      return fallbackText.replace(/\[[^\]]+\]/g, "").trim();
+    }
+    return "Değişken";
+  }
+
+  function fmt(v, u) {
+    if (!Number.isFinite(v)) return "-";
+    if (u === "m³/m³") return v.toFixed(3);
+    if (u === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function applyLockedCbar() {
+    if (!lockedKey && !lockedLabel) return;
+    const title = lockedLabel || cleanTitle(lockedKey, "");
+    const unit = lockedUnit || "-";
+    const valStr = lockedValText || `- ${unit}`.trim();
+
+    const s = Array.isArray(lockedSeries) ? lockedSeries.filter(Number.isFinite) : [];
+    let lo = s.length ? Math.min(...s) : 0;
+    let hi = s.length ? Math.max(...s) : 1;
+    if (lo === hi) { lo -= 1; hi += 1; }
+
+    const html = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:700;">
+        <span>${title} · Birim: ${unit}</span>
+        <span>${valStr}</span>
+      </div>
+      <div style="height:11px;width:100%;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,${PAL.join(",")});"></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#cbd5e1;">
+        <span>Min: ${fmt(lo, unit)} ${unit}</span>
+        <span>Max: ${fmt(hi, unit)} ${unit}</span>
+      </div>
+    `;
+
+    ["ew-ui-cbar", "ew-cbar"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = "block";
+        el.style.visibility = "visible";
+        el.style.opacity = "1";
+        el.innerHTML = html;
+      }
+    });
+  }
+
+  async function fetchAndLockVar(key, unit, label) {
+    lockedKey = key;
+    lockedUnit = unit || "";
+    lockedLabel = label || cleanTitle(key, "");
+    lockedValText = `- ${lockedUnit}`.trim();
+    lockedSeries = null;
+    applyLockedCbar();
+
+    let lat = 41.0082, lon = 28.9784;
+    const rp = document.getElementById("ew-ui-right");
+    if (rp && rp.textContent) {
+      const m = rp.textContent.match(/(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
+      if (m) {
+        const a = Number(m[1]), b = Number(m[2]);
+        if (Number.isFinite(a) && Number.isFinite(b)) { lat = a; lon = b; }
+      }
+    }
+
+    try {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=${encodeURIComponent(key)}&timezone=auto&forecast_days=7`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const json = await res.json();
+      const raw = (json && json.hourly && Array.isArray(json.hourly[key])) ? json.hourly[key] : [];
+      const times = (json && json.hourly && Array.isArray(json.hourly.time)) ? json.hourly.time : [];
+      if (json && json.hourly_units && json.hourly_units[key]) {
+        lockedUnit = json.hourly_units[key];
+      }
+      const series = raw.map(Number).filter(Number.isFinite);
+      let idx = 0, best = Infinity, nowMs = Date.now();
+      times.forEach((t, i) => {
+        const d = Math.abs(Date.parse(t) - nowMs);
+        if (Number.isFinite(d) && d < best) { best = d; idx = i; }
+      });
+      const nowVal = series.length ? series[Math.min(series.length - 1, idx)] : NaN;
+      lockedSeries = series;
+      lockedValText = Number.isFinite(nowVal) ? `${fmt(nowVal, lockedUnit)} ${lockedUnit}`.trim() : `- ${lockedUnit}`.trim();
+      applyLockedCbar();
+    } catch (_) {}
+  }
+
+  document.addEventListener("click", function (ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (!btn) return;
+    const rawText = (btn.textContent || "").trim();
+    const low = rawText.toLowerCase();
+
+    let key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey || btn.dataset.om)) || "";
+    let unit = (btn.dataset && btn.dataset.unit) || "";
+
+    if (!unit) {
+      const um = rawText.match(/\[([^\]]+)\]/);
+      if (um) unit = um[1].trim();
+    }
+
+    if (!key) {
+      for (const [kLabel, pair] of LABEL_TO_VAR.entries()) {
+        if (low.includes(kLabel)) {
+          key = pair[0];
+          if (!unit) unit = pair[1];
+          break;
+        }
+      }
+    }
+
+    if (key) {
+      const lbl = cleanTitle(key, rawText);
+      fetchAndLockVar(key, unit, lbl);
+    }
+  }, true);
+
+  setInterval(() => {
+    if (lockedKey || lockedLabel) {
+      applyLockedCbar();
+    }
+  }, 500);
+})();
+</script>
+<!-- EW_EXACT_VAR_CBAR_END -->
+
 </body>
 </html>
