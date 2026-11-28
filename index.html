@@ -3025,5 +3025,112 @@
   setInterval(removeEcmwfCbar, 1000);
 })();
 </script>
+<!-- ew-4x4-map-layer-start -->
+<style id="ew-4x4-map-style">
+  .ew-4x4-label {
+    background: rgba(9, 15, 28, 0.92) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(56, 189, 248, 0.65) !important;
+    border-radius: 6px !important;
+    padding: 2px 6px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65) !important;
+    z-index: 950 !important;
+  }
+  .leaflet-pane.leaflet-marker-pane,
+  .leaflet-pane.leaflet-overlay-pane {
+    z-index: 650 !important;
+  }
+</style>
+<script id="ew-4x4-map-script">
+(function() {
+  function getMap() {
+    if (window.map && typeof window.map.addLayer === "function") return window.map;
+    for (const k of Object.keys(window)) {
+      try {
+        const v = window[k];
+        if (v && typeof v === "object" && typeof v.addLayer === "function" && typeof v.on === "function" && v._container) {
+          window.map = v;
+          return v;
+        }
+      } catch (_) {}
+    }
+    if (window.L && window.L.Map && window.L.Map._instances) {
+      const vals = Object.values(window.L.Map._instances);
+      if (vals.length) {
+        window.map = vals[0];
+        return vals[0];
+      }
+    }
+    return null;
+  }
+
+  function render4x4Grid() {
+    const mapObj = getMap();
+    if (!window.L || !mapObj) return;
+
+    if (!window._ew4x4Layer) {
+      window._ew4x4Layer = L.layerGroup().addTo(mapObj);
+    } else if (!mapObj.hasLayer(window._ew4x4Layer)) {
+      window._ew4x4Layer.addTo(mapObj);
+    }
+    window._ew4x4Layer.clearLayers();
+
+    const center = typeof mapObj.getCenter === "function"
+      ? mapObj.getCenter()
+      : { lat: 41.0082, lng: 28.9784 };
+
+    const stepDeg = 0.15;
+    const half = 1.5;
+
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const lat = center.lat + (r - half) * stepDeg;
+        const lon = center.lng + (c - half) * stepDeg;
+
+        L.circleMarker([lat, lon], {
+          radius: 7,
+          color: "#ffffff",
+          weight: 2,
+          fillColor: "#38bdf8",
+          fillOpacity: 0.9,
+          interactive: true
+        })
+          .bindTooltip(`4x4 (${r + 1},${c + 1}) · ${lat.toFixed(3)}, ${lon.toFixed(3)}`, { direction: "top" })
+          .addTo(window._ew4x4Layer);
+
+        L.marker([lat, lon], {
+          icon: L.divIcon({
+            className: "ew-4x4-label",
+            html: `4x4 [${r + 1},${c + 1}]`,
+            iconSize: null,
+            iconAnchor: [0, -8]
+          }),
+          interactive: false
+        }).addTo(window._ew4x4Layer);
+      }
+    }
+  }
+
+  function init() {
+    render4x4Grid();
+    const mapObj = getMap();
+    if (mapObj && !mapObj._ew4x4Bound) {
+      mapObj._ew4x4Bound = true;
+      mapObj.on("moveend zoomend", render4x4Grid);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+  setInterval(init, 1500);
+})();
+</script>
+<!-- ew-4x4-map-layer-end -->
 </body>
 </html>
