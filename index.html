@@ -2997,5 +2997,33 @@
 })();
 </script>
 <!-- ew-ecmwf-player-engine-end -->
+<style id="ew-remove-ecmwf-cbar-style">
+  #ew-cbar, #ew-player-cbar, #ew-player-cbar-wrap,
+  #ew-player-cbar-title, #ew-player-cbar-scale,
+  #ew-player-cbar-toggle-btn,
+  .ew-u-cbar-box, .ew-u-cbar-card,
+  [id*="cbar" i], [class*="cbar" i] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+</style>
+<script id="ew-remove-ecmwf-cbar-script">
+(function() {
+  function removeEcmwfCbar() {
+    document.querySelectorAll('[id*="cbar" i], [class*="cbar" i], .ew-u-cbar-box, .ew-u-cbar-card').forEach(el => {
+      if (el.id === "ew-remove-ecmwf-cbar-style" || el.id === "ew-remove-ecmwf-cbar-script") return;
+      el.style.setProperty("display", "none", "important");
+      el.style.setProperty("visibility", "hidden", "important");
+    });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", removeEcmwfCbar);
+  } else {
+    removeEcmwfCbar();
+  }
+  setInterval(removeEcmwfCbar, 1000);
+})();
+</script>
 </body>
 </html>
