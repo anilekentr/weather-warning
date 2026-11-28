@@ -2021,6 +2021,7 @@
   const seriesCache = new Map();
   const geoCache = new Map();
   const liveValueByVar = new Map();
+  const approxValueByVar = new Map();
   let auditCompleted = false;
 
   function normalizeUnit(rawUnit, code) {
@@ -2044,10 +2045,10 @@
     return `${item.name} (${item.code})`;
   }
 
-  function formatNum(val, unit) {
+  function formatNum(val, unit, code) {
     if (typeof val !== "number" || !Number.isFinite(val)) return "-";
     const fixed = Math.abs(val) < 2 ? val.toFixed(2) : val.toFixed(1);
-    const cleanU = normalizeUnit(unit, activeVarCode);
+    const cleanU = normalizeUnit(unit, code || activeVarCode);
     return cleanU ? `${fixed} ${cleanU}` : fixed;
   }
 
@@ -2095,12 +2096,11 @@
       geoCache.set(key, resolved);
       return resolved;
     } catch (_) {
-      const fallbackLoc = {
-        il: lat >= -90 && lat <= 90 ? "Koordinat Bölgesi" : "Bilinmiyor",
+      return {
+        il: "Koordinat Bölgesi",
         ilce: `${lat.toFixed(2)}`,
         mahalle: `${lon.toFixed(2)}`
       };
-      return fallbackLoc;
     }
   }
 
@@ -2238,6 +2238,18 @@
     return Array.from(map.values());
   }
 
+  function fallbackPointValue(item, lat, lon, hourIdx) {
+    const span = Math.max(1e-6, item.max - item.min);
+    const latNorm = Math.cos((lat * Math.PI) / 180);
+    const wave =
+      0.5 +
+      0.28 * Math.sin((lat * 0.08) + (hourIdx * 0.22)) +
+      0.14 * Math.cos((lon * 0.06) - (hourIdx * 0.14)) +
+      0.08 * Math.sin(((lat + lon) * 0.05) + hourIdx * 0.1);
+    const clamped = Math.max(0.03, Math.min(0.97, wave * (0.75 + 0.25 * Math.abs(latNorm))));
+    return item.min + clamped * span;
+  }
+
   async function fetchEcmwfSeriesArray(lat, lon, code) {
     const cacheKey = `${code}|${lat.toFixed(3)}|${lon.toFixed(3)}`;
     if (seriesCache.has(cacheKey)) {
@@ -2269,13 +2281,28 @@
     }
   }
 
-  async function auditRealEcmwfVariablesForPoint(catalog) {
+  // Tıklanan nokta için TÜM değişkenleri canlı/yaklaşık olarak anında güncelle
+  async function auditAllVariablesForClickedPoint(catalog) {
     const hourIdx = getActiveHourIndex();
-    activeLocation = await resolveReverseLocation(selectedPoint.lat, selectedPoint.lon);
+    const ptSnapshot = { lat: selectedPoint.lat, lon: selectedPoint.lon };
+    const locSnapshot = { ...activeLocation };
+
+    // Önce tıklanan nokta için her değişkende yaklaşık değeri anında güncelle
+    catalog.forEach(v => {
+      const approxVal = fallbackPointValue(v, ptSnapshot.lat, ptSnapshot.lon, hourIdx);
+      approxValueByVar.set(v.code, {
+        val: approxVal,
+        unit: v.unit,
+        hourIdx,
+        lat: ptSnapshot.lat,
+        lon: ptSnapshot.lon,
+        loc: locSnapshot
+      });
+    });
 
     await Promise.all(
       catalog.map(async v => {
-        const r = await fetchEcmwfSeriesArray(selectedPoint.lat, selectedPoint.lon, v.code);
+        const r = await fetchEcmwfSeriesArray(ptSnapshot.lat, ptSnapshot.lon, v.code);
         if (r && r.ok && Array.isArray(r.arr)) {
           const idx = Math.min(r.arr.length - 1, Math.max(0, hourIdx));
           const candidateVal = (typeof r.arr[idx] === "number" && Number.isFinite(r.arr[idx]))
@@ -2288,22 +2315,23 @@
               val: candidateVal,
               unit: finalUnit,
               hourIdx: idx,
-              lat: selectedPoint.lat,
-              lon: selectedPoint.lon,
-              loc: { ...activeLocation }
+              lat: ptSnapshot.lat,
+              lon: ptSnapshot.lon,
+              loc: locSnapshot
             });
+            approxValueByVar.delete(v.code);
             return;
           }
         }
         liveValueByVar.delete(v.code);
       })
     );
+
     auditCompleted = true;
     renderRealOnlyFilterList(catalog);
     syncAllThreeBlocks(catalog);
   }
 
-  // Filtre altında SADECE Canlı olanları yaz ve yanında koordinat + il + ilçe + mahalle göster
   function renderRealOnlyFilterList(catalog) {
     const panel = findEcmwfPanelContainer();
     if (!panel) return;
@@ -2360,24 +2388,12 @@
       chip.innerHTML =
         `<div class='ew-real-chip-row1'>` +
           `<span>${formatCanonicalVarLabel(v)}</span>` +
-          `<strong>${formatNum(liveInfo.val, liveInfo.unit || v.unit)}</strong>` +
+          `<strong>${formatNum(liveInfo.val, liveInfo.unit || v.unit, v.code)}</strong>` +
         `</div>` +
         `<div class='ew-real-chip-row2'>${formatLocationSummary(liveInfo.loc || activeLocation, liveInfo.lat ?? selectedPoint.lat, liveInfo.lon ?? selectedPoint.lon)}</div>`;
       chip.addEventListener("click", () => setActiveVar(v.code, "filter"));
       listEl.appendChild(chip);
     });
-  }
-
-  function fallbackPointValue(item, lat, lon, hourIdx) {
-    const span = Math.max(1e-6, item.max - item.min);
-    const latNorm = Math.cos((lat * Math.PI) / 180);
-    const wave =
-      0.5 +
-      0.28 * Math.sin((lat * 0.08) + (hourIdx * 0.22)) +
-      0.14 * Math.cos((lon * 0.06) - (hourIdx * 0.14)) +
-      0.08 * Math.sin(((lat + lon) * 0.05) + hourIdx * 0.1);
-    const clamped = Math.max(0.03, Math.min(0.97, wave * (0.75 + 0.25 * Math.abs(latNorm))));
-    return item.min + clamped * span;
   }
 
   function ensureCbarMarker(barEl, markerId) {
@@ -2420,7 +2436,6 @@
     return palette[idx];
   }
 
-  // 1. Blok: ECMWF Paneli
   function renderEcmwfPanelRealData(item, hourIdx, state) {
     cleanWaitingTextFromCbarAndDom();
     const panel = findEcmwfPanelContainer();
@@ -2444,7 +2459,7 @@
     }
 
     const statusText = state.isLivePoint ? "Canlı" : "Yaklaşık";
-    const valStr = formatNum(state.pointVal, item.unit);
+    const valStr = formatNum(state.pointVal, item.unit, item.code);
 
     const titleEl = document.getElementById("ew-ecmwf-real-title");
     const badgeEl = document.getElementById("ew-ecmwf-real-badge");
@@ -2542,7 +2557,6 @@
     }, 350);
   }
 
-  // 2. Blok: Oynatıcı & CBAR Paneli
   function ensurePlayerCbarStructure() {
     let wrap = document.getElementById("ew-player-cbar-wrap");
     if (!wrap) {
@@ -2672,7 +2686,6 @@
     renderRealOnlyFilterList(catalog);
   }
 
-  // 3. Blok: Harita Noktası + Lokasyon + Değer + CBAR Renklendirmesi
   function updateSelectedPointMapLabel(mapObj, lat, lon, valStr, statusText, color) {
     if (!window.L || !mapObj) return;
     if (!window._ewPointLabelLayer) {
@@ -2683,11 +2696,20 @@
     window._ewPointLabelLayer.clearLayers();
 
     L.circleMarker([lat, lon], {
-      radius: 7,
+      radius: 8,
       color: "#ffffff",
       weight: 2.5,
       fillColor: color || "#38bdf8",
       fillOpacity: 1,
+      interactive: false
+    }).addTo(window._ewPointLabelLayer);
+
+    L.circleMarker([lat, lon], {
+      radius: 15,
+      color: "#ffffff",
+      weight: 1.5,
+      fillColor: color || "#38bdf8",
+      fillOpacity: 0.22,
       interactive: false
     }).addTo(window._ewPointLabelLayer);
 
@@ -2699,21 +2721,22 @@
           `<div style="color:#e2e8f0;font-size:10px;font-weight:600;">Koordinat: ${formatCoordPlain(lat, lon)}</div>` +
           `<div style="color:#93c5fd;font-size:9.5px;font-weight:500;">${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</div>`,
         iconSize: null,
-        iconAnchor: [0, 44]
+        iconAnchor: [0, 48]
       }),
       interactive: false
     });
     badgeMarker.addTo(window._ewPointLabelLayer);
   }
 
+  // Her hücreyi/noktayı kendi değerine göre doğrudan CBAR renk paleti üzerinden renklendir
   function applyStepToCbarAndMap(item, hourIdx, state) {
     if (item.code !== activeVarCode) return;
 
     const span = Math.max(1e-6, state.max - state.min);
-    const anchorNorm = Math.max(0, Math.min(1, (state.pointVal - state.min) / span));
-    const ptColor = colorForNorm(anchorNorm, item.palette);
+    const ptNorm = Math.max(0, Math.min(1, (state.pointVal - state.min) / span));
+    const ptColor = colorForNorm(ptNorm, item.palette);
     const statusText = state.isLivePoint ? "Canlı" : "Yaklaşık";
-    const valStr = formatNum(state.pointVal, item.unit);
+    const valStr = formatNum(state.pointVal, item.unit, item.code);
 
     renderEcmwfPanelRealData(item, hourIdx, state);
 
@@ -2733,9 +2756,9 @@
     const minEl = document.getElementById("ew-player-cbar-min");
     const midEl = document.getElementById("ew-player-cbar-mid");
     const maxEl = document.getElementById("ew-player-cbar-max");
-    if (minEl) minEl.textContent = formatNum(state.min, item.unit);
-    if (midEl) midEl.textContent = formatNum(state.avg, item.unit);
-    if (maxEl) maxEl.textContent = formatNum(state.max, item.unit);
+    if (minEl) minEl.textContent = formatNum(state.min, item.unit, item.code);
+    if (midEl) midEl.textContent = formatNum(state.avg, item.unit, item.code);
+    if (maxEl) maxEl.textContent = formatNum(state.max, item.unit, item.code);
 
     const markerEl = ensureCbarMarker(pBar, "ew-point-marker");
     positionCbarMarker(markerEl, state.pointVal, state.min, state.max);
@@ -2750,7 +2773,7 @@
       window.gridGroup.clearLayers();
 
       const latMin = -85.0, latMax = 85.0, lonMin = -180.0, lonMax = 180.0;
-      const rows = 34, cols = 72;
+      const rows = 36, cols = 72;
       const dLat = (latMax - latMin) / rows;
       const dLon = (lonMax - lonMin) / cols;
 
@@ -2759,7 +2782,8 @@
       const anchorVal = state.pointVal;
 
       const interpSources = [
-        ...GRID_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.valuesByIdx[idx], weightScale: 1.25 })),
+        { lat: anchorLat, lon: anchorLon, val: anchorVal, weightScale: 1.5 },
+        ...GRID_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.valuesByIdx[idx], weightScale: 1.2 })),
         ...GLOBAL_POINTS.map((gp, idx) => ({ lat: gp.lat, lon: gp.lon, val: state.globalVals[idx], weightScale: 1.0 }))
       ];
 
@@ -2770,39 +2794,28 @@
           const latC = lat0 + dLat / 2;
           const lonC = lon0 + dLon / 2;
 
-          let dLonDiff = Math.abs(lonC - anchorLon);
-          if (dLonDiff > 180) dLonDiff = 360 - dLonDiff;
-          const distToAnchor = Math.hypot(latC - anchorLat, dLonDiff);
+          let wSum = 0, vSum = 0;
+          interpSources.forEach(srcPt => {
+            if (typeof srcPt.val !== "number" || !Number.isFinite(srcPt.val)) return;
+            let dl = Math.abs(lonC - srcPt.lon);
+            if (dl > 180) dl = 360 - dl;
+            const df = latC - srcPt.lat;
+            const d2 = (df * df) + (dl * dl) + 1.5;
+            const w = srcPt.weightScale / d2;
+            wSum += w;
+            vSum += w * srcPt.val;
+          });
 
-          let fieldVal;
-          if (distToAnchor <= Math.hypot(dLat, dLon) * 0.7) {
-            fieldVal = anchorVal;
-          } else {
-            let wSum = 0, vSum = 0;
-            interpSources.forEach(srcPt => {
-              if (typeof srcPt.val !== "number" || !Number.isFinite(srcPt.val)) return;
-              let dl = Math.abs(lonC - srcPt.lon);
-              if (dl > 180) dl = 360 - dl;
-              const df = latC - srcPt.lat;
-              const d2 = (df * df) + (dl * dl) + 2.0;
-              const w = srcPt.weightScale / d2;
-              wSum += w;
-              vSum += w * srcPt.val;
-            });
-            const localField = wSum > 0 ? (vSum / wSum) : anchorVal;
-            const relDiff = (localField - anchorVal) * 0.65;
-            fieldVal = anchorVal + relDiff;
-          }
-
-          const norm = (fieldVal - state.min) / span;
-          const col = colorForNorm(norm, item.palette);
+          const cellVal = wSum > 0 ? (vSum / wSum) : anchorVal;
+          const cellNorm = (cellVal - state.min) / span;
+          const col = colorForNorm(cellNorm, item.palette);
 
           L.rectangle([[lat0, lon0], [lat0 + dLat, lon0 + dLon]], {
             color: col,
             weight: 0.25,
-            opacity: 0.5,
+            opacity: 0.55,
             fillColor: col,
-            fillOpacity: 0.56,
+            fillOpacity: 0.62,
             interactive: false
           }).addTo(window.gridGroup);
         }
@@ -2820,6 +2833,15 @@
     const fallbackGrid = GRID_POINTS.map(g => fallbackPointValue(item, g.lat, g.lon, hourIdx));
     const fallbackGlobal = GLOBAL_POINTS.map(g => fallbackPointValue(item, g.lat, g.lon, hourIdx));
     const initAll = [fallbackPt, ...fallbackGrid, ...fallbackGlobal];
+
+    approxValueByVar.set(item.code, {
+      val: fallbackPt,
+      unit: item.unit,
+      hourIdx,
+      lat: selectedPoint.lat,
+      lon: selectedPoint.lon,
+      loc: { ...activeLocation }
+    });
 
     applyStepToCbarAndMap(item, hourIdx, {
       min: Math.min(...initAll),
@@ -2858,8 +2880,17 @@
         lon: selectedPoint.lon,
         loc: { ...activeLocation }
       });
+      approxValueByVar.delete(item.code);
     } else {
       liveValueByVar.delete(item.code);
+      approxValueByVar.set(item.code, {
+        val: fallbackPt,
+        unit: item.unit,
+        hourIdx,
+        lat: selectedPoint.lat,
+        lon: selectedPoint.lon,
+        loc: { ...activeLocation }
+      });
     }
     const pointVal = isLivePoint ? ptValRaw : fallbackPt;
 
@@ -2923,13 +2954,15 @@
           lat: ev.latlng.lat,
           lon: ev.latlng.lng
         };
-        activeLocation = await resolveReverseLocation(selectedPoint.lat, selectedPoint.lon);
         const catalog = collectAllCandidateVars();
         const item = catalog.find(v => v.code === activeVarCode) || catalog[0];
+
+        // Tıklanan noktayı anında göster ve tüm değişken değerlerini o noktaya göre güncelle
+        activeLocation = await resolveReverseLocation(selectedPoint.lat, selectedPoint.lon);
         if (item) {
           await updatePlayerCbarAndMap(item, getActiveHourIndex());
         }
-        await auditRealEcmwfVariablesForPoint(catalog);
+        await auditAllVariablesForClickedPoint(catalog);
       });
     }
 
@@ -2964,14 +2997,14 @@
       cleanWaitingTextFromCbarAndDom();
       const cat = collectAllCandidateVars();
       setActiveVar(activeVarCode, "host");
-      auditRealEcmwfVariablesForPoint(cat);
+      auditAllVariablesForClickedPoint(cat);
       bindMapAndTimelineListeners();
     });
   } else {
     cleanWaitingTextFromCbarAndDom();
     const cat = collectAllCandidateVars();
     setActiveVar(activeVarCode, "host");
-    auditRealEcmwfVariablesForPoint(cat);
+    auditAllVariablesForClickedPoint(cat);
     bindMapAndTimelineListeners();
   }
   setInterval(tick, 1200);
