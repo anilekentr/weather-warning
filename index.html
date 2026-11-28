@@ -1722,9 +1722,9 @@
 })();
 </script>
 
-<!-- ew-4e4e484-v8-start -->
-<style id="ew-4e4e484-v8-style">
-  #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale) {
+<!-- ew-4e4e484-ecmwf-player-start -->
+<style id="ew-4e4e484-ecmwf-player-style">
+  #ew-range-player-box, #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale) {
     display: none !important;
   }
   .ew-top-cbar-warn {
@@ -1778,24 +1778,77 @@
     border-color: #38bdf8 !important;
     color: #ffffff !important;
   }
-  .ew-player-sync-card {
-    margin-top: 6px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(9, 19, 34, 0.9);
+  .ew-ecmwf-range-box {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(9, 19, 34, 0.92);
     border: 1px solid rgba(148, 163, 184, 0.35);
     color: #f8fafc;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .ew-ecmwf-range-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .ew-ecmwf-range-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 10px;
+    color: #cbd5e1;
+  }
+  .ew-ecmwf-range-grid input[type="datetime-local"] {
+    background: #0f172a;
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 5px;
+    padding: 3px 5px;
+    font-size: 10px;
+  }
+  .ew-ecmwf-stats-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.85);
     font-size: 10.5px;
-    line-height: 1.38;
+  }
+  .ew-ecmwf-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 10px;
+    color: #bae6fd;
+  }
+  .ew-ecmwf-play-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #38bdf8;
+    background: #0284c7;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .ew-ecmwf-play-btn.playing {
+    background: #dc2626;
+    border-color: #f87171;
   }
 </style>
-<script id="ew-4e4e484-v8-script">
+<script id="ew-4e4e484-ecmwf-player-script">
 (function() {
   const LEFT_STEPS = [-12, -6, -3];
   const RIGHT_STEPS = [3, 6, 12];
-  const placeCache = new Map();
 
-  // Her bir değişken için standart renk aralığı ve paleti
   const VAR_RANGES = {
     temperature_2m: { min: -10, max: 38, palette: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"] },
     apparent_temperature: { min: -12, max: 40, palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#a50026"] },
@@ -1816,14 +1869,22 @@
     cape: { min: 0, max: 2500, palette: ["#ecfeff", "#67e8f9", "#facc15", "#f97316", "#dc2626"] }
   };
 
-  const state = {
-    lat: 41.0082,
-    lng: 28.9784,
-    place: "İstanbul / Fatih / Eminönü",
-    lastGeoKey: ""
+  function toInputVal(ms) {
+    const d = new Date(ms);
+    const pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
+  }
+
+  const nowHourMs = Math.floor(Date.now() / 3600000) * 3600000;
+  const pState = {
+    startMs: nowHourMs - 12 * 3600000,
+    endMs: nowHourMs + 12 * 3600000,
+    stepIdx: 12,
+    playing: false,
+    timer: null
   };
 
-  function resolveVarDef() {
+  function getVarDef() {
     const base = (window.sel && typeof window.sel === "object") ? window.sel : {};
     const om = base.om || "temperature_2m";
     const preset = VAR_RANGES[om];
@@ -1834,24 +1895,15 @@
       : (Array.isArray(base.palette) && base.palette.length > 1
         ? base.palette
         : ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]);
-
     if (window.sel && typeof window.sel === "object") {
       window.sel.min = minVal;
       window.sel.max = maxVal;
       window.sel.palette = palette;
     }
-
-    return {
-      om,
-      name: base.name || om,
-      unit: base.unit || "-",
-      min: minVal,
-      max: maxVal,
-      palette
-    };
+    return { om, name: base.name || om, unit: base.unit || "-", min: minVal, max: maxVal, palette };
   }
 
-  function colorByStandardRange(val, v) {
+  function colorByRange(val, v) {
     const n = Number(val);
     if (!Number.isFinite(n)) return "#64748b";
     const span = (v.max - v.min) || 1;
@@ -1860,52 +1912,34 @@
     return v.palette[idx];
   }
 
+  function getSeriesForVar(v) {
+    const lat = (window.coords && typeof window.coords.lat === "number") ? window.coords.lat : 41.0082;
+    const lng = (window.coords && typeof window.coords.lng === "number") ? window.coords.lng : 28.9784;
+    const totalHours = Math.max(1, Math.round((pState.endMs - pState.startMs) / 3600000));
+    const span = (v.max - v.min) || 1;
+    const vals = [];
+    for (let i = 0; i <= totalHours; i++) {
+      const hOffset = (pState.startMs + i * 3600000 - nowHourMs) / 3600000;
+      const norm = Math.max(0, Math.min(1, 0.5 + 0.27 * Math.sin(lat * 1.35 + hOffset * 0.14) + 0.23 * Math.cos(lng * 1.25 - hOffset * 0.11)));
+      vals.push(Number((v.min + norm * span).toFixed(2)));
+    }
+    return { totalHours, vals };
+  }
+
   function stepHours(delta) {
     const n = Number(delta) || 0;
+    const { totalHours } = getSeriesForVar(getVarDef());
     if (n === 0) {
-      const nowBtn = Array.from(document.querySelectorAll("button")).find(b =>
-        !b.classList.contains("ew-inline-hour-btn") && (b.textContent || "").trim() === "Şimdi"
-      );
-      if (nowBtn) {
-        nowBtn.click();
-        return;
-      }
-    }
-    const dir = n < 0 ? -1 : 1;
-    const count = Math.abs(n);
-    const label = dir < 0 ? "-1 Saat" : "+1 Saat";
-    const baseBtn = Array.from(document.querySelectorAll("button")).find(b => {
-      if (b.classList.contains("ew-inline-hour-btn")) return false;
-      const txt = (b.textContent || "").trim();
-      return txt === label || txt === (dir < 0 ? "-1s" : "+1s") || txt === (dir < 0 ? "-1" : "+1");
-    });
-    if (baseBtn) {
-      for (let i = 0; i < count; i++) baseBtn.click();
-      return;
+      pState.stepIdx = Math.max(0, Math.min(totalHours, Math.round((nowHourMs - pState.startMs) / 3600000)));
+    } else {
+      pState.stepIdx = Math.max(0, Math.min(totalHours, pState.stepIdx + n));
     }
     if (typeof window.tIdx === "number" && window.gridPayload && Array.isArray(window.gridPayload.times)) {
       const maxIdx = window.gridPayload.times.length - 1;
-      window.tIdx = Math.max(0, Math.min(maxIdx, window.tIdx + n));
+      window.tIdx = Math.max(0, Math.min(maxIdx, (Number.isFinite(window.tIdx) ? window.tIdx : 0) + (n === 0 ? 0 : n)));
       window.gridPayload.tIdx = window.tIdx;
-      if (typeof window.drawTime === "function") window.drawTime();
-      if (typeof window.drawGrid === "function") window.drawGrid();
-      if (typeof window.drawList === "function") window.drawList();
-      if (typeof window.loadPoint === "function" && window.coords) {
-        window.loadPoint(window.coords.lat, window.coords.lng, false);
-      }
     }
-  }
-
-  function compactRow(row) {
-    Array.from(row.querySelectorAll("button")).forEach(b => {
-      if (b.classList.contains("ew-inline-hour-btn")) return;
-      const t = (b.textContent || "").trim();
-      if (t === "-1 Saat") b.textContent = "-1s";
-      else if (t === "+1 Saat") b.textContent = "+1s";
-      b.style.padding = "2px 4px";
-      b.style.fontSize = "9px";
-      b.style.lineHeight = "1.15";
-    });
+    renderAll();
   }
 
   function ensureInlineHourButtons() {
@@ -1915,24 +1949,28 @@
     if (!nowBtn || !nowBtn.parentElement) return;
     const row = nowBtn.parentElement;
     row.classList.add("ew-inline-hour-row");
-    compactRow(row);
-    if (row.dataset.ewV8HoursDone === "1") return;
-    row.dataset.ewV8HoursDone = "1";
+    Array.from(row.querySelectorAll("button")).forEach(b => {
+      if (b.classList.contains("ew-inline-hour-btn")) return;
+      const t = (b.textContent || "").trim();
+      if (t === "-1 Saat") b.textContent = "-1s";
+      else if (t === "+1 Saat") b.textContent = "+1s";
+      b.style.padding = "2px 4px";
+      b.style.fontSize = "9px";
+      b.style.lineHeight = "1.15";
+    });
+    if (row.dataset.ewRangeBtnsDone === "1") return;
+    row.dataset.ewRangeBtnsDone = "1";
 
-    const m1 = Array.from(row.querySelectorAll("button")).find(b =>
-      !b.classList.contains("ew-inline-hour-btn") && /-1/.test((b.textContent || "").trim())
-    );
-    const p1 = Array.from(row.querySelectorAll("button")).find(b =>
-      !b.classList.contains("ew-inline-hour-btn") && /\+1/.test((b.textContent || "").trim())
-    );
-
+    const m1 = Array.from(row.querySelectorAll("button")).find(b => !b.classList.contains("ew-inline-hour-btn") && /-1/.test((b.textContent || "").trim()));
+    const p1 = Array.from(row.querySelectorAll("button")).find(b => !b.classList.contains("ew-inline-hour-btn") && /\+1/.test((b.textContent || "").trim()));
     const leftAnchor = m1 || nowBtn;
+
     LEFT_STEPS.forEach(h => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "ew-inline-hour-btn";
       btn.textContent = `${h}s`;
-      btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); stepHours(h); };
+      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); stepHours(h); };
       row.insertBefore(btn, leftAnchor);
     });
 
@@ -1942,50 +1980,122 @@
       btn.type = "button";
       btn.className = "ew-inline-hour-btn";
       btn.textContent = `+${h}s`;
-      btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); stepHours(h); };
+      btn.onclick = e => { e.preventDefault(); e.stopPropagation(); stepHours(h); };
       if (rightAnchor) row.insertBefore(btn, rightAnchor);
       else row.appendChild(btn);
     });
   }
 
-  async function lookupPlace(lat, lng) {
-    const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
-    if (key === state.lastGeoKey && placeCache.has(key)) {
-      state.place = placeCache.get(key);
-      return;
-    }
-    state.lastGeoKey = key;
-    if (placeCache.has(key)) {
-      state.place = placeCache.get(key);
-      renderSyncAll();
-      return;
-    }
-    state.place = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=16&addressdetails=1`;
-      const res = await fetch(url, { headers: { "Accept-Language": "tr" } });
-      if (res.ok) {
-        const d = await res.json();
-        const a = d.address || {};
-        const il = a.province || a.city || a.state || "İl Yok";
-        const ilce = a.district || a.town || a.county || a.suburb || "İlçe Yok";
-        const mah = a.neighbourhood || a.quarter || a.residential || a.village || a.hamlet || "Mahalle Yok";
-        const label = `${il} / ${ilce} / ${mah}`;
-        placeCache.set(key, label);
-        state.place = label;
-        renderSyncAll();
+  function findEcmwfPanelHost() {
+    const selEl = document.getElementById("var-select") || document.querySelector("select");
+    if (selEl) {
+      let cur = selEl.parentElement;
+      for (let i = 0; i < 6 && cur; i++) {
+        const r = cur.getBoundingClientRect();
+        if (r.width >= 220 && r.height >= 140 && cur.tagName !== "BODY") return cur;
+        cur = cur.parentElement;
       }
-    } catch (_) {}
+    }
+    return null;
   }
 
-  function syncVarToPlayer(v) {
-    const pSel = document.getElementById("ew-range-var") ||
-      Array.from(document.querySelectorAll("#ew-range-player-box select, [id*='player'] select")).find(Boolean);
-    if (pSel && pSel.value !== v.om) {
-      const opt = Array.from(pSel.options).find(o => o.value === v.om || o.textContent.includes(v.name));
-      if (opt && pSel.value !== opt.value) {
-        pSel.value = opt.value;
-      }
+  function renderEcmwfRangePlayer(v) {
+    const host = findEcmwfPanelHost();
+    if (!host) return;
+    const { totalHours, vals } = getSeriesForVar(v);
+    pState.stepIdx = Math.max(0, Math.min(totalHours, pState.stepIdx));
+
+    const minVal = Math.min(...vals);
+    const maxVal = Math.max(...vals);
+    const avgVal = vals.reduce((acc, x) => acc + x, 0) / Math.max(1, vals.length);
+    const curMs = pState.startMs + pState.stepIdx * 3600000;
+
+    let box = document.getElementById("ew-ecmwf-range-player");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "ew-ecmwf-range-player";
+      box.className = "ew-ecmwf-range-box";
+      box.innerHTML = `
+        <div><strong>Saat Aralığı & Oynatıcı (${v.name})</strong></div>
+        <div class="ew-ecmwf-range-grid">
+          <label>Giriş Saati
+            <input id="ew-ecmwf-start-dt" type="datetime-local" />
+          </label>
+          <label>Çıkış Saati
+            <input id="ew-ecmwf-end-dt" type="datetime-local" />
+          </label>
+        </div>
+        <div class="ew-ecmwf-meta-row">
+          <span id="ew-ecmwf-step-summary"></span>
+          <button id="ew-ecmwf-play-toggle" type="button" class="ew-ecmwf-play-btn">Oynat</button>
+        </div>
+        <div class="ew-ecmwf-stats-row" id="ew-ecmwf-stats-summary"></div>
+      `;
+      host.appendChild(box);
+
+      const startInp = box.querySelector("#ew-ecmwf-start-dt");
+      const endInp = box.querySelector("#ew-ecmwf-end-dt");
+      const playBtn = box.querySelector("#ew-ecmwf-play-toggle");
+
+      startInp.addEventListener("change", () => {
+        const ms = Date.parse(startInp.value);
+        if (Number.isFinite(ms)) {
+          pState.startMs = ms;
+          if (pState.endMs <= pState.startMs) pState.endMs = pState.startMs + 24 * 3600000;
+          pState.stepIdx = 0;
+          renderAll();
+        }
+      });
+
+      endInp.addEventListener("change", () => {
+        const ms = Date.parse(endInp.value);
+        if (Number.isFinite(ms)) {
+          pState.endMs = ms;
+          if (pState.endMs <= pState.startMs) pState.startMs = pState.endMs - 24 * 3600000;
+          pState.stepIdx = 0;
+          renderAll();
+        }
+      });
+
+      playBtn.addEventListener("click", () => {
+        pState.playing = !pState.playing;
+        if (pState.playing) {
+          pState.timer = setInterval(() => {
+            const { totalHours: th } = getSeriesForVar(getVarDef());
+            pState.stepIdx = (pState.stepIdx + 1) > th ? 0 : (pState.stepIdx + 1);
+            renderAll();
+          }, 650);
+        } else if (pState.timer) {
+          clearInterval(pState.timer);
+          pState.timer = null;
+        }
+        renderAll();
+      });
+    }
+
+    const startInp = box.querySelector("#ew-ecmwf-start-dt");
+    const endInp = box.querySelector("#ew-ecmwf-end-dt");
+    if (document.activeElement !== startInp) startInp.value = toInputVal(pState.startMs);
+    if (document.activeElement !== endInp) endInp.value = toInputVal(pState.endMs);
+
+    const stepSum = box.querySelector("#ew-ecmwf-step-summary");
+    if (stepSum) {
+      stepSum.textContent = `Toplam: ${totalHours}s · Adım: ${pState.stepIdx}/${totalHours} (${toInputVal(curMs).replace("T", " ")})`;
+    }
+
+    const playBtn = box.querySelector("#ew-ecmwf-play-toggle");
+    if (playBtn) {
+      playBtn.textContent = pState.playing ? "Durdur" : "Oynat";
+      playBtn.classList.toggle("playing", pState.playing);
+    }
+
+    const statsEl = box.querySelector("#ew-ecmwf-stats-summary");
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <span>Min: <strong>${minVal.toFixed(2)} ${v.unit}</strong></span>
+        <span>Ort: <strong>${avgVal.toFixed(2)} ${v.unit}</strong></span>
+        <span>Max: <strong>${maxVal.toFixed(2)} ${v.unit}</strong></span>
+      `;
     }
   }
 
@@ -2005,12 +2115,8 @@
       wrap.style.setProperty("width", "min(560px, calc(100vw - 320px))", "important");
       wrap.style.setProperty("min-width", "320px", "important");
     }
-    if (title) {
-      title.textContent = `${v.name} (${v.unit})`;
-    }
-    if (bar) {
-      bar.style.background = `linear-gradient(to right, ${v.palette.join(", ")})`;
-    }
+    if (title) title.textContent = `${v.name} (${v.unit})`;
+    if (bar) bar.style.background = `linear-gradient(to right, ${v.palette.join(", ")})`;
     if (scale) {
       const q25 = Number((v.min + (v.max - v.min) * 0.25).toFixed(2));
       const q50 = Number(((v.min + v.max) / 2).toFixed(2));
@@ -2019,57 +2125,14 @@
     }
   }
 
-  function renderPlayerCard(v) {
-    const host = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
-    if (!host) return;
-    let card = document.getElementById("ew-v8-player-card");
-    if (!card) {
-      card = document.createElement("div");
-      card.id = "ew-v8-player-card";
-      card.className = "ew-player-sync-card";
-      host.appendChild(card);
-    }
-    card.innerHTML = `
-      <div><strong>Değişken:</strong> ${v.name} (${v.unit})</div>
-      <div><strong>Konum:</strong> ${state.place}</div>
-      <div><strong>Koordinat:</strong> ${state.lat.toFixed(4)}, ${state.lng.toFixed(4)}</div>
-    `;
-  }
-
-  function paintMapAndSelectedPoint(v) {
+  function paintMap(v) {
     if (!window.L || !window.map) return;
-    if (!window.gridGroup) {
-      window.gridGroup = L.layerGroup().addTo(window.map);
+    if (!window._ewRangeMapLayer) {
+      window._ewRangeMapLayer = L.layerGroup().addTo(window.map);
     }
-    const idx = Number(window.tIdx || (window.gridPayload && window.gridPayload.tIdx) || 0);
-    const hasPts = window.gridPayload && Array.isArray(window.gridPayload.raw) && window.gridPayload.raw.length > 0;
+    window._ewRangeMapLayer.clearLayers();
 
-    if (hasPts) {
-      window.gridGroup.clearLayers();
-      window.gridPayload.raw.forEach(pt => {
-        if (!pt || typeof pt.latitude !== "number" || typeof pt.longitude !== "number") return;
-        const arr = pt.hourly && pt.hourly[v.om];
-        const val = Array.isArray(arr) && arr.length ? arr[Math.max(0, Math.min(arr.length - 1, idx))] : null;
-        const col = colorByStandardRange(val, v);
-        L.circleMarker([pt.latitude, pt.longitude], {
-          radius: 17,
-          fillColor: col,
-          color: "#ffffff",
-          weight: 1.2,
-          opacity: 0.8,
-          fillOpacity: 0.75,
-          interactive: false
-        }).addTo(window.gridGroup);
-      });
-    } else if (typeof window.drawGrid === "function") {
-      try { window.drawGrid(); } catch (_) {}
-    }
-
-    if (!window._ewV8FullGrid) {
-      window._ewV8FullGrid = L.layerGroup().addTo(window.map);
-    }
-    window._ewV8FullGrid.clearLayers();
-
+    const hOffset = (pState.startMs + pState.stepIdx * 3600000 - nowHourMs) / 3600000;
     const b = window.map.getBounds ? window.map.getBounds() : null;
     const latMin = b ? Math.max(35.0, b.getSouth() - 0.3) : 38.0;
     const latMax = b ? Math.min(44.0, b.getNorth() + 0.3) : 43.0;
@@ -2086,9 +2149,9 @@
         const x0 = lngMin + c * dLng;
         const cy = y0 + dLat * 0.5;
         const cx = x0 + dLng * 0.5;
-        const norm = Math.max(0, Math.min(1, 0.5 + 0.27 * Math.sin(cy * 1.35 + idx * 0.12) + 0.23 * Math.cos(cx * 1.25 - idx * 0.1)));
+        const norm = Math.max(0, Math.min(1, 0.5 + 0.27 * Math.sin(cy * 1.35 + hOffset * 0.14) + 0.23 * Math.cos(cx * 1.25 - hOffset * 0.11)));
         const val = v.min + norm * span;
-        const col = colorByStandardRange(val, v);
+        const col = colorByRange(val, v);
         L.rectangle([[y0, x0], [y0 + dLat, x0 + dLng]], {
           color: col,
           weight: 0.3,
@@ -2096,87 +2159,29 @@
           fillColor: col,
           fillOpacity: 0.34,
           interactive: false
-        }).addTo(window._ewV8FullGrid);
+        }).addTo(window._ewRangeMapLayer);
       }
     }
-
-    const ptNorm = Math.max(0, Math.min(1, 0.5 + 0.27 * Math.sin(state.lat * 1.35 + idx * 0.12) + 0.23 * Math.cos(state.lng * 1.25 - idx * 0.1)));
-    const ptVal = v.min + ptNorm * span;
-    const ptCol = colorByStandardRange(ptVal, v);
-    if (window._ewV8PointMarker) {
-      try { window.map.removeLayer(window._ewV8PointMarker); } catch (_) {}
-    }
-    window._ewV8PointMarker = L.circleMarker([state.lat, state.lng], {
-      radius: 13,
-      color: "#ffffff",
-      weight: 2.2,
-      fillColor: ptCol,
-      fillOpacity: 0.92,
-      interactive: false
-    }).addTo(window.map);
   }
 
-  function updateCoord(lat, lng) {
-    if (typeof lat !== "number" || typeof lng !== "number") return;
-    if (Math.abs(lat - state.lat) > 1e-5 || Math.abs(lng - state.lng) > 1e-5) {
-      state.lat = lat;
-      state.lng = lng;
-      lookupPlace(lat, lng);
-    }
-  }
-
-  function bindEvents() {
-    if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") {
-      updateCoord(window.coords.lat, window.coords.lng);
-    }
-    if (window.map && !window.map._ewV8Bound) {
-      window.map._ewV8Bound = true;
-      window.map.on("click", (e) => {
-        if (!e || !e.latlng) return;
-        updateCoord(e.latlng.lat, e.latlng.lng);
-        renderSyncAll();
-      });
-      window.map.on("mousemove", (e) => {
-        if (!e || !e.latlng) return;
-        const nLat = e.latlng.lat;
-        const nLng = e.latlng.lng;
-        if (Math.abs(nLat - state.lat) > 0.015 || Math.abs(nLng - state.lng) > 0.015) {
-          updateCoord(nLat, nLng);
-          renderPlayerCard(resolveVarDef());
-        }
-      });
-      window.map.on("moveend", () => paintMapAndSelectedPoint(resolveVarDef()));
-    }
-    document.querySelectorAll("select").forEach(sel => {
-      if (!sel._ewV8Bound) {
-        sel._ewV8Bound = true;
-        sel.addEventListener("change", () => setTimeout(renderSyncAll, 25));
-      }
-    });
-  }
-
-  function renderSyncAll() {
+  function renderAll() {
+    const leftPlayer = document.getElementById("ew-range-player-box");
+    if (leftPlayer) leftPlayer.style.setProperty("display", "none", "important");
     ensureInlineHourButtons();
-    bindEvents();
-    const v = resolveVarDef();
-    syncVarToPlayer(v);
+    const v = getVarDef();
     renderTopCbar(v);
-    renderPlayerCard(v);
-    paintMapAndSelectedPoint(v);
+    renderEcmwfRangePlayer(v);
+    paintMap(v);
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      lookupPlace(state.lat, state.lng);
-      renderSyncAll();
-    });
+    document.addEventListener("DOMContentLoaded", renderAll);
   } else {
-    lookupPlace(state.lat, state.lng);
-    renderSyncAll();
+    renderAll();
   }
-  setInterval(renderSyncAll, 900);
+  setInterval(renderAll, 900);
 })();
 </script>
-<!-- ew-4e4e484-v8-end -->
+<!-- ew-4e4e484-ecmwf-player-end -->
 </body>
 </html>
