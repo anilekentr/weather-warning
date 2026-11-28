@@ -3732,5 +3732,151 @@
 </script>
 <!-- EW_RIGHT_PANEL_CLICK_COORD_VAR_END -->
 
+<!-- EW_RIGHT_PANEL_MOUSE_COORD_FIX_START -->
+<script>
+(function () {
+  let activeMouseCoord = { lat: 41.0082, lon: 28.9784, lockedByClick: false };
+  const hookedLeafletMaps = new Set();
+  const reverseGeoCache = new Map();
+  let geoSeq = 0;
+
+  function fmtCoordLine(lat, lon) {
+    const ns = lat >= 0 ? "°N" : "°S";
+    const ew = lon >= 0 ? "°E" : "°W";
+    return `${Math.abs(lat).toFixed(4)}${ns}, ${Math.abs(lon).toFixed(4)}${ew}`;
+  }
+
+  function writeCoordToRightPanel(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const text = fmtCoordLine(lat, lon);
+    const ids = ["ew-rp-coord", "ew-pro-coord-val", "ew-coord-text"];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    });
+    const sub = document.getElementById("ew-rp-coord-sub");
+    if (sub) {
+      sub.textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    }
+  }
+
+  async function updatePlaceForCoord(lat, lon) {
+    const mySeq = ++geoSeq;
+    const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    let info = reverseGeoCache.get(cacheKey);
+    if (!info) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1&accept-language=tr`;
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        if (res.ok) {
+          const j = await res.json();
+          const a = (j && j.address) || {};
+          info = {
+            il: a.province || a.state || a.city || a.region || "Açık Alan / Deniz",
+            ilce: a.town || a.county || a.city_district || a.district || a.municipality || "",
+            mahalle: a.neighbourhood || a.suburb || a.quarter || a.village || a.hamlet || a.road || "-"
+          };
+          reverseGeoCache.set(cacheKey, info);
+        }
+      } catch (_) {}
+    }
+    if (!info || mySeq !== geoSeq) return;
+
+    const ilIlceText = [info.il, info.ilce].filter(Boolean).join(" / ") || "Konum";
+    const mahText = `Mahalle: ${info.mahalle || "-"}`;
+
+    ["ew-rp-il-ilce", "ew-pro-il-ilce", "ew-place-main"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = ilIlceText;
+    });
+    ["ew-rp-mahalle", "ew-pro-mahalle", "ew-place-sub"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = id === "ew-place-sub" ? (info.mahalle || "-") : mahText;
+    });
+  }
+
+  function applySelectedLocation(lat, lon, isClick) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    activeMouseCoord.lat = Number(lat);
+    activeMouseCoord.lon = Number(lon);
+    if (isClick) {
+      activeMouseCoord.lockedByClick = true;
+    }
+    writeCoordToRightPanel(activeMouseCoord.lat, activeMouseCoord.lon);
+    if (isClick) {
+      updatePlaceForCoord(activeMouseCoord.lat, activeMouseCoord.lon);
+    }
+  }
+
+  function attachMapListeners(mp) {
+    if (!mp || typeof mp.on !== "function" || hookedLeafletMaps.has(mp)) return;
+    hookedLeafletMaps.add(mp);
+
+    mp.on("click", function (ev) {
+      if (ev && ev.latlng) {
+        applySelectedLocation(ev.latlng.lat, ev.latlng.lng, true);
+      }
+    });
+
+    mp.on("mousemove", function (ev) {
+      if (ev && ev.latlng && !activeMouseCoord.lockedByClick) {
+        applySelectedLocation(ev.latlng.lat, ev.latlng.lng, false);
+      }
+    });
+
+    if (typeof mp.getContainer === "function") {
+      const container = mp.getContainer();
+      if (container && !container.__ewCoordContainerHook) {
+        container.__ewCoordContainerHook = true;
+        container.addEventListener("click", function (domEv) {
+          if (typeof mp.mouseEventToLatLng === "function") {
+            try {
+              const ll = mp.mouseEventToLatLng(domEv);
+              if (ll) applySelectedLocation(ll.lat, ll.lng, true);
+            } catch (_) {}
+          }
+        }, true);
+      }
+    }
+  }
+
+  if (typeof window.L !== "undefined" && window.L.Map && window.L.Map.addInitHook && !window.__ewMouseCoordInitHook) {
+    window.__ewMouseCoordInitHook = true;
+    window.L.Map.addInitHook(function () {
+      attachMapListeners(this);
+    });
+  }
+
+  function scanMaps() {
+    if (window.map) attachMapListeners(window.map);
+    if (window._map) attachMapListeners(window._map);
+    for (const k of Object.keys(window)) {
+      try {
+        const candidate = window[k];
+        if (candidate && typeof candidate === "object" && typeof candidate.on === "function" && typeof candidate.getCenter === "function") {
+          attachMapListeners(candidate);
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      scanMaps();
+      writeCoordToRightPanel(activeMouseCoord.lat, activeMouseCoord.lon);
+    });
+  } else {
+    scanMaps();
+    writeCoordToRightPanel(activeMouseCoord.lat, activeMouseCoord.lon);
+  }
+
+  setInterval(() => {
+    scanMaps();
+    writeCoordToRightPanel(activeMouseCoord.lat, activeMouseCoord.lon);
+  }, 400);
+})();
+</script>
+<!-- EW_RIGHT_PANEL_MOUSE_COORD_FIX_END -->
+
 </body>
 </html>
