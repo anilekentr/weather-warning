@@ -1722,9 +1722,12 @@
 })();
 </script>
 
-<!-- ew-4e4e484-top-cbar-start -->
-<style id="ew-4e4e484-top-cbar-style">
+<!-- ew-4e4e484-v8-start -->
+<style id="ew-4e4e484-v8-style">
   #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale) {
+    display: none !important;
+  }
+  .ew-top-cbar-warn {
     display: none !important;
   }
   #ew-player-cbar-wrap {
@@ -1736,7 +1739,7 @@
     left: 50% !important;
     right: auto !important;
     transform: translateX(-50%) !important;
-    width: min(540px, calc(100vw - 320px)) !important;
+    width: min(560px, calc(100vw - 320px)) !important;
     min-width: 320px !important;
     z-index: 1600 !important;
     padding: 8px 12px !important;
@@ -1749,14 +1752,6 @@
     height: 14px !important;
     min-height: 14px !important;
     border-radius: 6px !important;
-  }
-  .ew-top-cbar-warn {
-    margin-top: 4px;
-    font-size: 10px;
-    color: #fde68a;
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
   }
   .ew-inline-hour-row {
     display: flex !important;
@@ -1783,7 +1778,7 @@
     border-color: #38bdf8 !important;
     color: #ffffff !important;
   }
-  .ew-player-loc-sync {
+  .ew-player-sync-card {
     margin-top: 6px;
     padding: 6px 8px;
     border-radius: 6px;
@@ -1794,51 +1789,69 @@
     line-height: 1.38;
   }
 </style>
-<script id="ew-4e4e484-top-cbar-script">
+<script id="ew-4e4e484-v8-script">
 (function() {
   const LEFT_STEPS = [-12, -6, -3];
   const RIGHT_STEPS = [3, 6, 12];
   const placeCache = new Map();
 
-  const syncState = {
-    lat: 41.0082,
-    lng: 28.9784,
-    place: "İstanbul / Fatih / Eminönü"
+  // Her bir değişken için standart renk aralığı ve paleti
+  const VAR_RANGES = {
+    temperature_2m: { min: -10, max: 38, palette: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"] },
+    apparent_temperature: { min: -12, max: 40, palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#a50026"] },
+    dew_point_2m: { min: -8, max: 24, palette: ["#f7fcf0", "#ccebc5", "#7bccc4", "#2b8cbe", "#08589e"] },
+    relative_humidity_2m: { min: 15, max: 100, palette: ["#fef0d9", "#fdcc8a", "#fc8d59", "#2b8cbe", "#045a8d"] },
+    precipitation: { min: 0, max: 25, palette: ["#eff3ff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"] },
+    rain: { min: 0, max: 25, palette: ["#e0f2fe", "#7dd3fc", "#38bdf8", "#0284c7", "#0369a1"] },
+    showers: { min: 0, max: 20, palette: ["#ecfeff", "#67e8f9", "#22d3ee", "#0284c7", "#1e3a8a"] },
+    snowfall: { min: 0, max: 20, palette: ["#f8fafc", "#bae6fd", "#38bdf8", "#0284c7", "#1e3a8a"] },
+    snow_depth: { min: 0, max: 1.5, palette: ["#f1f5f9", "#cbd5e1", "#60a5fa", "#2563eb", "#1e3a8a"] },
+    pressure_msl: { min: 995, max: 1035, palette: ["#1d4ed8", "#06b6d4", "#10b981", "#f59e0b", "#dc2626"] },
+    surface_pressure: { min: 950, max: 1035, palette: ["#1e40af", "#0284c7", "#0d9488", "#eab308", "#ea580c"] },
+    cloud_cover: { min: 0, max: 100, palette: ["#f8fafc", "#cbd5e1", "#64748b", "#334155"] },
+    wind_speed_10m: { min: 0, max: 75, palette: ["#dcfce7", "#86efac", "#fde047", "#fb923c", "#ef4444"] },
+    wind_gusts_10m: { min: 0, max: 105, palette: ["#fef9c3", "#fde047", "#f97316", "#dc2626", "#7f1d1d"] },
+    wind_direction_10m: { min: 0, max: 360, palette: ["#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#38bdf8"] },
+    shortwave_radiation: { min: 0, max: 900, palette: ["#1e293b", "#facc15", "#fb923c", "#ef4444"] },
+    cape: { min: 0, max: 2500, palette: ["#ecfeff", "#67e8f9", "#facc15", "#f97316", "#dc2626"] }
   };
 
-  function getStandardVar() {
+  const state = {
+    lat: 41.0082,
+    lng: 28.9784,
+    place: "İstanbul / Fatih / Eminönü",
+    lastGeoKey: ""
+  };
+
+  function resolveVarDef() {
+    const base = (window.sel && typeof window.sel === "object") ? window.sel : {};
+    const om = base.om || "temperature_2m";
+    const preset = VAR_RANGES[om];
+    const minVal = preset ? preset.min : (typeof base.min === "number" ? base.min : 0);
+    const maxVal = preset ? preset.max : (typeof base.max === "number" ? base.max : 100);
+    const palette = preset
+      ? preset.palette
+      : (Array.isArray(base.palette) && base.palette.length > 1
+        ? base.palette
+        : ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]);
+
     if (window.sel && typeof window.sel === "object") {
-      const minVal = typeof window.sel.min === "number" ? window.sel.min : -10;
-      const maxVal = typeof window.sel.max === "number" ? window.sel.max : 35;
-      const pal = Array.isArray(window.sel.palette) && window.sel.palette.length > 1
-        ? window.sel.palette
-        : ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"];
-      return {
-        om: window.sel.om || "temperature_2m",
-        name: window.sel.name || window.sel.om || "Değişken",
-        unit: window.sel.unit || "-",
-        min: minVal,
-        max: maxVal,
-        palette: pal
-      };
+      window.sel.min = minVal;
+      window.sel.max = maxVal;
+      window.sel.palette = palette;
     }
+
     return {
-      om: "temperature_2m",
-      name: "2m Sıcaklık",
-      unit: "°C",
-      min: -10,
-      max: 35,
-      palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]
+      om,
+      name: base.name || om,
+      unit: base.unit || "-",
+      min: minVal,
+      max: maxVal,
+      palette
     };
   }
 
-  function standardColor(val, v) {
-    if (typeof window.colorOf === "function") {
-      try {
-        const c = window.colorOf(val, v);
-        if (c) return c;
-      } catch (_) {}
-    }
+  function colorByStandardRange(val, v) {
     const n = Number(val);
     if (!Number.isFinite(n)) return "#64748b";
     const span = (v.max - v.min) || 1;
@@ -1903,8 +1916,8 @@
     const row = nowBtn.parentElement;
     row.classList.add("ew-inline-hour-row");
     compactRow(row);
-    if (row.dataset.ewTopHoursDone === "1") return;
-    row.dataset.ewTopHoursDone = "1";
+    if (row.dataset.ewV8HoursDone === "1") return;
+    row.dataset.ewV8HoursDone = "1";
 
     const m1 = Array.from(row.querySelectorAll("button")).find(b =>
       !b.classList.contains("ew-inline-hour-btn") && /-1/.test((b.textContent || "").trim())
@@ -1935,14 +1948,19 @@
     });
   }
 
-  async function resolvePlace(lat, lng) {
+  async function lookupPlace(lat, lng) {
     const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
-    if (placeCache.has(key)) {
-      syncState.place = placeCache.get(key);
-      renderAll();
+    if (key === state.lastGeoKey && placeCache.has(key)) {
+      state.place = placeCache.get(key);
       return;
     }
-    syncState.place = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    state.lastGeoKey = key;
+    if (placeCache.has(key)) {
+      state.place = placeCache.get(key);
+      renderSyncAll();
+      return;
+    }
+    state.place = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=16&addressdetails=1`;
       const res = await fetch(url, { headers: { "Accept-Language": "tr" } });
@@ -1954,13 +1972,24 @@
         const mah = a.neighbourhood || a.quarter || a.residential || a.village || a.hamlet || "Mahalle Yok";
         const label = `${il} / ${ilce} / ${mah}`;
         placeCache.set(key, label);
-        syncState.place = label;
-        renderAll();
+        state.place = label;
+        renderSyncAll();
       }
     } catch (_) {}
   }
 
-  function updateTopWarningCbar(v) {
+  function syncVarToPlayer(v) {
+    const pSel = document.getElementById("ew-range-var") ||
+      Array.from(document.querySelectorAll("#ew-range-player-box select, [id*='player'] select")).find(Boolean);
+    if (pSel && pSel.value !== v.om) {
+      const opt = Array.from(pSel.options).find(o => o.value === v.om || o.textContent.includes(v.name));
+      if (opt && pSel.value !== opt.value) {
+        pSel.value = opt.value;
+      }
+    }
+  }
+
+  function renderTopCbar(v) {
     const wrap = document.getElementById("ew-player-cbar-wrap");
     const bar = document.getElementById("ew-player-cbar");
     const title = document.getElementById("ew-player-cbar-title");
@@ -1973,50 +2002,55 @@
       wrap.style.setProperty("left", "50%", "important");
       wrap.style.setProperty("top", "12px", "important");
       wrap.style.setProperty("transform", "translateX(-50%)", "important");
-      wrap.style.setProperty("width", "min(540px, calc(100vw - 320px))", "important");
+      wrap.style.setProperty("width", "min(560px, calc(100vw - 320px))", "important");
       wrap.style.setProperty("min-width", "320px", "important");
     }
-
     if (title) {
-      title.textContent = `UYARI CBAR: ${v.name} (${v.unit})`;
+      title.textContent = `${v.name} (${v.unit})`;
     }
     if (bar) {
       bar.style.background = `linear-gradient(to right, ${v.palette.join(", ")})`;
     }
-    const q25 = Number((v.min + (v.max - v.min) * 0.25).toFixed(2));
-    const q50 = Number(((v.min + v.max) / 2).toFixed(2));
-    const q75 = Number((v.min + (v.max - v.min) * 0.75).toFixed(2));
     if (scale) {
+      const q25 = Number((v.min + (v.max - v.min) * 0.25).toFixed(2));
+      const q50 = Number(((v.min + v.max) / 2).toFixed(2));
+      const q75 = Number((v.min + (v.max - v.min) * 0.75).toFixed(2));
       scale.textContent = `${v.min} ${v.unit} · ${q25} · ${q50} · ${q75} · ${v.max} ${v.unit}`;
-    }
-
-    if (wrap) {
-      let warn = wrap.querySelector(".ew-top-cbar-warn");
-      if (!warn) {
-        warn = document.createElement("div");
-        warn.className = "ew-top-cbar-warn";
-        wrap.appendChild(warn);
-      }
-      warn.innerHTML = `<span>Normal: ${v.min}..${q50} ${v.unit}</span><span>Uyarı/Eşik: ${q75}..${v.max} ${v.unit}</span>`;
     }
   }
 
-  function colorPointAndFullMap(v) {
+  function renderPlayerCard(v) {
+    const host = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
+    if (!host) return;
+    let card = document.getElementById("ew-v8-player-card");
+    if (!card) {
+      card = document.createElement("div");
+      card.id = "ew-v8-player-card";
+      card.className = "ew-player-sync-card";
+      host.appendChild(card);
+    }
+    card.innerHTML = `
+      <div><strong>Değişken:</strong> ${v.name} (${v.unit})</div>
+      <div><strong>Konum:</strong> ${state.place}</div>
+      <div><strong>Koordinat:</strong> ${state.lat.toFixed(4)}, ${state.lng.toFixed(4)}</div>
+    `;
+  }
+
+  function paintMapAndSelectedPoint(v) {
     if (!window.L || !window.map) return;
     if (!window.gridGroup) {
       window.gridGroup = L.layerGroup().addTo(window.map);
     }
-
     const idx = Number(window.tIdx || (window.gridPayload && window.gridPayload.tIdx) || 0);
-    const hasGridPts = window.gridPayload && Array.isArray(window.gridPayload.raw) && window.gridPayload.raw.length > 0;
+    const hasPts = window.gridPayload && Array.isArray(window.gridPayload.raw) && window.gridPayload.raw.length > 0;
 
-    if (hasGridPts) {
+    if (hasPts) {
       window.gridGroup.clearLayers();
       window.gridPayload.raw.forEach(pt => {
         if (!pt || typeof pt.latitude !== "number" || typeof pt.longitude !== "number") return;
         const arr = pt.hourly && pt.hourly[v.om];
         const val = Array.isArray(arr) && arr.length ? arr[Math.max(0, Math.min(arr.length - 1, idx))] : null;
-        const col = standardColor(val, v);
+        const col = colorByStandardRange(val, v);
         L.circleMarker([pt.latitude, pt.longitude], {
           radius: 17,
           fillColor: col,
@@ -2031,10 +2065,10 @@
       try { window.drawGrid(); } catch (_) {}
     }
 
-    if (!window._ewFullCoverageGroup) {
-      window._ewFullCoverageGroup = L.layerGroup().addTo(window.map);
+    if (!window._ewV8FullGrid) {
+      window._ewV8FullGrid = L.layerGroup().addTo(window.map);
     }
-    window._ewFullCoverageGroup.clearLayers();
+    window._ewV8FullGrid.clearLayers();
 
     const b = window.map.getBounds ? window.map.getBounds() : null;
     const latMin = b ? Math.max(35.0, b.getSouth() - 0.3) : 38.0;
@@ -2054,91 +2088,95 @@
         const cx = x0 + dLng * 0.5;
         const norm = Math.max(0, Math.min(1, 0.5 + 0.27 * Math.sin(cy * 1.35 + idx * 0.12) + 0.23 * Math.cos(cx * 1.25 - idx * 0.1)));
         const val = v.min + norm * span;
-        const col = standardColor(val, v);
+        const col = colorByStandardRange(val, v);
         L.rectangle([[y0, x0], [y0 + dLat, x0 + dLng]], {
           color: col,
           weight: 0.3,
           opacity: 0.25,
           fillColor: col,
-          fillOpacity: 0.32,
+          fillOpacity: 0.34,
           interactive: false
-        }).addTo(window._ewFullCoverageGroup);
+        }).addTo(window._ewV8FullGrid);
       }
     }
 
-    const selCol = standardColor(v.min + ((v.max - v.min) * 0.65), v);
-    if (window._ewSelectedPointCircle) {
-      try { window.map.removeLayer(window._ewSelectedPointCircle); } catch (_) {}
+    const ptNorm = Math.max(0, Math.min(1, 0.5 + 0.27 * Math.sin(state.lat * 1.35 + idx * 0.12) + 0.23 * Math.cos(state.lng * 1.25 - idx * 0.1)));
+    const ptVal = v.min + ptNorm * span;
+    const ptCol = colorByStandardRange(ptVal, v);
+    if (window._ewV8PointMarker) {
+      try { window.map.removeLayer(window._ewV8PointMarker); } catch (_) {}
     }
-    window._ewSelectedPointCircle = L.circleMarker([syncState.lat, syncState.lng], {
+    window._ewV8PointMarker = L.circleMarker([state.lat, state.lng], {
       radius: 13,
       color: "#ffffff",
       weight: 2.2,
-      fillColor: selCol,
+      fillColor: ptCol,
       fillOpacity: 0.92,
       interactive: false
     }).addTo(window.map);
   }
 
-  function renderPlayerLocationSync(v) {
-    const playerHost = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
-    if (!playerHost) return;
-    let box = document.getElementById("ew-player-loc-box");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "ew-player-loc-box";
-      box.className = "ew-player-loc-sync";
-      playerHost.appendChild(box);
+  function updateCoord(lat, lng) {
+    if (typeof lat !== "number" || typeof lng !== "number") return;
+    if (Math.abs(lat - state.lat) > 1e-5 || Math.abs(lng - state.lng) > 1e-5) {
+      state.lat = lat;
+      state.lng = lng;
+      lookupPlace(lat, lng);
     }
-    box.innerHTML = `
-      <div><strong>ECMWF Değişken:</strong> ${v.name} (${v.unit})</div>
-      <div><strong>İl / İlçe / Mahalle:</strong> ${syncState.place}</div>
-      <div><strong>Koordinat:</strong> ${syncState.lat.toFixed(4)}, ${syncState.lng.toFixed(4)}</div>
-    `;
   }
 
-  function bindEcmwfAndMap() {
+  function bindEvents() {
     if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") {
-      if (Math.abs(window.coords.lat - syncState.lat) > 1e-5 || Math.abs(window.coords.lng - syncState.lng) > 1e-5) {
-        syncState.lat = window.coords.lat;
-        syncState.lng = window.coords.lng;
-        resolvePlace(syncState.lat, syncState.lng);
-      }
+      updateCoord(window.coords.lat, window.coords.lng);
     }
-    if (window.map && !window.map._ewTopCbarBound) {
-      window.map._ewTopCbarBound = true;
+    if (window.map && !window.map._ewV8Bound) {
+      window.map._ewV8Bound = true;
       window.map.on("click", (e) => {
         if (!e || !e.latlng) return;
-        syncState.lat = e.latlng.lat;
-        syncState.lng = e.latlng.lng;
-        resolvePlace(syncState.lat, syncState.lng);
-        renderAll();
+        updateCoord(e.latlng.lat, e.latlng.lng);
+        renderSyncAll();
       });
-      window.map.on("moveend", () => colorPointAndFullMap(getStandardVar()));
+      window.map.on("mousemove", (e) => {
+        if (!e || !e.latlng) return;
+        const nLat = e.latlng.lat;
+        const nLng = e.latlng.lng;
+        if (Math.abs(nLat - state.lat) > 0.015 || Math.abs(nLng - state.lng) > 0.015) {
+          updateCoord(nLat, nLng);
+          renderPlayerCard(resolveVarDef());
+        }
+      });
+      window.map.on("moveend", () => paintMapAndSelectedPoint(resolveVarDef()));
     }
+    document.querySelectorAll("select").forEach(sel => {
+      if (!sel._ewV8Bound) {
+        sel._ewV8Bound = true;
+        sel.addEventListener("change", () => setTimeout(renderSyncAll, 25));
+      }
+    });
   }
 
-  function renderAll() {
+  function renderSyncAll() {
     ensureInlineHourButtons();
-    bindEcmwfAndMap();
-    const v = getStandardVar();
-    updateTopWarningCbar(v);
-    renderPlayerLocationSync(v);
-    colorPointAndFullMap(v);
+    bindEvents();
+    const v = resolveVarDef();
+    syncVarToPlayer(v);
+    renderTopCbar(v);
+    renderPlayerCard(v);
+    paintMapAndSelectedPoint(v);
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      resolvePlace(syncState.lat, syncState.lng);
-      renderAll();
+      lookupPlace(state.lat, state.lng);
+      renderSyncAll();
     });
   } else {
-    resolvePlace(syncState.lat, syncState.lng);
-    renderAll();
+    lookupPlace(state.lat, state.lng);
+    renderSyncAll();
   }
-  setInterval(renderAll, 900);
+  setInterval(renderSyncAll, 900);
 })();
 </script>
-<!-- ew-4e4e484-top-cbar-end -->
+<!-- ew-4e4e484-v8-end -->
 </body>
 </html>
