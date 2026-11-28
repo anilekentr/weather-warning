@@ -1859,8 +1859,8 @@
     mahalle: "Cumhuriyet Mahallesi"
   };
   let clickEpoch = 0;
+  let activeAbortController = null;
   const geoCache = new Map();
-  const ecmwfLiveCache = new Map();
 
   function degToCompassTr(deg) {
     if (typeof deg !== "number" || !Number.isFinite(deg)) return null;
@@ -1996,8 +1996,8 @@
     }
   }
 
-  async function resolveReverseLocation(lat, lon) {
-    if (Math.abs(lat - 40.8120) < 0.002 && Math.abs(lon - 29.3774) < 0.002) {
+  async function resolveReverseLocation(lat, lon, signal) {
+    if (Math.abs(lat - 40.8120) < 0.0005 && Math.abs(lon - 29.3774) < 0.0005) {
       return { il: "Kocaeli", ilce: "Gebze", mahalle: "Cumhuriyet Mahallesi" };
     }
     const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
@@ -2005,36 +2005,35 @@
 
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=17&addressdetails=1`;
-      const res = await fetch(url, { headers: { "Accept-Language": "tr" } });
+      const res = await fetch(url, { headers: { "Accept-Language": "tr" }, signal });
       if (!res.ok) throw new Error("geo");
       const data = await res.json();
       const addr = (data && data.address) || {};
+      const il = addr.province || addr.state || addr.city || addr.region || "";
+      const ilce = addr.town || addr.district || addr.county || addr.city_district || "";
+      const mahalle = addr.neighbourhood || addr.suburb || addr.quarter || addr.village || addr.hamlet || "";
       const resolved = {
-        il: addr.province || addr.state || addr.city || addr.region || "Bölge",
-        ilce: addr.town || addr.district || addr.county || addr.city_district || "Merkez",
-        mahalle: addr.neighbourhood || addr.suburb || addr.quarter || addr.village || addr.hamlet || `${lat.toFixed(2)}, ${lon.toFixed(2)}`
+        il: il || "Bölge",
+        ilce: ilce || "Merkez",
+        mahalle: mahalle || `${lat.toFixed(4)}, ${lon.toFixed(4)}`
       };
       geoCache.set(key, resolved);
       return resolved;
     } catch (_) {
       return {
-        il: "Koordinat Bölgesi",
-        ilce: `${lat.toFixed(2)}`,
-        mahalle: `${lon.toFixed(2)}`
+        il: "Seçilen Nokta",
+        ilce: `${lat.toFixed(4)}`,
+        mahalle: `${lon.toFixed(4)}`
       };
     }
   }
 
-  // Yalnızca ECMWF API canlı verisini çeker
-  async function fetchEcmwfLiveOnly(lat, lon) {
-    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    if (ecmwfLiveCache.has(key)) return ecmwfLiveCache.get(key);
-
+  async function fetchEcmwfLiveOnly(lat, lon, signal) {
     const params = "hourly=temperature_2m,relative_humidity_2m,precipitation,rain,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m&forecast_days=1&timezone=Europe%2FIstanbul";
-    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&${params}`;
+    const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}&${params}&_t=${Date.now()}`;
 
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store", signal });
       if (!res.ok) return null;
       const data = await res.json();
       const h = data && data.hourly;
@@ -2046,7 +2045,11 @@
       const pad = n => String(n).padStart(2, "0");
       const targetPrefix = `${trNow.getUTCFullYear()}-${pad(trNow.getUTCMonth() + 1)}-${pad(trNow.getUTCDate())}T${pad(trNow.getUTCHours())}:00`;
       let idx = h.time.indexOf(targetPrefix);
-      if (idx < 0) idx = 0;
+      if (idx < 0) {
+        const targetHour = trNow.getUTCHours();
+        idx = h.time.findIndex(t => typeof t === "string" && t.endsWith(`T${pad(targetHour)}:00`));
+        if (idx < 0) idx = 0;
+      }
 
       const temp = h.temperature_2m[idx];
       const hum = Array.isArray(h.relative_humidity_2m) ? h.relative_humidity_2m[idx] : null;
@@ -2070,7 +2073,7 @@
       const humUnit = units.relative_humidity_2m || "%";
       const cloudUnit = units.cloud_cover || "%";
 
-      const parsed = {
+      return {
         timeLabel: formatIstanbulHourLabel(h.time[idx]),
         tempStr: typeof temp === "number" ? `${temp.toFixed(1)} ${tempUnit}` : null,
         windSpeedStr: typeof wspd === "number" ? `${wspd.toFixed(1)} ${windUnit}` : null,
@@ -2080,15 +2083,12 @@
         humidityStr: typeof hum === "number" ? `${Math.round(hum)} ${humUnit}` : null,
         cloudCoverStr: typeof cloud === "number" ? `${Math.round(cloud)} ${cloudUnit}` : null
       };
-
-      ecmwfLiveCache.set(key, parsed);
-      return parsed;
     } catch (_) {
       return null;
     }
   }
 
-  function renderInstantBox(weather) {
+  function renderInstantBox(weather, isFetching) {
     purgeCbarsAndErrorText();
     syncExistingLocationLabels();
 
@@ -2120,14 +2120,18 @@
       cloudCoverStr: null
     };
 
-    const fmtLive = val => val ? `<span class="ew-pi-val ew-pi-live">${val}</span>` : `<span class="ew-pi-val">-</span>`;
+    const fmtLive = val => val
+      ? `<span class="ew-pi-val ew-pi-live">${val}</span>`
+      : `<span class="ew-pi-val ew-pi-live">${isFetching ? "Güncelleniyor..." : "-"}</span>`;
+
     const coordStr = `${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}`;
+    const statusBadge = weather ? "Canlı" : "Canlı · Güncelleniyor";
 
     box.innerHTML =
-      `<div class="ew-pi-header"><span>ECMWF Canlı (${w.timeLabel})</span><span class="ew-pi-badge">Canlı</span></div>` +
+      `<div class="ew-pi-header"><span>ECMWF Canlı (${w.timeLabel})</span><span class="ew-pi-badge">${statusBadge}</span></div>` +
       `<div class="ew-pi-loc">` +
-        `<div><strong>Koordinat:</strong> ${coordStr}</div>` +
-        `<div><strong>Konum:</strong> ${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</div>` +
+        `<div><strong>Koordinat:</strong> <span class="ew-pi-live">${coordStr}</span></div>` +
+        `<div><strong>İl / İlçe / Mahalle:</strong> <span class="ew-pi-live">${activeLocation.il} / ${activeLocation.ilce} / ${activeLocation.mahalle}</span></div>` +
       `</div>` +
       `<div class="ew-pi-grid">` +
         `<span class="ew-pi-lbl">2m Sıcaklığı:</span>${fmtLive(w.tempStr)}` +
@@ -2182,42 +2186,55 @@
       interactive: false
     }).addTo(window._ewPointInstantLayer);
 
-    if (weather) {
-      const g = v => v ? `<strong style="color:#4ade80;">${v}</strong>` : `<strong>-</strong>`;
-      const htmlBadge =
-        `<div><strong>${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}</strong> (${activeLocation.il} / ${activeLocation.ilce})</div>` +
-        `<div>2m Sıcaklık: ${g(weather.tempStr)} · Nem: ${g(weather.humidityStr)} · Bulut: ${g(weather.cloudCoverStr)}</div>` +
-        `<div>Rüzgar: ${g(weather.windSpeedStr)} · ${g(weather.windDirStr)}</div>` +
-        `<div>Yağış: ${g(weather.precipAmountStr)} (${g(weather.precipTypeStr)})</div>`;
+    const g = v => v ? `<strong style="color:#4ade80;">${v}</strong>` : `<strong style="color:#4ade80;">Canlı...</strong>`;
+    const htmlBadge =
+      `<div><strong>${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lon.toFixed(4)}</strong> · <strong style="color:#4ade80;">${activeLocation.il} / ${activeLocation.ilce}</strong></div>` +
+      `<div>2m Sıcaklık: ${g(weather && weather.tempStr)} · Nem: ${g(weather && weather.humidityStr)} · Bulut: ${g(weather && weather.cloudCoverStr)}</div>` +
+      `<div>Rüzgar: ${g(weather && weather.windSpeedStr)} · ${g(weather && weather.windDirStr)}</div>` +
+      `<div>Yağış: ${g(weather && weather.precipAmountStr)} (${g(weather && weather.precipTypeStr)})</div>`;
 
-      L.marker([selectedPoint.lat, selectedPoint.lon], {
-        icon: L.divIcon({
-          className: "ew-map-point-badge",
-          html: htmlBadge,
-          iconSize: null,
-          iconAnchor: [0, 28]
-        }),
-        interactive: false
-      }).addTo(window._ewPointInstantLayer);
-    }
+    L.marker([selectedPoint.lat, selectedPoint.lon], {
+      icon: L.divIcon({
+        className: "ew-map-point-badge",
+        html: htmlBadge,
+        iconSize: null,
+        iconAnchor: [0, 28]
+      }),
+      interactive: false
+    }).addTo(window._ewPointInstantLayer);
   }
 
   async function refreshSelectedPoint(lat, lon) {
+    if (activeAbortController) {
+      try { activeAbortController.abort(); } catch (_) {}
+    }
+    activeAbortController = new AbortController();
+    const signal = activeAbortController.signal;
+
     const myEpoch = ++clickEpoch;
     selectedPoint = { lat, lon };
-    renderInstantBox(null);
+    activeLocation = {
+      il: "Konum...",
+      ilce: `${lat.toFixed(2)}`,
+      mahalle: `${lon.toFixed(2)}`
+    };
 
+    renderInstantBox(null, true);
     const mapObj = resolveLeafletMap();
     if (mapObj) updateMapPinAndPopup(mapObj, null);
 
-    const [loc, weather] = await Promise.all([
-      resolveReverseLocation(lat, lon),
-      fetchEcmwfLiveOnly(lat, lon)
-    ]);
+    resolveReverseLocation(lat, lon, signal).then(loc => {
+      if (myEpoch !== clickEpoch) return;
+      activeLocation = loc;
+      syncExistingLocationLabels();
+      renderInstantBox(null, true);
+      if (mapObj) updateMapPinAndPopup(mapObj, null);
+    });
 
+    const weather = await fetchEcmwfLiveOnly(lat, lon, signal);
     if (myEpoch !== clickEpoch) return;
-    activeLocation = loc;
-    renderInstantBox(weather);
+
+    renderInstantBox(weather, false);
     if (mapObj) updateMapPinAndPopup(mapObj, weather);
   }
 
