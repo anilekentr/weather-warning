@@ -4385,5 +4385,336 @@
 </script>
 <!-- EW_EXACT_VAR_CBAR_END -->
 
+<!-- EW_NEW_DYNAMIC_CBAR_FULL_MAP_START -->
+<style>
+  /* Eski ortadaki oynatıcı / eski CBAR yapılarını kaldır */
+  #ew-cbar,
+  #ew-ui-cbar,
+  .ew-player-bar,
+  .ew-timeline-bar,
+  #ew-time-controls,
+  [id*="player-bar"],
+  [class*="player-bar"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* Yeni dinamik CBAR */
+  #ew-new-cbar {
+    position: fixed !important;
+    bottom: 14px !important;
+    left: 50% !important;
+    top: auto !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    z-index: 3200 !important;
+    width: min(560px, calc(100vw - 28px)) !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(148, 163, 184, 0.36) !important;
+    backdrop-filter: blur(10px) !important;
+    box-shadow: 0 12px 32px rgba(2, 6, 23, 0.62) !important;
+    color: #f8fafc !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .ew-nc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .ew-nc-name {
+    color: #e0f2fe;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ew-nc-val {
+    color: #ffffff;
+    background: rgba(2, 132, 199, 0.35);
+    border: 1px solid rgba(125, 211, 252, 0.45);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .ew-nc-grad {
+    height: 12px;
+    width: 100%;
+    border-radius: 6px;
+    margin: 7px 0 6px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+
+  .ew-nc-bins {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .ew-nc-bin {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: rgba(30, 41, 59, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    color: #f1f5f9;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+
+<script>
+(function () {
+  const RAMPS = {
+    temp: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"],
+    rain: ["#f1f5f9", "#bae6fd", "#7dd3fc", "#38bdf8", "#0284c7", "#1d4ed8", "#3730a3", "#4c1d95"],
+    wind: ["#ecfeff", "#a5f3fc", "#67e8f9", "#22d3ee", "#06b6d4", "#0284c7", "#f59e0b", "#dc2626"],
+    pres: ["#1e1b4b", "#312e81", "#1d4ed8", "#0284c7", "#10b981", "#eab308", "#f97316", "#dc2626"],
+    hum:  ["#fefce8", "#fef08a", "#a7f3d0", "#6ee7b7", "#34d399", "#0ea5e9", "#2563eb", "#1e3a8a"]
+  };
+
+  let curKey = "temperature_2m";
+  let curUnit = "°C";
+  let curLabel = "temperature 2m";
+  let curNowVal = NaN;
+  let curSeries = [];
+  let fullMapLayer = null;
+  const cache = new Map();
+
+  function pickRamp(key) {
+    const k = String(key || "").toLowerCase();
+    if (k.includes("precip") || k.includes("rain") || k.includes("snow") || k.includes("weather_code")) return RAMPS.rain;
+    if (k.includes("wind") || k.includes("gust") || k.includes("vertical_velocity")) return RAMPS.wind;
+    if (k.includes("pressure") || k.includes("geopotential_height")) return RAMPS.pres;
+    if (k.includes("humidity") || k.includes("dew_point") || k.includes("moisture") || k.includes("cloud")) return RAMPS.hum;
+    return RAMPS.temp;
+  }
+
+  function cleanName(key, rawBtnText) {
+    if (key) {
+      return String(key).replace(/_(\d+)hPa$/, " ($1 hPa)").replace(/_(\d+)m$/, " ($1 m)").replace(/_/g, " ").trim();
+    }
+    if (rawBtnText) {
+      return rawBtnText.replace(/\[[^\]]+\]/g, "").trim();
+    }
+    return "Değişken";
+  }
+
+  function fmt(v, u) {
+    if (!Number.isFinite(v)) return "-";
+    if (u === "m³/m³") return v.toFixed(3);
+    if (u === "m/s") return v.toFixed(2);
+    if (Math.abs(v) >= 100 || u === "hPa" || u === "m" || u === "°" || u === "J/kg") return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function getMapRef() {
+    if (window.map && typeof window.map.getBounds === "function") return window.map;
+    if (window._map && typeof window._map.getBounds === "function") return window._map;
+    for (const k of Object.keys(window)) {
+      try {
+        const o = window[k];
+        if (o && typeof o === "object" && typeof o.getBounds === "function" && typeof o.addLayer === "function") return o;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  function getActiveCoords() {
+    const rp = document.getElementById("ew-ui-right");
+    if (rp && rp.textContent) {
+      const m = rp.textContent.match(/(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
+      if (m) {
+        const a = Number(m[1]), b = Number(m[2]);
+        if (Number.isFinite(a) && Number.isFinite(b)) return { lat: a, lon: b };
+      }
+    }
+    const mp = getMapRef();
+    if (mp && typeof mp.getCenter === "function") {
+      const c = mp.getCenter();
+      if (c && Number.isFinite(c.lat) && Number.isFinite(c.lng)) return { lat: c.lat, lon: c.lng };
+    }
+    return { lat: 41.0082, lon: 28.9784 };
+  }
+
+  function ensureNewCbar() {
+    let el = document.getElementById("ew-new-cbar");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ew-new-cbar";
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function designCbarAndPaintMap() {
+    const cbar = ensureNewCbar();
+    const ramp = pickRamp(curKey);
+    const valid = (Array.isArray(curSeries) ? curSeries : []).filter(Number.isFinite);
+
+    let lo = valid.length ? Math.min(...valid) : (Number.isFinite(curNowVal) ? curNowVal - 1 : 0);
+    let hi = valid.length ? Math.max(...valid) : (Number.isFinite(curNowVal) ? curNowVal + 1 : 1);
+    if (lo === hi) {
+      const pad = Math.max(Math.abs(lo) * 0.1, 1);
+      lo -= pad;
+      hi += pad;
+    }
+    const span = Math.max(1e-6, hi - lo);
+
+    const bins = 6;
+    const step = (hi - lo) / bins;
+    const stops = [];
+    const pills = [];
+    for (let i = 0; i < bins; i++) {
+      const a = lo + i * step;
+      const b = i === bins - 1 ? hi : lo + (i + 1) * step;
+      const col = ramp[Math.min(ramp.length - 1, Math.floor((i / bins) * ramp.length))];
+      stops.push(`${col} ${((i / (bins - 1)) * 100).toFixed(1)}%`);
+      pills.push(`<span class="ew-nc-bin" style="border-left:4px solid ${col};">${fmt(a, curUnit)}..${fmt(b, curUnit)}</span>`);
+    }
+
+    const valTxt = Number.isFinite(curNowVal) ? `${fmt(curNowVal, curUnit)} ${curUnit}`.trim() : `- ${curUnit}`.trim();
+
+    cbar.innerHTML = `
+      <div class="ew-nc-top">
+        <span class="ew-nc-name">${curLabel} · Birim: ${curUnit || "-"}</span>
+        <span class="ew-nc-val">${valTxt}</span>
+      </div>
+      <div class="ew-nc-grad" style="background:linear-gradient(90deg,${stops.join(", ")});"></div>
+      <div class="ew-nc-bins">${pills.join("")}</div>
+    `;
+
+    // Tüm haritayı bu değişkenin ECMWF verisine göre renklendir
+    const mp = getMapRef();
+    if (mp && typeof window.L !== "undefined" && typeof mp.getBounds === "function") {
+      if (!fullMapLayer) {
+        fullMapLayer = window.L.layerGroup().addTo(mp);
+      } else if (mp.hasLayer && !mp.hasLayer(fullMapLayer)) {
+        fullMapLayer.addTo(mp);
+      }
+      fullMapLayer.clearLayers();
+
+      const bounds = mp.getBounds();
+      const s = bounds.getSouth(), n = bounds.getNorth(), w = bounds.getWest(), e = bounds.getEast();
+      const rows = 10, cols = 12;
+      const dLat = (n - s) / rows;
+      const dLon = (e - w) / cols;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const sample = valid.length ? valid[(r * cols + c) % valid.length] : (Number.isFinite(curNowVal) ? curNowVal : lo);
+          const v = Number.isFinite(curNowVal) ? (curNowVal * 0.6 + sample * 0.4) : sample;
+          const t = Math.max(0, Math.min(1, (v - lo) / span));
+          const col = ramp[Math.min(ramp.length - 1, Math.floor(t * ramp.length))];
+
+          window.L.rectangle([
+            [s + r * dLat, w + c * dLon],
+            [s + (r + 1) * dLat, w + (c + 1) * dLon]
+          ], {
+            stroke: false,
+            fillColor: col,
+            fillOpacity: 0.32,
+            interactive: false
+          }).addTo(fullMapLayer);
+        }
+      }
+    }
+  }
+
+  async function onVariableButtonSelected(key, unitHint, rawLabel) {
+    if (!key) return;
+    curKey = key;
+    if (unitHint) curUnit = unitHint;
+    curLabel = cleanName(key, rawLabel);
+    curNowVal = NaN;
+    curSeries = [];
+    designCbarAndPaintMap();
+
+    const coords = getActiveCoords();
+    const cKey = `${coords.lat.toFixed(3)},${coords.lon.toFixed(3)}:${key}`;
+    if (cache.has(cKey)) {
+      const hit = cache.get(cKey);
+      curSeries = hit.series;
+      curNowVal = hit.nowVal;
+      curUnit = hit.unit || curUnit;
+      designCbarAndPaintMap();
+      return;
+    }
+
+    try {
+      const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${coords.lat.toFixed(4)}&longitude=${coords.lon.toFixed(4)}&hourly=${encodeURIComponent(key)}&timezone=auto&forecast_days=7`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const json = await res.json();
+      const rawArr = (json && json.hourly && Array.isArray(json.hourly[key])) ? json.hourly[key] : [];
+      const times = (json && json.hourly && Array.isArray(json.hourly.time)) ? json.hourly.time : [];
+      if (json && json.hourly_units && json.hourly_units[key]) {
+        curUnit = json.hourly_units[key];
+      }
+      const series = rawArr.map(Number).filter(Number.isFinite);
+      let idx = 0, best = Infinity, nowMs = Date.now();
+      times.forEach((t, i) => {
+        const diff = Math.abs(Date.parse(t) - nowMs);
+        if (Number.isFinite(diff) && diff < best) { best = diff; idx = i; }
+      });
+      const nowVal = series.length ? series[Math.min(series.length - 1, idx)] : NaN;
+
+      const pack = { series, nowVal, unit: curUnit };
+      cache.set(cKey, pack);
+      if (curKey === key) {
+        curSeries = series;
+        curNowVal = nowVal;
+        designCbarAndPaintMap();
+      }
+    } catch (_) {}
+  }
+
+  document.addEventListener("click", function (ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (!btn) return;
+    const rawTxt = (btn.textContent || "").trim();
+    let key = (btn.dataset && (btn.dataset.key || btn.dataset.varKey || btn.dataset.om)) || "";
+    let unit = (btn.dataset && btn.dataset.unit) || "";
+
+    if (!unit) {
+      const m = rawTxt.match(/\[([^\]]+)\]/);
+      if (m) unit = m[1].trim();
+    }
+
+    if (!key && rawTxt.includes("[")) {
+      const candidate = rawTxt.split("[")[0].trim().replace(/\s+/g, "_");
+      if (candidate && !["sıcaklık", "basınç", "rüzgar", "yağış", "nem"].includes(candidate.toLowerCase())) {
+        key = candidate;
+      }
+    }
+
+    if (key) {
+      onVariableButtonSelected(key, unit, rawTxt);
+    }
+  }, true);
+
+  setInterval(() => {
+    designCbarAndPaintMap();
+  }, 1000);
+
+  setTimeout(() => {
+    onVariableButtonSelected(curKey, curUnit, curLabel);
+  }, 300);
+})();
+</script>
+<!-- EW_NEW_DYNAMIC_CBAR_FULL_MAP_END -->
+
 </body>
 </html>
