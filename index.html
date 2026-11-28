@@ -1722,8 +1722,8 @@
 })();
 </script>
 
-<!-- ew-4e4e484-final-start -->
-<style id="ew-4e4e484-final-style">
+<!-- ew-4e4e484-clean-start -->
+<style id="ew-4e4e484-clean-style">
   #ew-cbar { display: none !important; }
   #ew-player-cbar-wrap {
     display: block !important;
@@ -1731,67 +1731,44 @@
     visibility: visible !important;
     z-index: 1400 !important;
   }
-  .ew-fin-loc {
-    margin-top: 6px;
-    padding: 6px 8px;
+  .ew-inline-hour-btn {
+    padding: 4px 7px;
     border-radius: 6px;
-    background: rgba(9, 19, 34, 0.88);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    color: #f8fafc;
-    font-size: 10.5px;
-    line-height: 1.38;
-  }
-  .ew-fin-ecmwf-box {
-    margin-top: 6px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid rgba(56, 189, 248, 0.38);
-    color: #e2e8f0;
-    font-size: 10.5px;
-  }
-  .ew-fin-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 4px;
-  }
-  .ew-fin-btn {
-    padding: 2px 6px;
-    font-size: 10px;
-    border-radius: 4px;
     border: 1px solid rgba(148, 163, 184, 0.45);
-    background: rgba(30, 41, 59, 0.9);
-    color: #f8fafc;
+    background: rgba(15, 23, 42, 0.88);
+    color: #e2e8f0;
+    font-size: 11px;
+    font-weight: 600;
     cursor: pointer;
+    line-height: 1.2;
+    white-space: nowrap;
   }
-  .ew-fin-btn.active {
-    background: #0284c7;
+  .ew-inline-hour-btn:hover {
+    background: rgba(2, 132, 199, 0.5);
     border-color: #38bdf8;
     color: #ffffff;
-    font-weight: 700;
+  }
+  .ew-loc-sync-line {
+    margin-top: 6px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: rgba(9, 19, 34, 0.86);
+    border: 1px solid rgba(148, 163, 184, 0.32);
+    color: #e2e8f0;
+    font-size: 10.5px;
+    line-height: 1.35;
   }
 </style>
-<script id="ew-4e4e484-final-script">
+<script id="ew-4e4e484-clean-script">
 (function() {
-  const WINDOWS = [
-    { label: "Şimdi", h: 0 },
-    { label: "-1s / +1s", h: 1 },
-    { label: "-3s / +3s", h: 3 },
-    { label: "-6s / +6s", h: 6 },
-    { label: "-12s / +12s", h: 12 }
-  ];
+  const LEFT_STEPS = [-12, -6, -3];
+  const RIGHT_STEPS = [3, 6, 12];
+  const placeCache = new Map();
+  let lastLat = 41.0082;
+  let lastLng = 28.9784;
+  let currentPlace = "İstanbul / Fatih / Eminönü";
 
-  const st = {
-    h: 0,
-    dir: 0, // -1 geri, 0 an, +1 ileri
-    lat: 41.0082,
-    lng: 28.9784,
-    place: "İstanbul / Fatih / Eminönü"
-  };
-  const geoCache = new Map();
-
-  function getActiveVar() {
+  function getVarInfo() {
     if (window.sel && typeof window.sel === "object") {
       return {
         om: window.sel.om || "temperature_2m",
@@ -1814,26 +1791,123 @@
     };
   }
 
-  function deltaHoursNow() {
-    return st.h * st.dir;
-  }
-
-  function colorByVar(val, v) {
-    if (typeof window.colorOf === "function") {
-      try {
-        const c = window.colorOf(val, v);
-        if (c) return c;
-      } catch (_) {}
+  function stepHours(delta) {
+    const n = Number(delta) || 0;
+    if (n === 0) {
+      const nowBtn = Array.from(document.querySelectorAll("button")).find(b =>
+        !b.classList.contains("ew-inline-hour-btn") && (b.textContent || "").trim() === "Şimdi"
+      );
+      if (nowBtn) {
+        nowBtn.click();
+        return;
+      }
     }
-    const n = Number(val);
-    if (!Number.isFinite(n)) return "#64748b";
-    const span = (v.max - v.min) || 1;
-    const ratio = Math.max(0, Math.min(1, (n - v.min) / span));
-    const i = Math.min(v.palette.length - 1, Math.max(0, Math.floor(ratio * v.palette.length)));
-    return v.palette[i];
+
+    const dir = n < 0 ? -1 : 1;
+    const count = Math.abs(n);
+    const label = dir < 0 ? "-1 Saat" : "+1 Saat";
+    const baseBtn = Array.from(document.querySelectorAll("button")).find(b => {
+      if (b.classList.contains("ew-inline-hour-btn")) return false;
+      const txt = (b.textContent || "").trim();
+      return txt === label || txt === (dir < 0 ? "-1s" : "+1s") || txt === (dir < 0 ? "-1" : "+1");
+    });
+
+    if (baseBtn) {
+      for (let i = 0; i < count; i++) {
+        baseBtn.click();
+      }
+      return;
+    }
+
+    if (typeof window.tIdx === "number" && window.gridPayload && Array.isArray(window.gridPayload.times)) {
+      const maxIdx = window.gridPayload.times.length - 1;
+      window.tIdx = Math.max(0, Math.min(maxIdx, window.tIdx + n));
+      window.gridPayload.tIdx = window.tIdx;
+      if (typeof window.drawTime === "function") window.drawTime();
+      if (typeof window.drawGrid === "function") window.drawGrid();
+      if (typeof window.drawList === "function") window.drawList();
+      if (typeof window.loadPoint === "function" && window.coords) {
+        window.loadPoint(window.coords.lat, window.coords.lng, false);
+      }
+    }
   }
 
-  function applySinglePlayerCbar(v) {
+  function attachInlineHourButtons() {
+    const nowBtn = Array.from(document.querySelectorAll("button")).find(b =>
+      !b.classList.contains("ew-inline-hour-btn") && (b.textContent || "").trim() === "Şimdi"
+    );
+    if (!nowBtn || !nowBtn.parentElement) return;
+    const row = nowBtn.parentElement;
+    if (row.dataset.ewInlineHoursReady === "1") return;
+    row.dataset.ewInlineHoursReady = "1";
+
+    const m1 = Array.from(row.querySelectorAll("button")).find(b =>
+      !b.classList.contains("ew-inline-hour-btn") && /-1/.test((b.textContent || "").trim())
+    );
+    const p1 = Array.from(row.querySelectorAll("button")).find(b =>
+      !b.classList.contains("ew-inline-hour-btn") && /\+1/.test((b.textContent || "").trim())
+    );
+
+    const leftAnchor = m1 || nowBtn;
+    LEFT_STEPS.forEach(h => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ew-inline-hour-btn";
+      btn.textContent = `${h} Saat`;
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        stepHours(h);
+      });
+      row.insertBefore(btn, leftAnchor);
+    });
+
+    const rightAnchor = p1 ? p1.nextSibling : nowBtn.nextSibling;
+    RIGHT_STEPS.forEach(h => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ew-inline-hour-btn";
+      btn.textContent = `+${h} Saat`;
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        stepHours(h);
+      });
+      if (rightAnchor) {
+        row.insertBefore(btn, rightAnchor);
+      } else {
+        row.appendChild(btn);
+      }
+    });
+  }
+
+  async function resolvePlace(lat, lng) {
+    const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    if (placeCache.has(key)) {
+      currentPlace = placeCache.get(key);
+      renderPlayerSync();
+      return;
+    }
+    currentPlace = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=16&addressdetails=1`;
+      const res = await fetch(url, { headers: { "Accept-Language": "tr" } });
+      if (res.ok) {
+        const d = await res.json();
+        const a = d.address || {};
+        const il = a.province || a.city || a.state || "İl Yok";
+        const ilce = a.district || a.town || a.county || a.suburb || "İlçe Yok";
+        const mah = a.neighbourhood || a.quarter || a.residential || a.village || a.hamlet || "Mahalle Yok";
+        const label = `${il} / ${ilce} / ${mah}`;
+        placeCache.set(key, label);
+        currentPlace = label;
+        renderPlayerSync();
+      }
+    } catch (_) {}
+  }
+
+  function renderPlayerSync() {
+    const v = getVarInfo();
     const oldCbar = document.getElementById("ew-cbar");
     if (oldCbar) oldCbar.style.setProperty("display", "none", "important");
 
@@ -1846,16 +1920,15 @@
       wrap.classList.remove("ew-ecmwf-cbar-muted");
       wrap.style.setProperty("display", "block", "important");
       wrap.style.setProperty("opacity", "1", "important");
-
       const flag = document.getElementById("ew-tr-flag-badge");
       if (flag) {
-        const r = flag.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) {
+        const fr = flag.getBoundingClientRect();
+        if (fr.width > 0 && fr.height > 0) {
           wrap.style.position = "fixed";
-          wrap.style.top = Math.max(8, Math.round(r.bottom + 8)) + "px";
+          wrap.style.top = Math.max(8, Math.round(fr.bottom + 8)) + "px";
           wrap.style.left = "auto";
-          wrap.style.right = Math.max(12, Math.round(window.innerWidth - r.right)) + "px";
-          wrap.style.width = Math.min(315, Math.max(230, Math.round(r.width + 55))) + "px";
+          wrap.style.right = Math.max(12, Math.round(window.innerWidth - fr.right)) + "px";
+          wrap.style.width = Math.min(315, Math.max(230, Math.round(fr.width + 55))) + "px";
         }
       }
     }
@@ -1870,228 +1943,62 @@
       const mid = Number(((v.min + v.max) / 2).toFixed(2));
       scale.textContent = `${v.min} ${v.unit} · ${mid} ${v.unit} · ${v.max} ${v.unit}`;
     }
-  }
 
-  async function lookupPlace(lat, lng) {
-    const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
-    if (geoCache.has(key)) {
-      st.place = geoCache.get(key);
-      renderPlayerInfo(getActiveVar());
-      return;
-    }
-    st.place = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=16&addressdetails=1`;
-      const resp = await fetch(url, { headers: { "Accept-Language": "tr" } });
-      if (resp.ok) {
-        const j = await resp.json();
-        const a = j.address || {};
-        const il = a.province || a.city || a.state || "İl Yok";
-        const ilce = a.district || a.town || a.county || a.suburb || "İlçe Yok";
-        const mah = a.neighbourhood || a.quarter || a.residential || a.village || a.hamlet || "Mahalle Yok";
-        const txt = `${il} / ${ilce} / ${mah}`;
-        geoCache.set(key, txt);
-        st.place = txt;
-        renderPlayerInfo(getActiveVar());
-      }
-    } catch (_) {}
-  }
-
-  function findEcmwfContainer() {
-    const sel = document.getElementById("var-select");
-    if (sel) {
-      let el = sel.parentElement;
-      for (let i = 0; i < 6 && el; i++) {
-        const r = el.getBoundingClientRect();
-        if (r.width >= 200 && r.height >= 120 && el.tagName !== "BODY") return el;
-        el = el.parentElement;
-      }
-    }
-    return null;
-  }
-
-  function renderEcmwfWindowsOnly(v) {
-    const host = findEcmwfContainer();
-    if (!host) return;
-    let box = document.getElementById("ew-fin-ecmwf-win-box");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "ew-fin-ecmwf-win-box";
-      box.className = "ew-fin-ecmwf-box";
-      host.appendChild(box);
-    }
-    const dh = deltaHoursNow();
-    box.innerHTML = `
-      <div><strong>ECMWF Zaman Penceresi:</strong> ${dh === 0 ? "Seçili An" : (dh > 0 ? "+" + dh + "s İleri" : dh + "s Geri")}</div>
-      <div class="ew-fin-row" id="ew-fin-win-btns"></div>
-      <div class="ew-fin-row" id="ew-fin-dir-btns"></div>
-    `;
-    const wRow = box.querySelector("#ew-fin-win-btns");
-    WINDOWS.forEach(w => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "ew-fin-btn" + (w.h === st.h ? " active" : "");
-      btn.textContent = w.label;
-      btn.onclick = () => {
-        st.h = w.h;
-        if (w.h === 0) st.dir = 0;
-        else if (st.dir === 0) st.dir = 1;
-        runFinalSync();
-      };
-      wRow.appendChild(btn);
-    });
-    const dRow = box.querySelector("#ew-fin-dir-btns");
-    [
-      { d: -1, text: `Geri (-${st.h || 1}s)` },
-      { d: 0, text: "Seçili An" },
-      { d: 1, text: `İleri (+${st.h || 1}s)` }
-    ].forEach(item => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "ew-fin-btn" + (st.dir === item.d ? " active" : "");
-      btn.textContent = item.text;
-      btn.onclick = () => {
-        st.dir = item.d;
-        runFinalSync();
-      };
-      dRow.appendChild(btn);
-    });
-  }
-
-  function renderPlayerInfo(v) {
-    applySinglePlayerCbar(v);
     const host = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
-    if (!host) return;
-    let info = document.getElementById("ew-fin-player-info");
-    if (!info) {
-      info = document.createElement("div");
-      info.id = "ew-fin-player-info";
-      info.className = "ew-fin-loc";
-      host.appendChild(info);
-    }
-    info.innerHTML = `
-      <div><strong>Değişken:</strong> ${v.name} (${v.unit})</div>
-      <div><strong>Konum:</strong> ${st.place}</div>
-      <div><strong>Koordinat:</strong> ${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}</div>
-    `;
-  }
-
-  function paintEntireMap(v) {
-    if (!window.L || !window.map) return;
-    if (!window.gridGroup) {
-      window.gridGroup = L.layerGroup().addTo(window.map);
-    }
-    const dh = deltaHoursNow();
-
-    if (window.gridPayload && Array.isArray(window.gridPayload.raw) && window.gridPayload.raw.length > 0) {
-      const baseIdx = Number(window.gridPayload.tIdx || 0);
-      window.gridGroup.clearLayers();
-      window.gridPayload.raw.forEach(pt => {
-        if (!pt || typeof pt.latitude !== "number" || typeof pt.longitude !== "number") return;
-        const arr = pt.hourly && pt.hourly[v.om];
-        if (!Array.isArray(arr) || !arr.length) return;
-        const idx = Math.max(0, Math.min(arr.length - 1, baseIdx + dh));
-        const val = arr[idx];
-        const col = colorByVar(val, v);
-        L.circleMarker([pt.latitude, pt.longitude], {
-          radius: 17,
-          fillColor: col,
-          color: "#ffffff",
-          weight: 1.2,
-          opacity: 0.75,
-          fillOpacity: 0.72,
-          interactive: false
-        }).addTo(window.gridGroup);
-      });
-      return;
-    }
-
-    if (typeof window.drawGrid === "function") {
-      try {
-        window.drawGrid();
-        return;
-      } catch (_) {}
-    }
-
-    window.gridGroup.clearLayers();
-    const b = window.map.getBounds ? window.map.getBounds() : null;
-    const latMin = b ? Math.max(35.0, b.getSouth() - 0.25) : 38.0;
-    const latMax = b ? Math.min(44.0, b.getNorth() + 0.25) : 43.0;
-    const lngMin = b ? Math.max(25.0, b.getWest() - 0.25) : 25.0;
-    const lngMax = b ? Math.min(35.0, b.getEast() + 0.25) : 33.0;
-    const rows = 16, cols = 22;
-    const dLat = (latMax - latMin) / rows;
-    const dLng = (lngMax - lngMin) / cols;
-    const span = (v.max - v.min) || 1;
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const y0 = latMin + r * dLat;
-        const x0 = lngMin + c * dLng;
-        const cy = y0 + dLat * 0.5;
-        const cx = x0 + dLng * 0.5;
-        const ratio = Math.max(0, Math.min(1, 0.5 + 0.26 * Math.sin(cy * 1.4 + dh * 0.22) + 0.24 * Math.cos(cx * 1.3 - dh * 0.18)));
-        const val = v.min + ratio * span;
-        const col = colorByVar(val, v);
-        L.rectangle([[y0, x0], [y0 + dLat, x0 + dLng]], {
-          color: col,
-          weight: 0.35,
-          opacity: 0.3,
-          fillColor: col,
-          fillOpacity: 0.4,
-          interactive: false
-        }).addTo(window.gridGroup);
+    if (host) {
+      let line = document.getElementById("ew-4e4e484-place-line");
+      if (!line) {
+        line = document.createElement("div");
+        line.id = "ew-4e4e484-place-line";
+        line.className = "ew-loc-sync-line";
+        host.appendChild(line);
       }
+      line.innerHTML = `
+        <div><strong>Değişken:</strong> ${v.name} (${v.unit})</div>
+        <div><strong>Konum:</strong> ${currentPlace}</div>
+        <div><strong>Koordinat:</strong> ${lastLat.toFixed(4)}, ${lastLng.toFixed(4)}</div>
+      `;
     }
   }
 
-  function bindEvents() {
+  function bindMapSync() {
     if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") {
-      if (Math.abs(window.coords.lat - st.lat) > 1e-5 || Math.abs(window.coords.lng - st.lng) > 1e-5) {
-        st.lat = window.coords.lat;
-        st.lng = window.coords.lng;
-        lookupPlace(st.lat, st.lng);
+      if (Math.abs(window.coords.lat - lastLat) > 1e-5 || Math.abs(window.coords.lng - lastLng) > 1e-5) {
+        lastLat = window.coords.lat;
+        lastLng = window.coords.lng;
+        resolvePlace(lastLat, lastLng);
       }
     }
-    if (window.map && !window.map._ewFinBound) {
-      window.map._ewFinBound = true;
+    if (window.map && !window.map._ewCleanBound) {
+      window.map._ewCleanBound = true;
       window.map.on("click", (e) => {
         if (!e || !e.latlng) return;
-        st.lat = e.latlng.lat;
-        st.lng = e.latlng.lng;
-        lookupPlace(st.lat, st.lng);
-        runFinalSync();
+        lastLat = e.latlng.lat;
+        lastLng = e.latlng.lng;
+        resolvePlace(lastLat, lastLng);
+        renderPlayerSync();
       });
-      window.map.on("moveend", () => paintEntireMap(getActiveVar()));
     }
-    document.querySelectorAll("select").forEach(sel => {
-      if (!sel._ewFinBound) {
-        sel._ewFinBound = true;
-        sel.addEventListener("change", () => setTimeout(runFinalSync, 30));
-      }
-    });
   }
 
-  function runFinalSync() {
-    bindEvents();
-    const v = getActiveVar();
-    renderPlayerInfo(v);
-    renderEcmwfWindowsOnly(v);
-    paintEntireMap(v);
+  function tick() {
+    attachInlineHourButtons();
+    bindMapSync();
+    renderPlayerSync();
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      lookupPlace(st.lat, st.lng);
-      runFinalSync();
+      resolvePlace(lastLat, lastLng);
+      tick();
     });
   } else {
-    lookupPlace(st.lat, st.lng);
-    runFinalSync();
+    resolvePlace(lastLat, lastLng);
+    tick();
   }
-  setInterval(runFinalSync, 1000);
+  setInterval(tick, 800);
 })();
 </script>
-<!-- ew-4e4e484-final-end -->
+<!-- ew-4e4e484-clean-end -->
 </body>
 </html>
