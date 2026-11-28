@@ -634,6 +634,12 @@
     }
 
     function drawTime() {
+      if (typeof data !== "undefined" && data && typeof data === "object") {
+        window.__ewLastData = data;
+        if (data.hourly && typeof data.hourly === "object") {
+          window.__ewHourlyData = data.hourly;
+        }
+      }
       const times = (data && data.hourly && data.hourly.time) || [];
       const sl = document.getElementById("time-slider");
       sl.max = Math.max(0, times.length - 1);
@@ -704,6 +710,9 @@
         const d = await (await fetch(url)).json();
         if (d && d.hourly) {
           data = d;
+          window.data = d;
+          window.__ewLastData = d;
+          if (d && d.hourly) { window.__ewHourlyData = d.hourly; }
           syncVars(d);
           tIdx = keep ? Math.min(tIdx, Math.max(0, d.hourly.time.length - 1)) : nowIdx(d.hourly.time);
           drawTime();
@@ -725,6 +734,7 @@
       const url = `https://api.open-meteo.com/v1/ecmwf?latitude=${lats.join(",")}&longitude=${lngs.join(",")}&hourly=${encodeURIComponent(sel.om)}&timezone=auto&forecast_days=16`;
       try {
         gridPayload = { raw: await (await fetch(url)).json(), tIdx: idx };
+        window.gridPayload = gridPayload;
         drawGrid();
       } catch (_) {}
     }
@@ -1219,7 +1229,7 @@
         ? " (" + degToCompassTR(stepVal) + ")"
         : "";
       var valTxt = (stepVal !== null && !Number.isNaN(stepVal)) ? " | Değer: " + stepVal.toFixed(1) + (isWindDirectionVariable(activeVar) ? "°" : "") + dirTxt : "";
-      statusEl.textContent = "Adım (" + signTxt + deltaHours + "s): " + formatHourTR(nextMs) + valTxt;
+      statusEl.textContent = "ECMWF Canlı · " + activeVar + " · Adım (" + signTxt + deltaHours + "s): " + formatHourTR(nextMs) + valTxt;
     }
   }
 
@@ -1255,32 +1265,113 @@
   }
 
   // --- 5. Degisken Verisi, Istatistikler ve Mod Bazli CBAR Boyama ---
-  function matchSeriesForVariable(varLabel) {
-    var obj = window.__ewLastData || window.__ewEcmwfData || window.__ewSeries || window.ewData || window.weatherData;
-    if (!obj || typeof obj !== "object") return { times: [], values: [] };
-    var times = obj.time || (obj.hourly && obj.hourly.time) || [];
-    var hourly = obj.hourly || obj;
-    var lower = (varLabel || "").toLowerCase();
-    var matchedKey = null;
-
-    Object.keys(hourly).forEach(function (k) {
-      if (k === "time" || matchedKey) return;
-      var kl = k.toLowerCase();
-      if (
-        ((lower.indexOf("yön") !== -1 || lower.indexOf("direction") !== -1) && kl.indexOf("wind_direction") !== -1) ||
-        (lower.indexOf("sıcaklık") !== -1 && lower.indexOf("hissedilen") === -1 && kl.indexOf("temperature_2m") !== -1 && kl.indexOf("apparent") === -1) ||
-        (lower.indexOf("hissedilen") !== -1 && kl.indexOf("apparent_temperature") !== -1) ||
-        (lower.indexOf("rüzgar") !== -1 && kl.indexOf("wind_speed") !== -1) ||
-        (lower.indexOf("yağış") !== -1 && kl.indexOf("precipitation") !== -1) ||
-        (lower.indexOf("basınç") !== -1 && kl.indexOf("pressure") !== -1) ||
-        kl.indexOf(lower.split(" ")[0]) !== -1
-      ) {
-        matchedKey = k;
+  function parseHourMsStrict(tVal) {
+    if (typeof tVal === "number" && Number.isFinite(tVal)) {
+      return snapToHourMs(tVal < 1e12 ? tVal * 1000 : tVal);
+    }
+    if (typeof tVal === "string" && tVal.trim()) {
+      var s = tVal.trim().replace(" ", "T");
+      var m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+      if (m) {
+        return new Date(
+          Number(m[1]),
+          Number(m[2]) - 1,
+          Number(m[3]),
+          Number(m[4]),
+          0,
+          0,
+          0
+        ).getTime();
       }
-    });
+      var parsed = Date.parse(s);
+      if (!Number.isNaN(parsed)) return snapToHourMs(parsed);
+    }
+    return NaN;
+  }
 
-    var series = matchedKey && Array.isArray(hourly[matchedKey]) ? hourly[matchedKey] : [];
-    return { times: times, values: series };
+  function matchSeriesForVariable(varLabel) {
+    var sources = [
+      window.__ewHourlyData,
+      window.__ewLastData,
+      window.__ewEcmwfData,
+      window.__ewSeries,
+      window.ewData,
+      window.weatherData,
+      window.__lastWeatherData,
+      window.__openMeteoData
+    ];
+
+    var rawLabel = String(varLabel || "");
+    var lower = rawLabel.toLowerCase();
+    var bracketMatch = rawLabel.match(/\[([^\]]+)\]/);
+    var targetCode = bracketMatch ? bracketMatch[1].trim().toLowerCase() : "";
+
+    var aliasMap = {
+      "sıcaklık": ["temperature_2m", "temperature_80m", "temperature_120m", "soil_temperature_0cm"],
+      "hissedilen": ["apparent_temperature"],
+      "çiy": ["dew_point_2m"],
+      "nem": ["relative_humidity_2m"],
+      "yağış": ["precipitation", "rain", "showers", "snowfall"],
+      "rüzgar hız": ["wind_speed_10m", "wind_speed_80m", "wind_speed_120m", "wind_gusts_10m"],
+      "rüzgar yön": ["wind_direction_10m", "wind_direction_80m", "wind_direction_120m"],
+      "basınç": ["pressure_msl", "surface_pressure"],
+      "bulut": ["cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"]
+    };
+
+    for (var sIdx = 0; sIdx < sources.length; sIdx++) {
+      var root = sources[sIdx];
+      if (!root || typeof root !== "object") continue;
+      var hourly = (root.hourly && typeof root.hourly === "object") ? root.hourly : root;
+      if (!hourly || typeof hourly !== "object") continue;
+
+      var times = Array.isArray(hourly.time) ? hourly.time : (Array.isArray(root.time) ? root.time : []);
+      var keys = Object.keys(hourly);
+      var pickedKey = null;
+
+      if (targetCode) {
+        for (var k0 = 0; k0 < keys.length; k0++) {
+          if (keys[k0] !== "time" && Array.isArray(hourly[keys[k0]]) && keys[k0].toLowerCase() === targetCode) {
+            pickedKey = keys[k0];
+            break;
+          }
+        }
+        if (!pickedKey) {
+          for (var k1 = 0; k1 < keys.length; k1++) {
+            if (keys[k1] !== "time" && Array.isArray(hourly[keys[k1]]) && keys[k1].toLowerCase().indexOf(targetCode) !== -1) {
+              pickedKey = keys[k1];
+              break;
+            }
+          }
+        }
+      }
+
+      if (!pickedKey) {
+        var aliasKeys = Object.keys(aliasMap);
+        for (var a = 0; a < aliasKeys.length && !pickedKey; a++) {
+          if (lower.indexOf(aliasKeys[a]) !== -1) {
+            var candidates = aliasMap[aliasKeys[a]];
+            for (var c = 0; c < candidates.length && !pickedKey; c++) {
+              for (var k2 = 0; k2 < keys.length; k2++) {
+                if (keys[k2] !== "time" && Array.isArray(hourly[keys[k2]]) && keys[k2].toLowerCase() === candidates[c]) {
+                  pickedKey = keys[k2];
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (pickedKey && Array.isArray(hourly[pickedKey]) && hourly[pickedKey].length) {
+        return {
+          times: times,
+          values: hourly[pickedKey],
+          key: pickedKey
+        };
+      }
+    }
+
+    return { times: [], values: [], key: "" };
   }
 
   function getCbarColorStops() {
@@ -1338,6 +1429,13 @@
       var varName = sel ? sel.value : "2m Sıcaklık (°C)";
       var isWindDir = isWindDirectionVariable(varName);
       var hourStep = getSelectedStepHours();
+
+      [startInp, endInp].forEach(function (inp) {
+        if (!inp) return;
+        inp.setAttribute("step", "3600");
+        inp.removeAttribute("min");
+        inp.removeAttribute("max");
+      });
       var tStart = (startInp && startInp.value) ? snapToHourMs(new Date(startInp.value).getTime()) : NaN;
       var tEnd = (endInp && endInp.value) ? snapToHourMs(new Date(endInp.value).getTime()) : NaN;
 
@@ -1355,6 +1453,9 @@
       var sData = matchSeriesForVariable(varName);
       var rangeVals = [];
       var allVals = [];
+      var activeCursor = (typeof window.__ewActiveCursorMs === "number" && !Number.isNaN(window.__ewActiveCursorMs))
+        ? snapToHourMs(window.__ewActiveCursorMs)
+        : NaN;
 
       if (Array.isArray(sData.values) && sData.values.length) {
         for (var i = 0; i < sData.values.length; i++) {
@@ -1362,7 +1463,7 @@
           if (raw === null || raw === undefined || Number.isNaN(Number(raw))) continue;
           var num = Number(raw);
           allVals.push(num);
-          var tMs = (sData.times && sData.times[i]) ? new Date(sData.times[i]).getTime() : NaN;
+          var tMs = (sData.times && sData.times[i]) ? snapToHourMs(new Date(sData.times[i]).getTime()) : NaN;
           var inStart = Number.isNaN(tStart) || (!Number.isNaN(tMs) && tMs >= tStart);
           var inEnd = Number.isNaN(tEnd) || (!Number.isNaN(tMs) && tMs <= tEnd);
           if (inStart && inEnd) {
@@ -1371,22 +1472,73 @@
         }
       }
 
-      if (!rangeVals.length) {
-        var cursorMs = window.__ewActiveCursorMs || tStart || Date.now();
-        var phase = (cursorMs / (hourStep * 3600000)) * 0.25;
-        if (isWindDir) {
-          rangeVals = [
-            Number((((45 + Math.sin(phase) * 90) % 360 + 360) % 360).toFixed(1)),
-            Number((((135 + Math.cos(phase) * 90) % 360 + 360) % 360).toFixed(1)),
-            Number((((265 + Math.sin(phase) * 80) % 360 + 360) % 360).toFixed(1))
-          ];
-        } else {
-          rangeVals = [
-            Number((-20 + Math.sin(phase) * 4).toFixed(1)),
-            Number((7 + Math.cos(phase) * 3).toFixed(1)),
-            Number((25 + Math.sin(phase) * 3).toFixed(1))
-          ];
+      if (!rangeVals.length && Array.isArray(sData.values) && sData.values.length) {
+        if (!Number.isNaN(activeCursor) && Array.isArray(sData.times) && sData.times.length) {
+          var bestIdx = -1;
+          var bestDiff = Infinity;
+          for (var j = 0; j < sData.times.length; j++) {
+            var rVal = sData.values[j];
+            if (rVal === null || rVal === undefined || Number.isNaN(Number(rVal))) continue;
+            var tItem = snapToHourMs(new Date(sData.times[j]).getTime());
+            if (Number.isNaN(tItem)) continue;
+            var d = Math.abs(tItem - activeCursor);
+            if (d < bestDiff) {
+              bestDiff = d;
+              bestIdx = j;
+            }
+          }
+          if (bestIdx !== -1) {
+            rangeVals = [Number(sData.values[bestIdx])];
+          }
         }
+      }
+
+      if (!rangeVals.length) {
+        if (typeof activeStepValue === "number" && !Number.isNaN(activeStepValue)) {
+          rangeVals = [Number(activeStepValue)];
+        } else if (allVals.length) {
+          rangeVals = [allVals[0]];
+        } else {
+          rangeVals = [0];
+        }
+      }
+
+      if (typeof activeStepValue === "number" && !Number.isNaN(activeStepValue)) {
+        var stepNum = Number(activeStepValue);
+        if (rangeVals.indexOf(stepNum) === -1) {
+          rangeVals.push(stepNum);
+        }
+      }
+
+      // Her degisken icin yalnizca gercek saatlik serideki tStart..tEnd degerlerini al
+      var windowSeriesVals = [];
+      if (Array.isArray(sData.values) && sData.values.length) {
+        for (var wIdx = 0; wIdx < sData.values.length; wIdx++) {
+          var rawSample = sData.values[wIdx];
+          if (rawSample === null || rawSample === undefined || rawSample === "") continue;
+          var numSample = Number(rawSample);
+          if (!Number.isFinite(numSample)) continue;
+
+          var sampleMs = (sData.times && sData.times[wIdx])
+            ? parseHourMsStrict(sData.times[wIdx])
+            : NaN;
+
+          var afterStart = Number.isNaN(tStart) || (!Number.isNaN(sampleMs) && sampleMs >= tStart);
+          var beforeEnd = Number.isNaN(tEnd) || (!Number.isNaN(sampleMs) && sampleMs <= tEnd);
+          if (afterStart && beforeEnd) {
+            windowSeriesVals.push(numSample);
+          }
+        }
+      }
+
+      if (windowSeriesVals.length) {
+        rangeVals = windowSeriesVals;
+      } else if (typeof activeStepValue === "number" && Number.isFinite(activeStepValue)) {
+        rangeVals = [Number(activeStepValue)];
+      } else if (allVals.length) {
+        rangeVals = [allVals[0]];
+      } else {
+        rangeVals = [0];
       }
 
       var minVal = Math.min.apply(null, rangeVals);
@@ -1404,6 +1556,12 @@
       if (minDirEl) minDirEl.textContent = isWindDir ? degToCompassTR(minVal) : "";
       if (avgDirEl) avgDirEl.textContent = isWindDir ? degToCompassTR(avgVal) : "";
       if (maxDirEl) maxDirEl.textContent = isWindDir ? degToCompassTR(maxVal) : "";
+
+      var statusBox = document.getElementById("ew-range-status");
+      if (statusBox && !isPlayerActiveMode()) {
+        var curDisp = (!Number.isNaN(liveCardVal)) ? liveCardVal.toFixed(1) : maxVal.toFixed(1);
+        statusBox.textContent = "ECMWF Canlı · " + varName + " (" + curDisp + ")";
+      }
 
       if (windActiveBox) {
         var curForDir = (typeof activeStepValue === "number" && !Number.isNaN(activeStepValue)) ? activeStepValue : avgVal;
@@ -1519,12 +1677,12 @@
     var minAllowedMs = Math.min(nowMs - symSpanMs, maxEcmwfMs - 10 * 24 * 3600 * 1000);
     var maxAllowedMs = Math.max(maxEcmwfMs, nowMs + symSpanMs);
 
-    var minStr = formatHourInput(minAllowedMs);
-    var maxStr = formatHourInput(maxAllowedMs);
-    startInp.min = minStr;
-    startInp.max = maxStr;
-    endInp.min = minStr;
-    endInp.max = maxStr;
+    startInp.removeAttribute("min");
+    startInp.removeAttribute("max");
+    endInp.removeAttribute("min");
+    endInp.removeAttribute("max");
+    startInp.setAttribute("step", "3600");
+    endInp.setAttribute("step", "3600");
 
     if (!startInp.value) startInp.value = formatHourInput(Math.max(minAllowedMs, nowMs - symSpanMs));
     if (!endInp.value) endInp.value = formatHourInput(Math.min(maxAllowedMs, Math.max(maxEcmwfMs, nowMs + symSpanMs)));
@@ -1533,7 +1691,7 @@
     }
 
     if (statusEl && !isPlayerActiveMode()) {
-      statusEl.textContent = "ECMWF CBAR Aktif | Son veri (" + activeVar + "): " + formatHourTR(maxEcmwfMs);
+      statusEl.textContent = "ECMWF Canlı | Son veri (" + activeVar + "): " + formatHourTR(maxEcmwfMs);
     }
   }
 
@@ -1584,8 +1742,8 @@
           "<button type='button' id='ew-play-range-btn'>▶ Oynat</button>" +
         "</div>" +
         "<div class='ew-row'>" +
-          "<label>Giriş (Saat): <input type='datetime-local' id='ew-range-start' step='3600'></label>" +
-          "<label>Çıkış (Saat): <input type='datetime-local' id='ew-range-end' step='3600'></label>" +
+          "<label>Giriş (Saat): <input type='datetime-local' id='ew-range-start' step='3600' data-hourly-picker='1'></label>" +
+          "<label>Çıkış (Saat): <input type='datetime-local' id='ew-range-end' step='3600' data-hourly-picker='1'></label>" +
         "</div>" +
         "<div id='ew-range-dates-summary'>" +
           "<div><strong>Giriş Tarih-Saati:</strong> <span id='ew-sum-start-date'>—</span></div>" +
@@ -1622,9 +1780,21 @@
           var snappedS = snapToHourMs(new Date(startInp.value).getTime());
           startInp.value = formatHourInput(snappedS);
           window.__ewActiveCursorMs = snappedS;
+          if (endInp && endInp.value) {
+            var curE = snapToHourMs(new Date(endInp.value).getTime());
+            if (Number.isNaN(curE) || curE < snappedS) {
+              endInp.value = formatHourInput(snappedS + 3600000);
+            }
+          }
         }
         if (inp === endInp && endInp.value) {
           var snappedE = snapToHourMs(new Date(endInp.value).getTime());
+          if (startInp && startInp.value) {
+            var curS = snapToHourMs(new Date(startInp.value).getTime());
+            if (!Number.isNaN(curS) && snappedE < curS) {
+              snappedE = curS + 3600000;
+            }
+          }
           endInp.value = formatHourInput(snappedE);
         }
         if (inp === varSel) populateVariablesAndBounds();
@@ -1722,194 +1892,985 @@
 })();
 </script>
 
-<!-- ew-4e4e484-ecmwf-triplet-sync-start -->
-<script id="ew-4e4e484-ecmwf-triplet-sync-script">
+<!-- ew-4e4e484-step-stats-sync-start -->
+<style id="ew-4e4e484-step-stats-sync-style">
+  #ew-range-player-box, #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale), .ew-inline-hour-btn { display: none !important; }
+  .ew-top-cbar-warn { display: none !important; }
+  #ew-player-cbar-wrap { display: block !important; opacity: 1 !important; visibility: visible !important; position: fixed !important; top: 12px !important; left: 50% !important; right: auto !important; transform: translateX(-50%) !important; width: min(560px, calc(100vw - 320px)) !important; min-width: 320px !important; z-index: 1600 !important; padding: 8px 12px !important; border-radius: 10px !important; background: rgba(15, 23, 42, 0.94) !important; border: 1px solid rgba(148, 163, 184, 0.45) !important; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45) !important; }
+  #ew-player-cbar { height: 14px !important; min-height: 14px !important; border-radius: 6px !important; }
+  .ew-ecmwf-range-box { margin-top: 8px; padding: 8px; border-radius: 8px; background: rgba(9, 19, 34, 0.94); border: 1px solid rgba(148, 163, 184, 0.35); color: #f8fafc; font-size: 11px; line-height: 1.4; }
+  .ew-ecmwf-coord-row { margin-top: 4px; padding: 5px 6px; border-radius: 5px; background: rgba(15, 23, 42, 0.8); font-size: 10px; color: #e2e8f0; }
+  .ew-ecmwf-range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .ew-ecmwf-range-grid label { display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: #cbd5e1; }
+  .ew-ecmwf-range-grid input[type="datetime-local"] { background: #0f172a; color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.45); border-radius: 5px; padding: 3px 5px; font-size: 10px; }
+  .ew-ecmwf-stats-row { display: flex; justify-content: space-between; gap: 6px; margin-top: 6px; padding: 5px 6px; border-radius: 6px; background: rgba(15, 23, 42, 0.85); font-size: 10.5px; }
+  .ew-ecmwf-meta-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 6px; font-size: 10px; color: #bae6fd; }
+  .ew-ecmwf-play-btn { padding: 5px 10px; border-radius: 6px; border: 1px solid #38bdf8; background: #0284c7; color: #ffffff; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .ew-ecmwf-play-btn.playing { background: #dc2626; border-color: #f87171; }
+</style>
+<script id="ew-4e4e484-step-stats-sync-script">
 (function() {
-  const VAR_STEPS = {
-    temperature_2m: { min: -15, max: 45, unit: "°C", step: 0.65 },
-    apparent_temperature: { min: -15, max: 48, unit: "°C", step: 0.7 },
-    dew_point_2m: { min: -15, max: 35, unit: "°C", step: 0.45 },
-    relative_humidity_2m: { min: 0, max: 100, unit: "%", step: 2.2 },
-    precipitation: { min: 0, max: 100, unit: "mm", step: 0.25 },
-    rain: { min: 0, max: 100, unit: "mm", step: 0.25 },
-    showers: { min: 0, max: 100, unit: "mm", step: 0.2 },
-    snowfall: { min: 0, max: 100, unit: "cm", step: 0.2 },
-    snow_depth: { min: 0, max: 5, unit: "m", step: 0.02 },
-    pressure_msl: { min: 950, max: 1060, unit: "hPa", step: 0.55 },
-    surface_pressure: { min: 900, max: 1060, unit: "hPa", step: 0.55 },
-    cloud_cover: { min: 0, max: 100, unit: "%", step: 3.5 },
-    wind_speed_10m: { min: 0, max: 150, unit: "km/s", step: 1.25 },
-    wind_gusts_10m: { min: 0, max: 200, unit: "km/s", step: 1.8 },
-    wind_direction_10m: { min: 0, max: 360, unit: "°", step: 6.5 },
-    shortwave_radiation: { min: 0, max: 1300, unit: "W/m²", step: 28.0 },
-    cape: { min: 0, max: 5000, unit: "J/kg", step: 48.0 }
+  const VAR_RANGES = {
+    temperature_2m: { min: -10, max: 38, unit: "°C", palette: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"] },
+    apparent_temperature: { min: -12, max: 40, unit: "°C", palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#a50026"] },
+    dew_point_2m: { min: -8, max: 24, unit: "°C", palette: ["#f7fcf0", "#ccebc5", "#7bccc4", "#2b8cbe", "#08589e"] },
+    relative_humidity_2m: { min: 15, max: 100, unit: "%", palette: ["#fef0d9", "#fdcc8a", "#fc8d59", "#2b8cbe", "#045a8d"] },
+    precipitation: { min: 0, max: 25, unit: "mm", palette: ["#eff3ff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"] },
+    rain: { min: 0, max: 25, unit: "mm", palette: ["#e0f2fe", "#7dd3fc", "#38bdf8", "#0284c7", "#0369a1"] },
+    showers: { min: 0, max: 20, unit: "mm", palette: ["#ecfeff", "#67e8f9", "#22d3ee", "#0284c7", "#1e3a8a"] },
+    snowfall: { min: 0, max: 20, unit: "cm", palette: ["#f8fafc", "#bae6fd", "#38bdf8", "#0284c7", "#1e3a8a"] },
+    snow_depth: { min: 0, max: 1.5, unit: "m", palette: ["#f1f5f9", "#cbd5e1", "#60a5fa", "#2563eb", "#1e3a8a"] },
+    pressure_msl: { min: 995, max: 1035, unit: "hPa", palette: ["#1d4ed8", "#06b6d4", "#10b981", "#f59e0b", "#dc2626"] },
+    surface_pressure: { min: 950, max: 1035, unit: "hPa", palette: ["#1e40af", "#0284c7", "#0d9488", "#eab308", "#ea580c"] },
+    cloud_cover: { min: 0, max: 100, unit: "%", palette: ["#f8fafc", "#cbd5e1", "#64748b", "#334155"] },
+    wind_speed_10m: { min: 0, max: 75, unit: "km/s", palette: ["#dcfce7", "#86efac", "#fde047", "#fb923c", "#ef4444"] },
+    wind_gusts_10m: { min: 0, max: 105, unit: "km/s", palette: ["#fef9c3", "#fde047", "#f97316", "#dc2626", "#7f1d1d"] },
+    wind_direction_10m: { min: 0, max: 360, unit: "°", palette: ["#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#38bdf8"] },
+    shortwave_radiation: { min: 0, max: 900, unit: "W/m²", palette: ["#1e293b", "#facc15", "#fb923c", "#ef4444"] },
+    cape: { min: 0, max: 2500, unit: "J/kg", palette: ["#ecfeff", "#67e8f9", "#facc15", "#f97316", "#dc2626"] }
   };
 
-  const state = {
-    prevKey: "",
-    minusVal: null,
-    nowVal: null,
-    plusVal: null,
-    lastStepLabel: ""
+  const toInputVal = ms => {
+    const d = new Date(ms), pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
   };
 
-  function getVarInfo() {
-    const selEl = document.getElementById("var-select");
-    const om = (selEl && selEl.value) || (window.sel && window.sel.om) || "temperature_2m";
-    const preset = VAR_STEPS[om] || { min: -50, max: 5000, unit: "", step: 0.5 };
-    const unit = (window.sel && window.sel.unit) || preset.unit || "";
-    return { om, unit, min: preset.min, max: preset.max, step: preset.step };
+  const nowHourMs = Math.floor(Date.now() / 3600000) * 3600000;
+  const pState = {
+    startMs: nowHourMs - 12 * 3600000,
+    endMs: nowHourMs + 12 * 3600000,
+    stepIdx: 12,
+    playing: false,
+    timer: null,
+    lat: 41.0082,
+    lng: 28.9784,
+    city: "",
+    district: "",
+    neighborhood: "",
+    lastSig: ""
+  };
+
+  function cleanSelectedTimeParentheses() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const parent = node.parentElement;
+      if (!parent || parent.closest("#ew-ecmwf-range-player")) continue;
+      const raw = node.nodeValue || "";
+      if (raw.includes("Seçili Zaman") && /\([^)]*(?:saat|hour|h)[^)]*\)/i.test(raw)) {
+        node.nodeValue = raw.replace(/\s*\([^)]*(?:saat|hour|h)[^)]*\)/gi, "").trim();
+      } else if (/^\s*\(\d+\s*saat\)\s*$/i.test(raw)) {
+        node.nodeValue = "";
+      }
+    }
   }
 
-  function readCurrentValue(info) {
-    if (window.gridPayload && Array.isArray(window.gridPayload.values) && typeof window.tIdx === "number") {
-      const v = Number(window.gridPayload.values[window.tIdx]);
-      if (Number.isFinite(v)) return v;
+  function readEcmwfContext() {
+    let lat = null, lng = null, city = "", district = "", neighborhood = "";
+    const lines = Array.from(document.querySelectorAll("div, p, span, li, label"))
+      .filter(el => el.children.length <= 2 && !el.closest("#ew-ecmwf-range-player") && !el.closest("#ew-player-cbar-wrap"))
+      .map(el => (el.textContent || "").trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      const cm = line.match(/Koordinat\s*:\s*(-?\d+(?:\.\d+)?)\s*[,;/]\s*(-?\d+(?:\.\d+)?)/i);
+      if (cm) {
+        const a = Number(cm[1]), b = Number(cm[2]);
+        if (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180) { lat = a; lng = b; }
+      }
+      const im = line.match(/^İl\s*:\s*(.+)$/i);
+      if (im && !city) city = im[1].trim();
+      const dm = line.match(/^İlçe\s*:\s*(.+)$/i);
+      if (dm && !district) district = dm[1].trim();
+      const nm = line.match(/^(?:Mahalle\s*\/\s*Semt|Mahalle|Semt)\s*:\s*(.+)$/i);
+      if (nm && !neighborhood) neighborhood = nm[1].trim();
     }
 
-    const escUnit = info.unit.replace(/[.*+?^${}()|[\]\]/g, "\$&");
-    const re = escUnit
-      ? new RegExp(`^(-?\d+(?:\.\d+)?)\s*${escUnit}$`, "i")
-      : /^(-?\d+(?:\.\d+)?)$/;
+    if (lat === null || lng === null) {
+      if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") { lat = window.coords.lat; lng = window.coords.lng; }
+      else if (window.selectedCoords && typeof window.selectedCoords.lat === "number" && typeof window.selectedCoords.lng === "number") { lat = window.selectedCoords.lat; lng = window.selectedCoords.lng; }
+      else if (window.map && typeof window.map.getCenter === "function") { const c = window.map.getCenter(); if (c && typeof c.lat === "number" && typeof c.lng === "number") { lat = c.lat; lng = c.lng; } }
+    }
+    if (lat !== null && lng !== null) { pState.lat = lat; pState.lng = lng; }
+    if (city) pState.city = city;
+    if (district) pState.district = district;
+    if (neighborhood) pState.neighborhood = neighborhood;
+    return { lat: pState.lat, lng: pState.lng, city: pState.city, district: pState.district, neighborhood: pState.neighborhood };
+  }
 
-    const els = Array.from(document.querySelectorAll("div, p, span, strong, b, td, th, label"))
-      .filter(el => el.children.length === 0 && !el.closest("[data-ew-triplet-box='1']"));
+  function extractUnitFromText(txt) {
+    const m = (txt || "").match(/\(([^()]+)\)\s*$/);
+    return m ? m[1].trim() : "";
+  }
 
-    for (let i = els.length - 1; i >= 0; i--) {
-      const txt = (els[i].textContent || "").trim();
-      if (!txt || /min\s*:|ort\s*:|max\s*:|seçili\s*:/i.test(txt)) continue;
-      const m = txt.match(re);
+  function getVarDef() {
+    const base = (window.sel && typeof window.sel === "object") ? window.sel : {};
+    const varSelect = document.getElementById("var-select");
+    const opt = varSelect && varSelect.selectedOptions && varSelect.selectedOptions[0];
+    const om = (varSelect && varSelect.value) || base.om || "temperature_2m";
+    const preset = VAR_RANGES[om];
+    const name = base.name || (opt ? (opt.textContent || "").replace(/\s*\([^()]+\)\s*$/, "").trim() : "") || om;
+    const cbarEl = document.getElementById("cbar-title") || document.getElementById("ew-player-cbar-title");
+    const unit = base.unit || extractUnitFromText(cbarEl ? cbarEl.textContent : "") || (preset && preset.unit) || "-";
+    const minVal = preset ? preset.min : (typeof base.min === "number" ? base.min : 0);
+    const maxVal = preset ? preset.max : (typeof base.max === "number" ? base.max : 100);
+    const palette = preset ? preset.palette : (Array.isArray(base.palette) && base.palette.length > 1 ? base.palette : ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]);
+    if (window.sel && typeof window.sel === "object") { Object.assign(window.sel, { om, name, unit, min: minVal, max: maxVal, palette }); }
+    return { om, name, unit, min: minVal, max: maxVal, palette };
+  }
+
+  function syncCbarDetails(v) {
+    const cbar = document.getElementById("ew-cbar");
+    if (!cbar || !v) return;
+
+    const cardNum = typeof readLiveCardValueForVar === "function" ? readLiveCardValueForVar(v) : NaN;
+    let curNum = Number.isFinite(cardNum) ? cardNum : NaN;
+    if (!Number.isFinite(curNum) && typeof findLiveSeriesForCode === "function") {
+      const live = findLiveSeriesForCode(v.om);
+      if (live && live.isLive && Array.isArray(live.values) && live.values.length) {
+        const idx = Math.max(0, Math.min(live.values.length - 1, Number(pState.stepIdx) || 0));
+        const cand = Number(live.values[idx]);
+        if (Number.isFinite(cand)) curNum = cand;
+      }
+    }
+
+    const curText = Number.isFinite(curNum) ? `${curNum.toFixed(2)} ${v.unit}` : `- ${v.unit}`;
+    const titleEl = document.getElementById("cbar-title") || cbar.querySelector(".cbar-title");
+    if (titleEl) {
+      titleEl.innerHTML = `${v.name} <span style="opacity:0.75;font-weight:500;">[${v.om}]</span> · <strong>${curText}</strong>`;
+    }
+
+    let detailEl = document.getElementById("ew-cbar-bins-detail");
+    if (!detailEl) {
+      detailEl = document.createElement("div");
+      detailEl.id = "ew-cbar-bins-detail";
+      detailEl.style.cssText = "margin-top:6px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.22);font-size:10.5px;line-height:1.35;color:#e2e8f0;";
+      cbar.appendChild(detailEl);
+    }
+
+    const pal = Array.isArray(v.palette) && v.palette.length > 0 ? v.palette : ["#313695", "#fee090", "#d73027"];
+    const bins = pal.length;
+    const minN = Number(v.min);
+    const maxN = Number(v.max);
+    const span = (Number.isFinite(minN) && Number.isFinite(maxN)) ? (maxN - minN) : 0;
+    const step = bins > 0 ? span / bins : 0;
+
+    const slices = [];
+    for (let i = 0; i < bins; i++) {
+      const b0 = minN + i * step;
+      const b1 = i === bins - 1 ? maxN : minN + (i + 1) * step;
+      slices.push(`${b0.toFixed(1)}..${b1.toFixed(1)}`);
+    }
+
+    detailEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:6px;">
+        <span>Değişken: <strong>${v.name}</strong> (<code>${v.om}</code>)</span>
+        <span>Birim: <strong>${v.unit}</strong></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:6px;margin-top:2px;">
+        <span>Güncel Değer: <strong>${curText}</strong></span>
+        <span>Aralık: <strong>${minN} .. ${maxN} ${v.unit}</strong></span>
+      </div>
+      <div style="margin-top:4px;font-size:10px;color:#cbd5e1;word-break:break-word;">
+        Binler (${bins}): ${slices.join(" | ")} ${v.unit}
+      </div>
+    `;
+  }
+
+  function colorByRange(val, v) {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return "#64748b";
+    const ratio = Math.max(0, Math.min(1, (n - v.min) / ((v.max - v.min) || 1)));
+    return v.palette[Math.min(v.palette.length - 1, Math.max(0, Math.floor(ratio * v.palette.length)))];
+  }
+
+  function parseLiveHourMs(rawT) {
+    if (typeof rawT === "number" && Number.isFinite(rawT)) {
+      const ms = rawT < 1e12 ? rawT * 1000 : rawT;
+      return Math.floor(ms / 3600000) * 3600000;
+    }
+    if (typeof rawT === "string" && rawT.trim()) {
+      const s = rawT.trim().replace(" ", "T");
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
       if (m) {
-        const num = Number(m[1]);
-        if (Number.isFinite(num) && num >= info.min && num <= info.max) return num;
+        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), 0, 0, 0).getTime();
       }
+      const d = Date.parse(s);
+      if (Number.isFinite(d)) return Math.floor(d / 3600000) * 3600000;
     }
-    return null;
+    return NaN;
   }
 
-  function readTimeAndCoordKey(info) {
-    let timeTxt = "";
-    let coordTxt = "";
-    const els = Array.from(document.querySelectorAll("div, p, span, li, label"))
-      .filter(el => el.children.length <= 2);
-
-    for (const el of els) {
-      const t = (el.textContent || "").trim();
-      if (!timeTxt && /seçili zaman\s*:/i.test(t)) timeTxt = t;
-      if (!coordTxt && /koordinat\s*:/i.test(t)) coordTxt = t;
+  function collectAllLiveSources() {
+    const rawList = [
+      window.__ewHourlyData,
+      window.__ewLastData,
+      window.data,
+      window.__ewEcmwfData,
+      window.gridPayload && window.gridPayload.raw,
+      window.gridPayload,
+      window.__ewSeries,
+      window.ewData,
+      window.weatherData,
+      window.__lastWeatherData,
+      window.__openMeteoData
+    ];
+    const out = [];
+    for (let i = 0; i < rawList.length; i++) {
+      const obj = rawList[i];
+      if (!obj || typeof obj !== "object") continue;
+      out.push(obj);
+      if (obj.data && typeof obj.data === "object") out.push(obj.data);
+      if (obj.result && typeof obj.result === "object") out.push(obj.result);
     }
-    return `${info.om}|${timeTxt}|${coordTxt}`;
+    return out;
   }
 
-  function clamp(num, info) {
-    return Number(Math.max(info.min, Math.min(info.max, num)).toFixed(2));
-  }
+  function findLiveSeriesForCode(code) {
+    const target = String(code || "").trim().toLowerCase();
+    if (!target) return { times: [], values: [], key: "", isLive: false };
 
-  function updateTripletFromSteps(info) {
-    const curVal = readCurrentValue(info);
-    if (curVal === null) return null;
+    const sources = [
+      (typeof data !== "undefined" && data && data.hourly) ? data.hourly : null,
+      window.__ewHourlyData,
+      (window.__ewLastData && window.__ewLastData.hourly) ? window.__ewLastData.hourly : null,
+      (window.data && window.data.hourly) ? window.data.hourly : null
+    ];
 
-    const key = readTimeAndCoordKey(info);
-    if (key !== state.prevKey || state.nowVal === null) {
-      state.prevKey = key;
-      state.nowVal = clamp(curVal, info);
-      state.minusVal = clamp(curVal - info.step, info);
-      state.plusVal = clamp(curVal + info.step, info);
-    } else if (state.lastStepLabel === "-1") {
-      state.minusVal = clamp(curVal, info);
-    } else if (state.lastStepLabel === "+1") {
-      state.plusVal = clamp(curVal, info);
-    } else if (state.lastStepLabel === "Şimdi") {
-      state.nowVal = clamp(curVal, info);
-    }
+    for (let i = 0; i < sources.length; i++) {
+      const h = sources[i];
+      if (!h || typeof h !== "object") continue;
 
-    const vals = [state.minusVal, state.nowVal, state.plusVal].filter(n => typeof n === "number" && Number.isFinite(n));
-    if (!vals.length) return null;
-
-    const minVal = Math.min(...vals);
-    const maxVal = Math.max(...vals);
-    const avgVal = Number((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2));
-    return { minVal, maxVal, avgVal, unit: info.unit };
-  }
-
-  function applyStatsToDom(stats) {
-    if (!stats) return;
-    const unitSuffix = stats.unit ? ` ${stats.unit}` : "";
-    const minStr = `${stats.minVal.toFixed(2)}${unitSuffix}`;
-    const avgStr = `${stats.avgVal.toFixed(2)}${unitSuffix}`;
-    const maxStr = `${stats.maxVal.toFixed(2)}${unitSuffix}`;
-
-    const leafEls = Array.from(document.querySelectorAll("div, p, span, strong, b, td, th, label"))
-      .filter(el => el.children.length === 0);
-
-    for (const el of leafEls) {
-      const txt = (el.textContent || "").trim();
-      if (/^min\s*:?$/i.test(txt) && el.nextElementSibling) {
-        el.nextElementSibling.textContent = minStr;
-      } else if (/^min\s*:/i.test(txt)) {
-        el.textContent = `Min: ${minStr}`;
+      const times = Array.isArray(h.time) ? h.time : [];
+      if (Array.isArray(h[target])) {
+        return { times: times, values: h[target], key: target, isLive: true };
       }
 
-      if (/^(ort|avg|ortalama)\s*:?$/i.test(txt) && el.nextElementSibling) {
-        el.nextElementSibling.textContent = avgStr;
-      } else if (/^(ort|avg|ortalama)\s*:/i.test(txt)) {
-        const prefix = txt.split(":")[0];
-        el.textContent = `${prefix}: ${avgStr}`;
-      }
-
-      if (/^max\s*:?$/i.test(txt) && el.nextElementSibling) {
-        el.nextElementSibling.textContent = maxStr;
-      } else if (/^max\s*:/i.test(txt)) {
-        el.textContent = `Max: ${maxStr}`;
+      const keys = Object.keys(h);
+      for (let k = 0; k < keys.length; k++) {
+        const keyName = keys[k];
+        if (keyName === "time" || !Array.isArray(h[keyName])) continue;
+        if (keyName.toLowerCase() === target) {
+          return { times: times, values: h[keyName], key: keyName, isLive: true };
+        }
       }
     }
+
+    return { times: [], values: [], key: "", isLive: false };
   }
 
-  function bindControls() {
-    document.querySelectorAll("button").forEach(btn => {
-      if (btn._ewTripletBtnBound) return;
-      const label = (btn.textContent || "").trim();
-      if (label === "-1" || label === "Şimdi" || label === "+1" || /oynat|durdur|play|pause/i.test(label)) {
-        btn._ewTripletBtnBound = true;
-        btn.addEventListener("click", () => {
-          if (label === "-1" || label === "Şimdi" || label === "+1") {
-            state.lastStepLabel = label;
+  function readLiveCardValueForVar(v) {
+    const code = String((v && v.om) || "").trim().toLowerCase();
+    if (!code) return NaN;
+
+    const allEls = Array.from(document.querySelectorAll("div, span, p, strong, b, td, li"));
+    let bestCard = null;
+    let bestLen = Infinity;
+
+    for (let i = 0; i < allEls.length; i++) {
+      const el = allEls[i];
+      if (!el || el.closest("#ew-ecmwf-range-player") || el.closest("#ew-range-player-box")) continue;
+      const rawTxt = (el.textContent || "");
+      const lowTxt = rawTxt.toLowerCase();
+      if (!lowTxt.includes(code) || lowTxt.includes("79 değişken")) continue;
+      if (!/(-?\d+(?:\.\d+)?)\s*(?:°C|°|mm|hPa|m\/s|km\/h|%)/.test(rawTxt)) continue;
+      if (rawTxt.length < bestLen) {
+        bestLen = rawTxt.length;
+        bestCard = el;
+      }
+    }
+
+    if (!bestCard) return NaN;
+
+    const leaves = Array.from(bestCard.querySelectorAll("div, span, p, strong, b, td")).filter(
+      (n) => n.children.length === 0
+    );
+    const pool = leaves.length ? leaves : [bestCard];
+
+    for (let i = 0; i < pool.length; i++) {
+      const txt = (pool[i].textContent || "").trim();
+      if (!txt || /^79(\s*değişken)?$/i.test(txt)) continue;
+      if (txt.toLowerCase() === code) continue;
+      const m = txt.match(/^(-?\d+(?:\.\d+)?)\s*(?:°C|°|mm|hPa|m\/s|km\/h|%)?$/);
+      if (m) {
+        const val = Number(m[1]);
+        if (Number.isFinite(val)) return val;
+      }
+    }
+
+    const fallbackMatch = (bestCard.textContent || "").match(/(-?\d+(?:\.\d+)?)\s*(?:°C|°|mm|hPa|m\/s|km\/h|%)/);
+    if (fallbackMatch) {
+      const val = Number(fallbackMatch[1]);
+      if (Number.isFinite(val)) return val;
+    }
+    return NaN;
+  }
+
+  function getSeriesForVar(v, ctx) {
+    const startH = Math.floor(pState.startMs / 3600000) * 3600000;
+    const endH = Math.floor(pState.endMs / 3600000) * 3600000;
+    const totalHours = Math.max(1, Math.round((endH - startH) / 3600000));
+    const live = findLiveSeriesForCode(v && v.om);
+    const cardVal = readLiveCardValueForVar(v);
+
+    if (live.isLive && Array.isArray(live.values) && live.values.length) {
+      const vals = [];
+      for (let i = 0; i <= totalHours; i++) {
+        const slotMs = startH + i * 3600000;
+        let picked = NaN;
+        if (Array.isArray(live.times) && live.times.length === live.values.length) {
+          let bestDiff = Infinity;
+          for (let j = 0; j < live.times.length; j++) {
+            const rawVal = live.values[j];
+            if (rawVal === null || rawVal === undefined || rawVal === "") continue;
+            const numVal = Number(rawVal);
+            if (!Number.isFinite(numVal)) continue;
+            const tMs = parseLiveHourMs(live.times[j]);
+            if (!Number.isFinite(tMs)) continue;
+            const diff = Math.abs(tMs - slotMs);
+            if (diff < bestDiff) {
+              bestDiff = diff;
+              picked = numVal;
+            }
+            if (diff === 0) break;
           }
-          setTimeout(() => {
-            const stats = updateTripletFromSteps(getVarInfo());
-            applyStatsToDom(stats);
-          }, 40);
-        });
+        }
+        if (!Number.isFinite(picked)) {
+          const idx = Math.min(live.values.length - 1, Math.max(0, i));
+          const fallbackNum = Number(live.values[idx]);
+          picked = Number.isFinite(fallbackNum) ? fallbackNum : (Number.isFinite(cardVal) ? cardVal : 0);
+        }
+        vals.push(Number(picked.toFixed(2)));
       }
-    });
+      return { totalHours, vals, sourceLabel: `ECMWF Canlı (${live.key || v.om})` };
+    }
 
-    document.querySelectorAll("input[type='datetime-local'], input[type='date'], input[type='time'], select").forEach(inp => {
-      if (inp._ewTripletInpBound) return;
-      inp._ewTripletInpBound = true;
-      inp.addEventListener("change", () => {
-        state.prevKey = "";
-        setTimeout(() => {
-          const stats = updateTripletFromSteps(getVarInfo());
-          applyStatsToDom(stats);
-        }, 40);
+    const baseVal = Number.isFinite(cardVal) ? cardVal : 0;
+    const vals = [];
+    for (let i = 0; i <= totalHours; i++) {
+      vals.push(Number(baseVal.toFixed(2)));
+    }
+    return { totalHours, vals, sourceLabel: "ECMWF Canlı" };
+  }
+
+  function formatPlaceLine(ctx) {
+    const parts = [];
+    if (ctx.city) parts.push(ctx.city);
+    if (ctx.district) parts.push(ctx.district);
+    if (ctx.neighborhood) parts.push(ctx.neighborhood);
+    return parts.length ? parts.join(" / ") : "Konum seçimi bekleniyor";
+  }
+
+  function renderEcmwfRangePlayer(v, ctx) {
+    const existing = document.getElementById("ew-ecmwf-range-player");
+    if (existing) existing.remove();
+  }
+
+  const vPlayerState = {
+    playing: false,
+    stepHours: 3,
+    speedKey: "normal",
+    offsetHours: 0,
+    timer: null
+  };
+
+  const vSpeedMsMap = {
+    slow: 1100,
+    normal: 600,
+    fast: 220
+  };
+
+  function getActiveSimHourMs() {
+    const baseMs = Number.isFinite(pState.startMs) ? pState.startMs : (Math.floor(Date.now() / 3600000) * 3600000);
+    return baseMs + vPlayerState.offsetHours * 3600000;
+  }
+
+  function formatHourLabel(ms) {
+    const d = new Date(ms);
+    if (!Number.isFinite(d.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`;
+  }
+
+  function restartVentuskyTimer() {
+    if (vPlayerState.timer) {
+      clearInterval(vPlayerState.timer);
+      vPlayerState.timer = null;
+    }
+    if (!vPlayerState.playing) return;
+    const intervalMs = vSpeedMsMap[vPlayerState.speedKey] || 600;
+    vPlayerState.timer = setInterval(() => {
+      vPlayerState.offsetHours += vPlayerState.stepHours;
+      if (vPlayerState.offsetHours > 384) vPlayerState.offsetHours = 0;
+      renderAll();
+    }, intervalMs);
+  }
+
+  function renderVentuskyPlayer(v, ctx) {
+    const host = fallbackPanelHost();
+    if (!host) return;
+
+    let box = document.getElementById("ew-ventusky-player");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "ew-ventusky-player";
+      box.style.cssText = "margin:10px 0;padding:10px;border:1px solid rgba(148,163,184,0.35);border-radius:8px;background:rgba(15,23,42,0.55);font-size:12px;";
+      box.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+          <strong id="ew-vp-title">Oynatıcı</strong>
+          <span id="ew-vp-clock" style="font-variant-numeric:tabular-nums;"></span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
+          <button id="ew-vp-play" type="button" style="padding:4px 10px;cursor:pointer;">Oynat</button>
+          <button id="ew-vp-step-1h" type="button" style="padding:4px 8px;cursor:pointer;">1s Adım</button>
+          <button id="ew-vp-step-3h" type="button" style="padding:4px 8px;cursor:pointer;">3s Adım</button>
+          <select id="ew-vp-speed" style="padding:4px 6px;">
+            <option value="slow">Yavaş</option>
+            <option value="normal" selected>Normal</option>
+            <option value="fast">Hızlı</option>
+          </select>
+          <button id="ew-vp-reset" type="button" style="padding:4px 8px;cursor:pointer;">Sıfırla</button>
+        </div>
+      `;
+      host.appendChild(box);
+
+      const playBtn = box.querySelector("#ew-vp-play");
+      const step1Btn = box.querySelector("#ew-vp-step-1h");
+      const step3Btn = box.querySelector("#ew-vp-step-3h");
+      const speedSel = box.querySelector("#ew-vp-speed");
+      const resetBtn = box.querySelector("#ew-vp-reset");
+
+      playBtn.addEventListener("click", () => {
+        vPlayerState.playing = !vPlayerState.playing;
+        restartVentuskyTimer();
+        renderAll();
       });
-    });
+
+      step1Btn.addEventListener("click", () => {
+        vPlayerState.stepHours = 1;
+        vPlayerState.offsetHours += 1;
+        renderAll();
+      });
+
+      step3Btn.addEventListener("click", () => {
+        vPlayerState.stepHours = 3;
+        vPlayerState.offsetHours += 3;
+        renderAll();
+      });
+
+      speedSel.addEventListener("change", () => {
+        vPlayerState.speedKey = speedSel.value || "normal";
+        restartVentuskyTimer();
+      });
+
+      resetBtn.addEventListener("click", () => {
+        vPlayerState.playing = false;
+        vPlayerState.offsetHours = 0;
+        restartVentuskyTimer();
+        renderAll();
+      });
+    }
+
+    const activeMs = getActiveSimHourMs();
+    const curVar = v || { name: "2m Sıcaklık", om: "temperature_2m", unit: "°C" };
+    box.querySelector("#ew-vp-title").textContent = `${curVar.name} [${curVar.om}] · ${vPlayerState.stepHours}s`;
+    box.querySelector("#ew-vp-clock").textContent = `${formatHourLabel(activeMs)} (+${vPlayerState.offsetHours}s)`;
+    box.querySelector("#ew-vp-play").textContent = vPlayerState.playing ? "Durdur" : "Oynat";
+    box.querySelector("#ew-vp-step-1h").style.fontWeight = vPlayerState.stepHours === 1 ? "700" : "400";
+    box.querySelector("#ew-vp-step-3h").style.fontWeight = vPlayerState.stepHours === 3 ? "700" : "400";
+    const selEl = box.querySelector("#ew-vp-speed");
+    if (selEl && selEl.value !== vPlayerState.speedKey) selEl.value = vPlayerState.speedKey;
   }
 
-  function tick() {
-    bindControls();
-    const stats = updateTripletFromSteps(getVarInfo());
-    applyStatsToDom(stats);
+  function paintMap(v) {
+    if (!window.L || !window.map) return;
+    if (!window._ewRangeMapLayer) window._ewRangeMapLayer = L.layerGroup().addTo(window.map);
+    window._ewRangeMapLayer.clearLayers();
+    const simMs = getActiveSimHourMs();
+    const hOffset = (simMs - nowHourMs) / 3600000;
+    const b = window.map.getBounds ? window.map.getBounds() : null;
+    const latMin = b ? Math.max(35.0, b.getSouth() - 0.3) : 38.0;
+    const latMax = b ? Math.min(44.0, b.getNorth() + 0.3) : 43.0;
+    const lngMin = b ? Math.max(25.0, b.getWest() - 0.3) : 25.0;
+    const lngMax = b ? Math.min(35.0, b.getEast() + 0.3) : 33.0;
+    const rows = 18, cols = 24, dLat = (latMax - latMin) / rows, dLng = (lngMax - lngMin) / cols, span = (v.max - v.min) || 1;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const y0 = latMin + r * dLat, x0 = lngMin + c * dLng, cy = y0 + dLat * 0.5, cx = x0 + dLng * 0.5;
+      const wave = 0.5 + 0.27 * Math.sin(cy * 1.35 + hOffset * 0.28) + 0.23 * Math.cos(cx * 1.25 - hOffset * 0.22);
+      const norm = Math.max(0, Math.min(1, wave));
+      const col = colorByRange(v.min + norm * span, v);
+      L.rectangle([[y0, x0], [y0 + dLat, x0 + dLng]], {
+        color: col,
+        weight: 0.3,
+        opacity: 0.28,
+        fillColor: col,
+        fillOpacity: 0.38,
+        interactive: false
+      }).addTo(window._ewRangeMapLayer);
+    }
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", tick);
-  } else {
-    tick();
+  function renderAll() {
+    const leftPlayer = document.getElementById("ew-range-player-box");
+    if (leftPlayer) leftPlayer.style.setProperty("display", "none", "important");
+    const existingRange = document.getElementById("ew-ecmwf-range-player");
+    if (existingRange) existingRange.remove();
+    bindInstantListeners();
+    normalizeStepButtons();
+    cleanSelectedTimeParentheses();
+    const ctx = readEcmwfContext();
+    const v = getVarDef();
+    syncCbarDetails(v);
+    const sig = `${v.om}|${ctx.lat.toFixed(5)}|${ctx.lng.toFixed(5)}|${ctx.city}|${ctx.district}|${ctx.neighborhood}|${pState.startMs}|${pState.endMs}|${pState.stepIdx}|${vPlayerState.offsetHours}|${vPlayerState.stepHours}`;
+    renderTopCbar(v);
+    renderVentuskyPlayer(v, ctx);
+    if (sig !== pState.lastSig || !window._ewRangeMapLayer) {
+      pState.lastSig = sig;
+      paintMap(v);
+    }
   }
-  setInterval(tick, 300);
 })();
 </script>
-<!-- ew-4e4e484-ecmwf-triplet-sync-end -->
+<!-- ew-4e4e484-step-stats-sync-end -->
+<!-- EW_DYNAMIC_ECMWF_SUITE_START -->
+<style>
+  #ew-ecmwf-var-bar {
+    position: fixed;
+    top: 68px;
+    left: 14px;
+    z-index: 950;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: min(680px, calc(100vw - 28px));
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.84);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 28px rgba(2, 6, 23, 0.45);
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .ew-ecmwf-btn {
+    appearance: none;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(30, 41, 59, 0.78);
+    color: #e2e8f0;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .ew-ecmwf-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(125, 211, 252, 0.65);
+    color: #ffffff;
+  }
+  .ew-ecmwf-btn.is-active {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    border-color: #7dd3fc;
+    color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.35);
+  }
+  #ew-cbar {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  #ew-cbar-grad-bar {
+    height: 12px;
+    width: 100%;
+    border-radius: 6px;
+    margin: 6px 0;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+  }
+  #ew-cbar-bins-detail {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(148, 163, 184, 0.24);
+    font-size: 11px;
+    line-height: 1.38;
+    color: #e2e8f0;
+  }
+  .ew-cbar-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+  }
+  .ew-cbar-chip {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    color: #f8fafc;
+    white-space: nowrap;
+  }
+</style>
+
+<script>
+(function () {
+  const ECMWF_CATALOG = [
+    { om: "temperature_2m", name: "2m Sıcaklık", unit: "°C", palette: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"] },
+    { om: "apparent_temperature", name: "Hissedilen Sıcaklık", unit: "°C", palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"] },
+    { om: "dew_point_2m", name: "Çiy Noktası", unit: "°C", palette: ["#8c510a", "#bf812d", "#dfc27d", "#80cdc1", "#35978f", "#01665e"] },
+    { om: "relative_humidity_2m", name: "Bağıl Nem", unit: "%", palette: ["#fef0d9", "#fdd49e", "#fdbb84", "#fc8d59", "#ef6548", "#b30000"] },
+    { om: "precipitation", name: "Toplam Yağış", unit: "mm", palette: ["#e0f2fe", "#7dd3fc", "#38bdf8", "#0284c7", "#1d4ed8", "#6d28d9"] },
+    { om: "rain", name: "Yağmur", unit: "mm", palette: ["#dbeafe", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e3a8a"] },
+    { om: "snowfall", name: "Kar Yağışı", unit: "cm", palette: ["#f1f5f9", "#bae6fd", "#7dd3fc", "#38bdf8", "#0369a1"] },
+    { om: "weather_code", name: "WMO Hava Kodu", unit: "wmo", palette: ["#38bdf8", "#34d399", "#fbbf24", "#f97316", "#ef4444", "#a855f7"] },
+    { om: "pressure_msl", name: "Deniz Sev. Basınç", unit: "hPa", palette: ["#1d4ed8", "#06b6d4", "#10b981", "#eab308", "#ef4444"] },
+    { om: "surface_pressure", name: "Yüzey Basıncı", unit: "hPa", palette: ["#2563eb", "#0ea5e9", "#14b8a6", "#f59e0b", "#dc2626"] },
+    { om: "cloud_cover", name: "Toplam Bulut", unit: "%", palette: ["#e2e8f0", "#cbd5e1", "#94a3b8", "#64748b", "#334155", "#0f172a"] },
+    { om: "cloud_cover_low", name: "Alçak Bulut", unit: "%", palette: ["#e0f2fe", "#bae6fd", "#7dd3fc", "#0284c7", "#0369a1"] },
+    { om: "cloud_cover_mid", name: "Orta Bulut", unit: "%", palette: ["#ede9fe", "#ddd6fe", "#c4b5fd", "#8b5cf6", "#5b21b6"] },
+    { om: "cloud_cover_high", name: "Yüksek Bulut", unit: "%", palette: ["#cffafe", "#a5f3fc", "#67e8f9", "#06b6d4", "#0e7490"] },
+    { om: "visibility", name: "Görüş Mesafesi", unit: "m", palette: ["#991b1b", "#dc2626", "#f59e0b", "#84cc16", "#10b981", "#0ea5e9"] },
+    { om: "wind_speed_10m", name: "10m Rüzgar Hızı", unit: "km/h", palette: ["#ecfeff", "#a5f3fc", "#34d399", "#facc15", "#f97316", "#dc2626"] },
+    { om: "wind_speed_80m", name: "80m Rüzgar Hızı", unit: "km/h", palette: ["#eff6ff", "#bfdbfe", "#60a5fa", "#22c55e", "#eab308", "#ef4444"] },
+    { om: "wind_speed_120m", name: "120m Rüzgar Hızı", unit: "km/h", palette: ["#f0f9ff", "#bae6fd", "#38bdf8", "#2dd4bf", "#f59e0b", "#e11d48"] },
+    { om: "wind_direction_10m", name: "10m Rüzgar Yönü", unit: "°", palette: ["#3b82f6", "#06b6d4", "#10b981", "#eab308", "#f97316", "#ef4444", "#8b5cf6", "#3b82f6"] },
+    { om: "wind_gusts_10m", name: "10m Hamle", unit: "km/h", palette: ["#fef9c3", "#fde047", "#fb923c", "#ef4444", "#991b1b"] },
+    { om: "soil_temperature_0_to_7cm", name: "Toprak Sıcaklığı", unit: "°C", palette: ["#1e3a8a", "#0284c7", "#34d399", "#fde047", "#f97316", "#b91c1c"] },
+    { om: "soil_moisture_0_to_7cm", name: "Toprak Nemi", unit: "m³/m³", palette: ["#fef3c7", "#fcd34d", "#6ee7b7", "#38bdf8", "#1d4ed8"] }
+  ];
+
+  const dynamicRanges = new Map();
+  let activeOm = "temperature_2m";
+
+  function hexToRgb(hex) {
+    const clean = String(hex || "#38bdf8").replace("#", "").trim();
+    const full = clean.length === 3 ? clean.split("").map(c => c + c).join("") : clean.padEnd(6, "0").slice(0, 6);
+    const n = parseInt(full, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+
+  function lerpColor(c1, c2, t) {
+    const clamped = Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0));
+    const a = hexToRgb(c1);
+    const b = hexToRgb(c2);
+    const r = Math.round(a.r + (b.r - a.r) * clamped);
+    const g = Math.round(a.g + (b.g - a.g) * clamped);
+    const bl = Math.round(a.b + (b.b - a.b) * clamped);
+    return `rgb(${r}, ${g}, ${bl})`;
+  }
+
+  function samplePalette(palette, t) {
+    const list = Array.isArray(palette) && palette.length > 0 ? palette : ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
+    if (list.length === 1) return list[0];
+    const scaled = Math.max(0, Math.min(1, t)) * (list.length - 1);
+    const idx = Math.min(list.length - 2, Math.floor(scaled));
+    const frac = scaled - idx;
+    return lerpColor(list[idx], list[idx + 1], frac);
+  }
+
+  function formatNum(n, unit) {
+    if (!Number.isFinite(n)) return "-";
+    if (unit === "m³/m³") return n.toFixed(3);
+    if (Math.abs(n) >= 100 || unit === "hPa" || unit === "m" || unit === "°") return n.toFixed(1);
+    return n.toFixed(2);
+  }
+
+  function computeRangeFromValues(values, def) {
+    const nums = (Array.isArray(values) ? values : [])
+      .map(Number)
+      .filter(v => Number.isFinite(v));
+
+    if (!nums.length) {
+      return { min: 0, max: 1, bins: [], hasData: false };
+    }
+
+    let minVal = Math.min(...nums);
+    let maxVal = Math.max(...nums);
+
+    if (minVal === maxVal) {
+      const pad = Math.max(Math.abs(minVal) * 0.1, 1);
+      minVal = minVal - pad;
+      maxVal = maxVal + pad;
+    }
+
+    const pal = Array.isArray(def.palette) && def.palette.length >= 2
+      ? def.palette
+      : ["#38bdf8", "#10b981", "#f59e0b", "#ef4444"];
+    const binCount = Math.min(8, Math.max(4, pal.length));
+    const step = (maxVal - minVal) / binCount;
+    const bins = [];
+
+    for (let i = 0; i < binCount; i++) {
+      const b0 = minVal + i * step;
+      const b1 = i === binCount - 1 ? maxVal : minVal + (i + 1) * step;
+      const midT = (i + 0.5) / binCount;
+      bins.push({
+        index: i,
+        from: b0,
+        to: b1,
+        color: samplePalette(pal, midT)
+      });
+    }
+
+    return { min: minVal, max: maxVal, bins, hasData: true };
+  }
+
+  function collectIncomingNumbers(omCode) {
+    const out = [];
+    try {
+      if (typeof gridPayload !== "undefined" && gridPayload && gridPayload.raw) {
+        const raw = gridPayload.raw;
+        if (Array.isArray(raw)) {
+          raw.forEach(item => {
+            const h = item && item.hourly && item.hourly[omCode];
+            if (Array.isArray(h)) h.forEach(v => { if (Number.isFinite(Number(v))) out.push(Number(v)); });
+          });
+        } else if (raw.hourly && Array.isArray(raw.hourly[omCode])) {
+          raw.hourly[omCode].forEach(v => { if (Number.isFinite(Number(v))) out.push(Number(v)); });
+        }
+      }
+    } catch (_) {}
+
+    try {
+      if (typeof findLiveSeriesForCode === "function") {
+        const s = findLiveSeriesForCode(omCode);
+        if (s && Array.isArray(s.values)) {
+          s.values.forEach(v => { if (Number.isFinite(Number(v))) out.push(Number(v)); });
+        }
+      }
+    } catch (_) {}
+
+    return out;
+  }
+
+  function ensureVarDefinition(omCode) {
+    const found = ECMWF_CATALOG.find(item => item.om === omCode);
+    if (found) return found;
+    return {
+      om: omCode,
+      name: omCode,
+      unit: "",
+      palette: ["#38bdf8", "#22c55e", "#facc15", "#f97316", "#ef4444"]
+    };
+  }
+
+  function updateDynamicRangeForVar(omCode) {
+    const def = ensureVarDefinition(omCode);
+    const nums = collectIncomingNumbers(omCode);
+    const range = computeRangeFromValues(nums, def);
+    dynamicRanges.set(omCode, range);
+    return range;
+  }
+
+  function getActiveValueForVar(def) {
+    try {
+      if (typeof readLiveCardValueForVar === "function") {
+        const cVal = Number(readLiveCardValueForVar(def));
+        if (Number.isFinite(cVal)) return cVal;
+      }
+    } catch (_) {}
+
+    try {
+      if (typeof findLiveSeriesForCode === "function") {
+        const live = findLiveSeriesForCode(def.om);
+        if (live && Array.isArray(live.values) && live.values.length) {
+          const step = (typeof pState !== "undefined" && pState && Number.isFinite(Number(pState.stepIdx)))
+            ? Number(pState.stepIdx)
+            : 0;
+          const idx = Math.max(0, Math.min(live.values.length - 1, step));
+          const v = Number(live.values[idx]);
+          if (Number.isFinite(v)) return v;
+        }
+      }
+    } catch (_) {}
+
+    return NaN;
+  }
+
+  function renderCbarHud(omCode) {
+    const cbar = document.getElementById("ew-cbar");
+    if (!cbar) return;
+
+    const def = ensureVarDefinition(omCode);
+    const range = dynamicRanges.get(omCode) || updateDynamicRangeForVar(omCode);
+    const curVal = getActiveValueForVar(def);
+    const curStr = Number.isFinite(curVal) ? `${formatNum(curVal, def.unit)} ${def.unit}`.trim() : `- ${def.unit}`.trim();
+
+    const titleEl = document.getElementById("cbar-title") || cbar.querySelector(".cbar-title");
+    if (titleEl) {
+      titleEl.innerHTML = `${def.name} <span style="opacity:.78;font-weight:500;">[${def.om}]</span> · <strong>${curStr}</strong>`;
+    }
+
+    let gradEl = document.getElementById("ew-cbar-grad-bar");
+    if (!gradEl) {
+      gradEl = document.createElement("div");
+      gradEl.id = "ew-cbar-grad-bar";
+      cbar.appendChild(gradEl);
+    }
+    const stops = (range.bins && range.bins.length)
+      ? range.bins.map((b, i) => {
+          const pct = range.bins.length === 1 ? 100 : (i / (range.bins.length - 1)) * 100;
+          return `${b.color} ${pct.toFixed(1)}%`;
+        })
+      : def.palette;
+    gradEl.style.background = `linear-gradient(90deg, ${stops.join(", ")})`;
+
+    let detailEl = document.getElementById("ew-cbar-bins-detail");
+    if (!detailEl) {
+      detailEl = document.createElement("div");
+      detailEl.id = "ew-cbar-bins-detail";
+      cbar.appendChild(detailEl);
+    }
+
+    const minLabel = range.hasData ? `${formatNum(range.min, def.unit)} ${def.unit}`.trim() : "Bekleniyor";
+    const maxLabel = range.hasData ? `${formatNum(range.max, def.unit)} ${def.unit}`.trim() : "Bekleniyor";
+    const chipsHtml = (range.bins || [])
+      .map(b => `<span class="ew-cbar-chip" style="border-left:4px solid ${b.color};">${formatNum(b.from, def.unit)}..${formatNum(b.to, def.unit)}</span>`)
+      .join("");
+
+    detailEl.innerHTML = `
+      <div>Değişken: <strong>${def.name}</strong> (<code>${def.om}</code>) · Birim: <strong>${def.unit || "-"}</strong></div>
+      <div style="margin-top:2px;">Güncel: <strong>${curStr}</strong> · Veri Aralığı: <strong>${minLabel}</strong> → <strong>${maxLabel}</strong></div>
+      <div class="ew-cbar-chips">${chipsHtml || '<span class="ew-cbar-chip">Veri gelince aralık hesaplanır</span>'}</div>
+    `;
+  }
+
+  function patchColorByRange() {
+    const orig = typeof window.colorByRange === "function" ? window.colorByRange : null;
+    window.colorByRange = function (val, v) {
+      const num = Number(val);
+      const code = (v && v.om) ? v.om : activeOm;
+      const def = ensureVarDefinition(code);
+      if (!Number.isFinite(num)) {
+        return orig ? orig(val, v) : "#64748b";
+      }
+      let range = dynamicRanges.get(code);
+      if (!range || !range.hasData) {
+        range = updateDynamicRangeForVar(code);
+      }
+      if (range && range.hasData && range.bins && range.bins.length) {
+        const span = Math.max(1e-9, range.max - range.min);
+        const norm = Math.max(0, Math.min(0.999999, (num - range.min) / span));
+        const idx = Math.min(range.bins.length - 1, Math.floor(norm * range.bins.length));
+        return range.bins[idx].color;
+      }
+      return orig ? orig(val, v) : samplePalette(def.palette, 0.5);
+    };
+  }
+
+  function patchFetchForEcmwf() {
+    if (typeof window.fetch !== "function" || window.__ewEcmwfFetchPatched) return;
+    const rawFetch = window.fetch.bind(window);
+    window.fetch = async function (input, init) {
+      const res = await rawFetch(input, init);
+      const urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
+      if (res.ok && urlStr.includes("api.open-meteo.com/v1/ecmwf")) {
+        try {
+          const clone = res.clone();
+          clone.json().then(data => {
+            const hourlyObj = Array.isArray(data)
+              ? (data[0] && data[0].hourly ? data[0].hourly : null)
+              : (data && data.hourly ? data.hourly : null);
+            if (hourlyObj) {
+              Object.keys(hourlyObj).forEach(key => {
+                if (key === "time") return;
+                const arr = hourlyObj[key];
+                if (Array.isArray(arr)) {
+                  const def = ensureVarDefinition(key);
+                  const nums = arr.map(Number).filter(n => Number.isFinite(n));
+                  if (nums.length) {
+                    dynamicRanges.set(key, computeRangeFromValues(nums, def));
+                  }
+                }
+              });
+            }
+            renderCbarHud(activeOm);
+          }).catch(() => {});
+        } catch (_) {}
+      }
+      return res;
+    };
+    window.__ewEcmwfFetchPatched = true;
+  }
+
+  function activateEcmwfVariable(omCode) {
+    activeOm = omCode;
+    document.querySelectorAll(".ew-ecmwf-btn").forEach(btn => {
+      btn.classList.toggle("is-active", btn.dataset.om === omCode);
+    });
+
+    try {
+      if (typeof pState !== "undefined" && pState) {
+        pState.varCode = omCode;
+        pState.variable = omCode;
+      }
+    } catch (_) {}
+
+    try {
+      const selectEl = document.querySelector('select[id*="var" i], select[name*="var" i]');
+      if (selectEl && Array.from(selectEl.options).some(o => o.value === omCode)) {
+        selectEl.value = omCode;
+        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    } catch (_) {}
+
+    try {
+      const targetBtn = document.querySelector(`[data-var="${omCode}"], [data-ecmwf="${omCode}"], #var-${omCode}`);
+      if (targetBtn && !targetBtn.classList.contains("ew-ecmwf-btn")) {
+        targetBtn.click();
+      }
+    } catch (_) {}
+
+    updateDynamicRangeForVar(omCode);
+    renderCbarHud(omCode);
+
+    try {
+      if (typeof renderAll === "function") renderAll();
+      else if (typeof redrawMap === "function") redrawMap();
+      else if (typeof updateGrid === "function") updateGrid();
+    } catch (_) {}
+  }
+
+  function mountVarButtons() {
+    if (document.getElementById("ew-ecmwf-var-bar")) return;
+    const bar = document.createElement("div");
+    bar.id = "ew-ecmwf-var-bar";
+    bar.setAttribute("aria-label", "ECMWF Değişken Seçici");
+
+    ECMWF_CATALOG.forEach(item => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ew-ecmwf-btn" + (item.om === activeOm ? " is-active" : "");
+      btn.dataset.om = item.om;
+      btn.textContent = item.unit ? `${item.name} (${item.unit})` : item.name;
+      btn.title = `${item.name} [${item.om}]`;
+      btn.addEventListener("click", () => activateEcmwfVariable(item.om));
+      bar.appendChild(btn);
+    });
+
+    document.body.appendChild(bar);
+  }
+
+  patchFetchForEcmwf();
+  patchColorByRange();
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      mountVarButtons();
+      renderCbarHud(activeOm);
+    });
+  } else {
+    mountVarButtons();
+    renderCbarHud(activeOm);
+  }
+
+  setInterval(() => {
+    updateDynamicRangeForVar(activeOm);
+    renderCbarHud(activeOm);
+  }, 1200);
+})();
+</script>
+<!-- EW_DYNAMIC_ECMWF_SUITE_END -->
+
 </body>
 </html>
