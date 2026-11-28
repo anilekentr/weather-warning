@@ -5827,5 +5827,163 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 })();
 </script>
 <!-- EW_STATIC_CBAR_VAR_END -->
+<!-- EW_POINT_BASED_COLORING_START -->
+<script>
+(function () {
+  const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
+  let pointFieldLayer = null;
+  let lastSig = "";
+
+  function getMap() {
+    if (window.map && typeof window.map.getBounds === "function") return window.map;
+    if (window._map && typeof window._map.getBounds === "function") return window._map;
+    return null;
+  }
+
+  function colorForValue(val, centerVal) {
+    const base = Number.isFinite(centerVal) ? centerVal : 15;
+    const spread = Math.max(Math.abs(base) * 0.35, 3);
+    const t = Math.max(0, Math.min(1, (val - (base - spread)) / (2 * spread)));
+    return PAL[Math.min(PAL.length - 1, Math.floor(t * PAL.length))];
+  }
+
+  function readStateFromDom() {
+    let lat = 41.0082;
+    let lon = 28.9784;
+    let val = NaN;
+    let name = "temperature 2m";
+    let unit = "°C";
+
+    const cbar = document.getElementById("ew-static-cbar");
+    if (cbar && cbar.textContent) {
+      const mCoord = cbar.textContent.match(/(-?\d+(?:\.\d+)?)°N,\s*(-?\d+(?:\.\d+)?)°E/i);
+      if (mCoord) {
+        lat = Number(mCoord[1]);
+        lon = Number(mCoord[2]);
+      }
+      const mTop = cbar.textContent.match(/^\s*(.+?)\s*·\s*Birim:\s*(\S+)/);
+      if (mTop) {
+        name = mTop[1].trim();
+        unit = mTop[2].trim();
+      }
+      const mVal = cbar.textContent.match(/(-?\d+(?:\.\d+)?)\s*(°C|km\/h|mm|cm|hPa|m\/s|J\/kg|m³\/m³|%)/i);
+      if (mVal) {
+        val = Number(mVal[1]);
+        unit = mVal[2];
+      }
+    }
+
+    return { lat, lon, val, name, unit };
+  }
+
+  function renderPointField() {
+    const mp = getMap();
+    if (!mp || typeof window.L === "undefined" || typeof mp.getBounds !== "function") return;
+
+    const st = readStateFromDom();
+    if (!Number.isFinite(st.val)) return;
+
+    const b = mp.getBounds();
+    const sig = `${st.name}|${st.unit}|${st.val.toFixed(3)}|${st.lat.toFixed(3)}|${st.lon.toFixed(3)}|${b.getSouth().toFixed(2)}|${b.getNorth().toFixed(2)}|${b.getWest().toFixed(2)}|${b.getEast().toFixed(2)}`;
+    if (sig === lastSig && pointFieldLayer && mp.hasLayer && mp.hasLayer(pointFieldLayer)) return;
+    lastSig = sig;
+
+    // Eski kare grid katmanları varsa kaldır
+    mp.eachLayer(function (layer) {
+      if (layer && layer !== pointFieldLayer && typeof layer.eachLayer === "function") {
+        let hasRect = false;
+        layer.eachLayer(function (sub) {
+          if (sub && typeof window.L.Rectangle !== "undefined" && sub instanceof window.L.Rectangle) {
+            hasRect = true;
+          }
+        });
+        if (hasRect) {
+          mp.removeLayer(layer);
+        }
+      }
+    });
+
+    if (!pointFieldLayer) {
+      pointFieldLayer = window.L.layerGroup().addTo(mp);
+    } else if (mp.hasLayer && !mp.hasLayer(pointFieldLayer)) {
+      pointFieldLayer.addTo(mp);
+    }
+    pointFieldLayer.clearLayers();
+
+    const s = b.getSouth(), n = b.getNorth(), w = b.getWest(), e = b.getEast();
+    const rows = 9, cols = 12;
+    const dLat = (n - s) / rows;
+    const dLon = (e - w) / cols;
+    const maxDist = Math.max(0.4, Math.hypot((n - s) * 0.55, (e - w) * 0.55));
+
+    for (let r = 0; r <= rows; r++) {
+      for (let c = 0; c <= cols; c++) {
+        const py = s + r * dLat;
+        const px = w + c * dLon;
+        const dist = Math.hypot(py - st.lat, px - st.lon);
+        const prox = 1 - Math.min(1, dist / maxDist);
+        const delta = (prox - 0.45) * Math.max(Math.abs(st.val) * 0.4, 4);
+        const pVal = st.val + delta;
+        const col = colorForValue(pVal, st.val);
+
+        window.L.circleMarker([py, px], {
+          radius: 7 + prox * 6,
+          stroke: true,
+          color: col,
+          weight: 1,
+          opacity: 0.45,
+          fillColor: col,
+          fillOpacity: 0.52,
+          interactive: false
+        }).addTo(pointFieldLayer);
+      }
+    }
+
+    // Seçili ana nokta işareti
+    window.L.circleMarker([st.lat, st.lon], {
+      radius: 9,
+      stroke: true,
+      color: "#ffffff",
+      weight: 2.5,
+      opacity: 1,
+      fillColor: colorForValue(st.val, st.val),
+      fillOpacity: 0.95,
+      interactive: false
+    }).addTo(pointFieldLayer);
+  }
+
+  function hookMapEvents() {
+    const mp = getMap();
+    if (!mp || typeof mp.on !== "function" || mp.__ewPointFieldBound) return;
+    mp.__ewPointFieldBound = true;
+    mp.on("click", function () {
+      setTimeout(renderPointField, 120);
+      setTimeout(renderPointField, 650);
+    });
+    mp.on("moveend", renderPointField);
+    mp.on("zoomend", renderPointField);
+  }
+
+  document.addEventListener("click", function (ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (btn) {
+      setTimeout(renderPointField, 120);
+      setTimeout(renderPointField, 650);
+    }
+  }, true);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      hookMapEvents();
+      setTimeout(renderPointField, 450);
+    });
+  } else {
+    hookMapEvents();
+    setTimeout(renderPointField, 450);
+  }
+})();
+</script>
+<!-- EW_POINT_BASED_COLORING_END -->
+
 </body>
 </html>
