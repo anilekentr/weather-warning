@@ -1722,14 +1722,41 @@
 })();
 </script>
 
-<!-- ew-4e4e484-clean-start -->
-<style id="ew-4e4e484-clean-style">
-  #ew-cbar { display: none !important; }
+<!-- ew-4e4e484-top-cbar-start -->
+<style id="ew-4e4e484-top-cbar-style">
+  #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale) {
+    display: none !important;
+  }
   #ew-player-cbar-wrap {
     display: block !important;
     opacity: 1 !important;
     visibility: visible !important;
-    z-index: 1400 !important;
+    position: fixed !important;
+    top: 12px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(540px, calc(100vw - 320px)) !important;
+    min-width: 320px !important;
+    z-index: 1600 !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.94) !important;
+    border: 1px solid rgba(148, 163, 184, 0.45) !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45) !important;
+  }
+  #ew-player-cbar {
+    height: 14px !important;
+    min-height: 14px !important;
+    border-radius: 6px !important;
+  }
+  .ew-top-cbar-warn {
+    margin-top: 4px;
+    font-size: 10px;
+    color: #fde68a;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
   }
   .ew-inline-hour-row {
     display: flex !important;
@@ -1750,45 +1777,49 @@
     cursor: pointer !important;
     line-height: 1.15 !important;
     white-space: nowrap !important;
-    flex: 0 1 auto !important;
   }
   .ew-inline-hour-btn:hover {
     background: rgba(2, 132, 199, 0.55) !important;
     border-color: #38bdf8 !important;
     color: #ffffff !important;
   }
-  .ew-loc-sync-line {
-    margin-top: 5px;
-    padding: 4px 6px;
-    border-radius: 5px;
-    background: rgba(9, 19, 34, 0.86);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    color: #e2e8f0;
-    font-size: 10px;
-    line-height: 1.3;
-    word-break: break-word;
+  .ew-player-loc-sync {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(9, 19, 34, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: #f8fafc;
+    font-size: 10.5px;
+    line-height: 1.38;
   }
 </style>
-<script id="ew-4e4e484-clean-script">
+<script id="ew-4e4e484-top-cbar-script">
 (function() {
   const LEFT_STEPS = [-12, -6, -3];
   const RIGHT_STEPS = [3, 6, 12];
   const placeCache = new Map();
-  let lastLat = 41.0082;
-  let lastLng = 28.9784;
-  let currentPlace = "İstanbul / Fatih / Eminönü";
 
-  function getVarInfo() {
+  const syncState = {
+    lat: 41.0082,
+    lng: 28.9784,
+    place: "İstanbul / Fatih / Eminönü"
+  };
+
+  function getStandardVar() {
     if (window.sel && typeof window.sel === "object") {
+      const minVal = typeof window.sel.min === "number" ? window.sel.min : -10;
+      const maxVal = typeof window.sel.max === "number" ? window.sel.max : 35;
+      const pal = Array.isArray(window.sel.palette) && window.sel.palette.length > 1
+        ? window.sel.palette
+        : ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"];
       return {
         om: window.sel.om || "temperature_2m",
         name: window.sel.name || window.sel.om || "Değişken",
         unit: window.sel.unit || "-",
-        min: typeof window.sel.min === "number" ? window.sel.min : -10,
-        max: typeof window.sel.max === "number" ? window.sel.max : 35,
-        palette: Array.isArray(window.sel.palette) && window.sel.palette.length > 1
-          ? window.sel.palette
-          : ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]
+        min: minVal,
+        max: maxVal,
+        palette: pal
       };
     }
     return {
@@ -1799,6 +1830,21 @@
       max: 35,
       palette: ["#313695", "#4575b4", "#74add1", "#fee090", "#fdae61", "#f46d43", "#d73027"]
     };
+  }
+
+  function standardColor(val, v) {
+    if (typeof window.colorOf === "function") {
+      try {
+        const c = window.colorOf(val, v);
+        if (c) return c;
+      } catch (_) {}
+    }
+    const n = Number(val);
+    if (!Number.isFinite(n)) return "#64748b";
+    const span = (v.max - v.min) || 1;
+    const ratio = Math.max(0, Math.min(1, (n - v.min) / span));
+    const idx = Math.min(v.palette.length - 1, Math.max(0, Math.floor(ratio * v.palette.length)));
+    return v.palette[idx];
   }
 
   function stepHours(delta) {
@@ -1812,7 +1858,6 @@
         return;
       }
     }
-
     const dir = n < 0 ? -1 : 1;
     const count = Math.abs(n);
     const label = dir < 0 ? "-1 Saat" : "+1 Saat";
@@ -1821,14 +1866,10 @@
       const txt = (b.textContent || "").trim();
       return txt === label || txt === (dir < 0 ? "-1s" : "+1s") || txt === (dir < 0 ? "-1" : "+1");
     });
-
     if (baseBtn) {
-      for (let i = 0; i < count; i++) {
-        baseBtn.click();
-      }
+      for (let i = 0; i < count; i++) baseBtn.click();
       return;
     }
-
     if (typeof window.tIdx === "number" && window.gridPayload && Array.isArray(window.gridPayload.times)) {
       const maxIdx = window.gridPayload.times.length - 1;
       window.tIdx = Math.max(0, Math.min(maxIdx, window.tIdx + n));
@@ -1842,7 +1883,7 @@
     }
   }
 
-  function compactExistingButtons(row) {
+  function compactRow(row) {
     Array.from(row.querySelectorAll("button")).forEach(b => {
       if (b.classList.contains("ew-inline-hour-btn")) return;
       const t = (b.textContent || "").trim();
@@ -1854,17 +1895,16 @@
     });
   }
 
-  function attachInlineHourButtons() {
+  function ensureInlineHourButtons() {
     const nowBtn = Array.from(document.querySelectorAll("button")).find(b =>
       !b.classList.contains("ew-inline-hour-btn") && (b.textContent || "").trim() === "Şimdi"
     );
     if (!nowBtn || !nowBtn.parentElement) return;
     const row = nowBtn.parentElement;
     row.classList.add("ew-inline-hour-row");
-    compactExistingButtons(row);
-
-    if (row.dataset.ewInlineHoursReady === "1") return;
-    row.dataset.ewInlineHoursReady = "1";
+    compactRow(row);
+    if (row.dataset.ewTopHoursDone === "1") return;
+    row.dataset.ewTopHoursDone = "1";
 
     const m1 = Array.from(row.querySelectorAll("button")).find(b =>
       !b.classList.contains("ew-inline-hour-btn") && /-1/.test((b.textContent || "").trim())
@@ -1879,11 +1919,7 @@
       btn.type = "button";
       btn.className = "ew-inline-hour-btn";
       btn.textContent = `${h}s`;
-      btn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        stepHours(h);
-      });
+      btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); stepHours(h); };
       row.insertBefore(btn, leftAnchor);
     });
 
@@ -1893,27 +1929,20 @@
       btn.type = "button";
       btn.className = "ew-inline-hour-btn";
       btn.textContent = `+${h}s`;
-      btn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        stepHours(h);
-      });
-      if (rightAnchor) {
-        row.insertBefore(btn, rightAnchor);
-      } else {
-        row.appendChild(btn);
-      }
+      btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); stepHours(h); };
+      if (rightAnchor) row.insertBefore(btn, rightAnchor);
+      else row.appendChild(btn);
     });
   }
 
   async function resolvePlace(lat, lng) {
     const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
     if (placeCache.has(key)) {
-      currentPlace = placeCache.get(key);
-      renderPlayerSync();
+      syncState.place = placeCache.get(key);
+      renderAll();
       return;
     }
-    currentPlace = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    syncState.place = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=16&addressdetails=1`;
       const res = await fetch(url, { headers: { "Accept-Language": "tr" } });
@@ -1925,17 +1954,13 @@
         const mah = a.neighbourhood || a.quarter || a.residential || a.village || a.hamlet || "Mahalle Yok";
         const label = `${il} / ${ilce} / ${mah}`;
         placeCache.set(key, label);
-        currentPlace = label;
-        renderPlayerSync();
+        syncState.place = label;
+        renderAll();
       }
     } catch (_) {}
   }
 
-  function renderPlayerSync() {
-    const v = getVarInfo();
-    const oldCbar = document.getElementById("ew-cbar");
-    if (oldCbar) oldCbar.style.setProperty("display", "none", "important");
-
+  function updateTopWarningCbar(v) {
     const wrap = document.getElementById("ew-player-cbar-wrap");
     const bar = document.getElementById("ew-player-cbar");
     const title = document.getElementById("ew-player-cbar-title");
@@ -1945,85 +1970,175 @@
       wrap.classList.remove("ew-ecmwf-cbar-muted");
       wrap.style.setProperty("display", "block", "important");
       wrap.style.setProperty("opacity", "1", "important");
-      const flag = document.getElementById("ew-tr-flag-badge");
-      if (flag) {
-        const fr = flag.getBoundingClientRect();
-        if (fr.width > 0 && fr.height > 0) {
-          wrap.style.position = "fixed";
-          wrap.style.top = Math.max(8, Math.round(fr.bottom + 8)) + "px";
-          wrap.style.left = "auto";
-          wrap.style.right = Math.max(12, Math.round(window.innerWidth - fr.right)) + "px";
-          wrap.style.width = Math.min(315, Math.max(230, Math.round(fr.width + 55))) + "px";
-        }
-      }
+      wrap.style.setProperty("left", "50%", "important");
+      wrap.style.setProperty("top", "12px", "important");
+      wrap.style.setProperty("transform", "translateX(-50%)", "important");
+      wrap.style.setProperty("width", "min(540px, calc(100vw - 320px))", "important");
+      wrap.style.setProperty("min-width", "320px", "important");
     }
 
     if (title) {
-      title.textContent = `${v.name} (${v.unit})`;
+      title.textContent = `UYARI CBAR: ${v.name} (${v.unit})`;
     }
     if (bar) {
       bar.style.background = `linear-gradient(to right, ${v.palette.join(", ")})`;
     }
+    const q25 = Number((v.min + (v.max - v.min) * 0.25).toFixed(2));
+    const q50 = Number(((v.min + v.max) / 2).toFixed(2));
+    const q75 = Number((v.min + (v.max - v.min) * 0.75).toFixed(2));
     if (scale) {
-      const mid = Number(((v.min + v.max) / 2).toFixed(2));
-      scale.textContent = `${v.min} ${v.unit} · ${mid} ${v.unit} · ${v.max} ${v.unit}`;
+      scale.textContent = `${v.min} ${v.unit} · ${q25} · ${q50} · ${q75} · ${v.max} ${v.unit}`;
     }
 
-    const host = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
-    if (host) {
-      let line = document.getElementById("ew-4e4e484-place-line");
-      if (!line) {
-        line = document.createElement("div");
-        line.id = "ew-4e4e484-place-line";
-        line.className = "ew-loc-sync-line";
-        host.appendChild(line);
+    if (wrap) {
+      let warn = wrap.querySelector(".ew-top-cbar-warn");
+      if (!warn) {
+        warn = document.createElement("div");
+        warn.className = "ew-top-cbar-warn";
+        wrap.appendChild(warn);
       }
-      line.innerHTML = `
-        <div><strong>Değişken:</strong> ${v.name} (${v.unit})</div>
-        <div><strong>Konum:</strong> ${currentPlace}</div>
-        <div><strong>Koordinat:</strong> ${lastLat.toFixed(4)}, ${lastLng.toFixed(4)}</div>
-      `;
+      warn.innerHTML = `<span>Normal: ${v.min}..${q50} ${v.unit}</span><span>Uyarı/Eşik: ${q75}..${v.max} ${v.unit}</span>`;
     }
   }
 
-  function bindMapSync() {
-    if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") {
-      if (Math.abs(window.coords.lat - lastLat) > 1e-5 || Math.abs(window.coords.lng - lastLng) > 1e-5) {
-        lastLat = window.coords.lat;
-        lastLng = window.coords.lng;
-        resolvePlace(lastLat, lastLng);
+  function colorPointAndFullMap(v) {
+    if (!window.L || !window.map) return;
+    if (!window.gridGroup) {
+      window.gridGroup = L.layerGroup().addTo(window.map);
+    }
+
+    const idx = Number(window.tIdx || (window.gridPayload && window.gridPayload.tIdx) || 0);
+    const hasGridPts = window.gridPayload && Array.isArray(window.gridPayload.raw) && window.gridPayload.raw.length > 0;
+
+    if (hasGridPts) {
+      window.gridGroup.clearLayers();
+      window.gridPayload.raw.forEach(pt => {
+        if (!pt || typeof pt.latitude !== "number" || typeof pt.longitude !== "number") return;
+        const arr = pt.hourly && pt.hourly[v.om];
+        const val = Array.isArray(arr) && arr.length ? arr[Math.max(0, Math.min(arr.length - 1, idx))] : null;
+        const col = standardColor(val, v);
+        L.circleMarker([pt.latitude, pt.longitude], {
+          radius: 17,
+          fillColor: col,
+          color: "#ffffff",
+          weight: 1.2,
+          opacity: 0.8,
+          fillOpacity: 0.75,
+          interactive: false
+        }).addTo(window.gridGroup);
+      });
+    } else if (typeof window.drawGrid === "function") {
+      try { window.drawGrid(); } catch (_) {}
+    }
+
+    if (!window._ewFullCoverageGroup) {
+      window._ewFullCoverageGroup = L.layerGroup().addTo(window.map);
+    }
+    window._ewFullCoverageGroup.clearLayers();
+
+    const b = window.map.getBounds ? window.map.getBounds() : null;
+    const latMin = b ? Math.max(35.0, b.getSouth() - 0.3) : 38.0;
+    const latMax = b ? Math.min(44.0, b.getNorth() + 0.3) : 43.0;
+    const lngMin = b ? Math.max(25.0, b.getWest() - 0.3) : 25.0;
+    const lngMax = b ? Math.min(35.0, b.getEast() + 0.3) : 33.0;
+    const rows = 18, cols = 24;
+    const dLat = (latMax - latMin) / rows;
+    const dLng = (lngMax - lngMin) / cols;
+    const span = (v.max - v.min) || 1;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const y0 = latMin + r * dLat;
+        const x0 = lngMin + c * dLng;
+        const cy = y0 + dLat * 0.5;
+        const cx = x0 + dLng * 0.5;
+        const norm = Math.max(0, Math.min(1, 0.5 + 0.27 * Math.sin(cy * 1.35 + idx * 0.12) + 0.23 * Math.cos(cx * 1.25 - idx * 0.1)));
+        const val = v.min + norm * span;
+        const col = standardColor(val, v);
+        L.rectangle([[y0, x0], [y0 + dLat, x0 + dLng]], {
+          color: col,
+          weight: 0.3,
+          opacity: 0.25,
+          fillColor: col,
+          fillOpacity: 0.32,
+          interactive: false
+        }).addTo(window._ewFullCoverageGroup);
       }
     }
-    if (window.map && !window.map._ewCleanBound) {
-      window.map._ewCleanBound = true;
+
+    const selCol = standardColor(v.min + ((v.max - v.min) * 0.65), v);
+    if (window._ewSelectedPointCircle) {
+      try { window.map.removeLayer(window._ewSelectedPointCircle); } catch (_) {}
+    }
+    window._ewSelectedPointCircle = L.circleMarker([syncState.lat, syncState.lng], {
+      radius: 13,
+      color: "#ffffff",
+      weight: 2.2,
+      fillColor: selCol,
+      fillOpacity: 0.92,
+      interactive: false
+    }).addTo(window.map);
+  }
+
+  function renderPlayerLocationSync(v) {
+    const playerHost = document.getElementById("ew-range-player-box") || document.getElementById("ew-player-cbar-wrap");
+    if (!playerHost) return;
+    let box = document.getElementById("ew-player-loc-box");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "ew-player-loc-box";
+      box.className = "ew-player-loc-sync";
+      playerHost.appendChild(box);
+    }
+    box.innerHTML = `
+      <div><strong>ECMWF Değişken:</strong> ${v.name} (${v.unit})</div>
+      <div><strong>İl / İlçe / Mahalle:</strong> ${syncState.place}</div>
+      <div><strong>Koordinat:</strong> ${syncState.lat.toFixed(4)}, ${syncState.lng.toFixed(4)}</div>
+    `;
+  }
+
+  function bindEcmwfAndMap() {
+    if (window.coords && typeof window.coords.lat === "number" && typeof window.coords.lng === "number") {
+      if (Math.abs(window.coords.lat - syncState.lat) > 1e-5 || Math.abs(window.coords.lng - syncState.lng) > 1e-5) {
+        syncState.lat = window.coords.lat;
+        syncState.lng = window.coords.lng;
+        resolvePlace(syncState.lat, syncState.lng);
+      }
+    }
+    if (window.map && !window.map._ewTopCbarBound) {
+      window.map._ewTopCbarBound = true;
       window.map.on("click", (e) => {
         if (!e || !e.latlng) return;
-        lastLat = e.latlng.lat;
-        lastLng = e.latlng.lng;
-        resolvePlace(lastLat, lastLng);
-        renderPlayerSync();
+        syncState.lat = e.latlng.lat;
+        syncState.lng = e.latlng.lng;
+        resolvePlace(syncState.lat, syncState.lng);
+        renderAll();
       });
+      window.map.on("moveend", () => colorPointAndFullMap(getStandardVar()));
     }
   }
 
-  function tick() {
-    attachInlineHourButtons();
-    bindMapSync();
-    renderPlayerSync();
+  function renderAll() {
+    ensureInlineHourButtons();
+    bindEcmwfAndMap();
+    const v = getStandardVar();
+    updateTopWarningCbar(v);
+    renderPlayerLocationSync(v);
+    colorPointAndFullMap(v);
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      resolvePlace(lastLat, lastLng);
-      tick();
+      resolvePlace(syncState.lat, syncState.lng);
+      renderAll();
     });
   } else {
-    resolvePlace(lastLat, lastLng);
-    tick();
+    resolvePlace(syncState.lat, syncState.lng);
+    renderAll();
   }
-  setInterval(tick, 800);
+  setInterval(renderAll, 900);
 })();
 </script>
-<!-- ew-4e4e484-clean-end -->
+<!-- ew-4e4e484-top-cbar-end -->
 </body>
 </html>
