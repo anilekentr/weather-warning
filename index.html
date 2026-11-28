@@ -5985,5 +5985,127 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </script>
 <!-- EW_POINT_BASED_COLORING_END -->
 
+<!-- EW_PIN_COORD_LOCK_START -->
+<script>
+(function () {
+  const PAL = ["#313695", "#4575b4", "#74add1", "#abd9e9", "#fee090", "#fdae61", "#f46d43", "#d73027"];
+  let pinned = { lat: 41.0082, lon: 28.9784, val: NaN, unit: "°C", name: "temperature 2m" };
+  let lockedLayer = null;
+
+  function getMap() {
+    if (window.map && typeof window.map.addLayer === "function") return window.map;
+    if (window._map && typeof window._map.addLayer === "function") return window._map;
+    return null;
+  }
+
+  function colorFromVal(v, center) {
+    const base = Number.isFinite(center) ? center : 15;
+    const spread = Math.max(Math.abs(base) * 0.35, 3);
+    const t = Math.max(0, Math.min(1, (v - (base - spread)) / (2 * spread)));
+    return PAL[Math.min(PAL.length - 1, Math.floor(t * PAL.length))];
+  }
+
+  function syncCoordTexts() {
+    const cStr = `${pinned.lat.toFixed(4)}°N, ${pinned.lon.toFixed(4)}°E`;
+    const cbar = document.getElementById("ew-static-cbar");
+    if (cbar) {
+      const subSpans = cbar.querySelectorAll(".ew-sc-sub span");
+      if (subSpans.length >= 1) subSpans[0].textContent = cStr;
+    }
+    const rp = document.getElementById("ew-ui-right");
+    if (rp) {
+      const divs = rp.querySelectorAll("div");
+      if (divs.length >= 1) divs[0].textContent = `KOORDİNAT: ${cStr}`;
+    }
+  }
+
+  function drawPinnedPoints() {
+    const mp = getMap();
+    if (!mp || typeof window.L === "undefined") return;
+
+    if (!lockedLayer) {
+      lockedLayer = window.L.layerGroup().addTo(mp);
+    } else if (mp.hasLayer && !mp.hasLayer(lockedLayer)) {
+      lockedLayer.addTo(mp);
+    }
+    lockedLayer.clearLayers();
+
+    const baseVal = Number.isFinite(pinned.val) ? pinned.val : 15;
+    const offsets = [
+      [0, 0],
+      [0.35, 0], [-0.35, 0], [0, 0.45], [0, -0.45],
+      [0.35, 0.45], [0.35, -0.45], [-0.35, 0.45], [-0.35, -0.45],
+      [0.75, 0], [-0.75, 0], [0, 0.9], [0, -0.9]
+    ];
+
+    offsets.forEach(([dLat, dLon], idx) => {
+      const lat = pinned.lat + dLat;
+      const lon = pinned.lon + dLon;
+      const dist = Math.hypot(dLat, dLon);
+      const val = baseVal + (0.5 - Math.min(1, dist)) * Math.max(Math.abs(baseVal) * 0.3, 3);
+      const col = colorFromVal(val, baseVal);
+
+      window.L.circleMarker([lat, lon], {
+        radius: idx === 0 ? 9 : 7,
+        stroke: true,
+        color: idx === 0 ? "#ffffff" : col,
+        weight: idx === 0 ? 2.5 : 1,
+        opacity: idx === 0 ? 1 : 0.55,
+        fillColor: col,
+        fillOpacity: idx === 0 ? 0.95 : 0.55,
+        interactive: false
+      }).addTo(lockedLayer);
+    });
+
+    syncCoordTexts();
+  }
+
+  function bindPinClick() {
+    const mp = getMap();
+    if (!mp || typeof mp.on !== "function" || mp.__ewPinLockBound) return;
+    mp.__ewPinLockBound = true;
+
+    mp.on("click", function (ev) {
+      if (ev && ev.latlng && Number.isFinite(ev.latlng.lat) && Number.isFinite(ev.latlng.lng)) {
+        pinned.lat = Number(ev.latlng.lat);
+        pinned.lon = Number(ev.latlng.lng);
+        syncCoordTexts();
+        drawPinnedPoints();
+      }
+    });
+  }
+
+  const obs = new MutationObserver(function () {
+    const cbar = document.getElementById("ew-static-cbar");
+    if (cbar && cbar.textContent) {
+      const mVal = cbar.textContent.match(/(-?\d+(?:\.\d+)?)\s*(°C|km\/h|mm|cm|hPa|m\/s|J\/kg|m³\/m³|%)/i);
+      if (mVal) {
+        const nextVal = Number(mVal[1]);
+        if (Number.isFinite(nextVal) && nextVal !== pinned.val) {
+          pinned.val = nextVal;
+          drawPinnedPoints();
+        }
+      }
+    }
+    syncCoordTexts();
+  });
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      bindPinClick();
+      drawPinnedPoints();
+      const cbar = document.getElementById("ew-static-cbar");
+      if (cbar) obs.observe(cbar, { childList: true, subtree: true, characterData: true });
+    });
+  } else {
+    bindPinClick();
+    drawPinnedPoints();
+    const cbar = document.getElementById("ew-static-cbar");
+    if (cbar) obs.observe(cbar, { childList: true, subtree: true, characterData: true });
+  }
+})();
+</script>
+<!-- EW_PIN_COORD_LOCK_END -->
+
 </body>
 </html>
