@@ -3104,5 +3104,36 @@
 </script>
 <!-- EW_FIX_CBAR_FLICKER_AND_LEGACY_PANEL_END -->
 
+<!-- EW_ECMWF_400_GUARD_START -->
+<script>
+(function () {
+  if (typeof window.fetch === "function" && !window.__ew400SafeFetch) {
+    const baseFetch = window.fetch.bind(window);
+    window.fetch = async function (input, init) {
+      let urlStr = typeof input === "string" ? input : (input && input.url ? input.url : "");
+      if (urlStr.includes("api.open-meteo.com/v1/ecmwf")) {
+        urlStr = urlStr.replace(/([?&]forecast_days=)\d+/g, "$110");
+        input = typeof input === "string" ? urlStr : new Request(urlStr, input);
+      }
+      const res = await baseFetch(input, init);
+      if (!res.ok && urlStr.includes("api.open-meteo.com/v1/ecmwf")) {
+        const emptyPayload = {
+          hourly: { time: [], temperature_2m: [] },
+          error: true,
+          reason: "HTTP_" + res.status
+        };
+        return new Response(JSON.stringify(emptyPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      return res;
+    };
+    window.__ew400SafeFetch = true;
+  }
+})();
+</script>
+<!-- EW_ECMWF_400_GUARD_END -->
+
 </body>
 </html>
