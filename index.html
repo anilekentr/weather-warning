@@ -1724,8 +1724,9 @@
 
 <!-- ew-4e4e484-ecmwf-full-sync-start -->
 <style id="ew-4e4e484-ecmwf-full-sync-style">
-  #ew-range-player-box, #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale), .ew-inline-hour-btn { display: none !important; }
+  #ew-cbar, [id*="cbar"]:not(#ew-player-cbar-wrap):not(#ew-player-cbar):not(#ew-player-cbar-title):not(#ew-player-cbar-scale), .ew-inline-hour-btn { display: none !important; }
   .ew-top-cbar-warn { display: none !important; }
+  #ew-range-player-box, #ew-ecmwf-range-player, [id*="date-player"], [id*="time-player"], [id*="range-player"] { display: block !important; visibility: visible !important; opacity: 1 !important; }
   #ew-player-cbar-wrap { display: block !important; opacity: 1 !important; visibility: visible !important; position: fixed !important; top: 12px !important; left: 50% !important; right: auto !important; transform: translateX(-50%) !important; width: min(560px, calc(100vw - 320px)) !important; min-width: 320px !important; z-index: 1600 !important; padding: 8px 12px !important; border-radius: 10px !important; background: rgba(15, 23, 42, 0.94) !important; border: 1px solid rgba(148, 163, 184, 0.45) !important; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45) !important; }
   #ew-player-cbar { height: 14px !important; min-height: 14px !important; border-radius: 6px !important; }
   .ew-ecmwf-range-box { margin-top: 8px; padding: 8px; border-radius: 8px; background: rgba(9, 19, 34, 0.94); border: 1px solid rgba(148, 163, 184, 0.35); color: #f8fafc; font-size: 11px; line-height: 1.4; }
@@ -1934,33 +1935,38 @@
       pState.stepIdx = 1;
     }
 
-    const totalHours = Math.max(1, Math.round((pState.endMs - pState.startMs) / 3600000));
+    const spanHours = Math.max(1, Math.round((pState.endMs - pState.startMs) / 3600000));
     const vals = [];
-    for (let i = 0; i <= totalHours; i++) {
+    for (let i = 0; i <= spanHours; i++) {
       const tMs = pState.startMs + i * 3600000;
       const relHour = Math.round((tMs - baseNowMs) / 3600000);
       const locShift = (((Math.abs(ctx.lat * 100 + ctx.lng * 100) % 7) - 3) * 0.04) * v.stepDelta;
       const raw = relHour === 0 ? observedNow : observedNow + relHour * v.stepDelta + locShift;
       vals.push(clampVal(raw, v));
     }
-    return { totalHours, vals, baseNowMs };
+    return { totalHours: spanHours, vals, baseNowMs };
   }
 
   function shiftByHours(delta) {
     const d = Number(delta) || 0;
     const { totalHours, baseNowMs } = getSeriesForVar(getVarDef(), readEcmwfContext());
     if (d === 0) {
-      pState.startMs = baseNowMs - 3600000;
-      pState.endMs = baseNowMs + 3600000;
-      pState.stepIdx = 1;
+      const spanMs = Math.max(3600000, pState.endMs - pState.startMs);
+      const halfMs = Math.floor(spanMs / 2);
+      pState.startMs = baseNowMs - halfMs;
+      pState.endMs = pState.startMs + spanMs;
+      pState.stepIdx = Math.max(0, Math.min(totalHours, Math.round((baseNowMs - pState.startMs) / 3600000)));
     } else {
       const nextStep = pState.stepIdx + d;
       if (nextStep < 0) {
         pState.startMs += nextStep * 3600000;
+        pState.endMs += nextStep * 3600000;
         pState.stepIdx = 0;
       } else if (nextStep > totalHours) {
-        pState.endMs += (nextStep - totalHours) * 3600000;
-        pState.stepIdx = nextStep;
+        const diff = nextStep - totalHours;
+        pState.startMs += diff * 3600000;
+        pState.endMs += diff * 3600000;
+        pState.stepIdx = totalHours;
       } else {
         pState.stepIdx = nextStep;
       }
@@ -2042,12 +2048,13 @@
       playBtn.addEventListener("click", () => { pState.playing = !pState.playing; if (pState.playing) { pState.timer = setInterval(() => { const { totalHours: th } = getSeriesForVar(getVarDef(), readEcmwfContext()); pState.stepIdx = (pState.stepIdx + 1) > th ? 0 : (pState.stepIdx + 1); renderAll(); }, 650); } else if (pState.timer) { clearInterval(pState.timer); pState.timer = null; } renderAll(); });
     }
 
+    box.style.setProperty("display", "block", "important");
     box.querySelector("#ew-ecmwf-range-heading").innerHTML = `<strong>Saat Aralığı &amp; Oynatıcı (${v.name} [${v.om}] · ${v.unit})</strong>`;
     box.querySelector("#ew-ecmwf-coord-summary").innerHTML = `<div>Koordinat: <strong>${ctx.lat.toFixed(4)}, ${ctx.lng.toFixed(4)}</strong> · Seçili: <strong>${curVal.toFixed(2)} ${v.unit}</strong></div><div>Konum: <strong>${formatPlaceLine(ctx)}</strong></div>`;
     const startInp = box.querySelector("#ew-ecmwf-start-dt"), endInp = box.querySelector("#ew-ecmwf-end-dt");
     if (document.activeElement !== startInp) startInp.value = toInputVal(pState.startMs);
     if (document.activeElement !== endInp) endInp.value = toInputVal(pState.endMs);
-    box.querySelector("#ew-ecmwf-step-summary").textContent = `Toplam: ${totalHours}s · Adım: ${pState.stepIdx}/${totalHours} (${toInputVal(curMs).replace("T", " ")})`;
+    box.querySelector("#ew-ecmwf-step-summary").textContent = `Aralık: ${totalHours}s · Adım: ${pState.stepIdx}/${totalHours} (${toInputVal(curMs).replace("T", " ")})`;
     const playBtn = box.querySelector("#ew-ecmwf-play-toggle");
     playBtn.textContent = pState.playing ? "Durdur" : "Oynat";
     playBtn.classList.toggle("playing", pState.playing);
@@ -2078,8 +2085,12 @@
   }
 
   function renderAll() {
-    const leftPlayer = document.getElementById("ew-range-player-box");
-    if (leftPlayer) leftPlayer.style.setProperty("display", "none", "important");
+    document.querySelectorAll("#ew-range-player-box, [id*="date-player"], [id*="time-player"], [id*="range-player"]").forEach(el => {
+      if (el.id !== "ew-ecmwf-range-player") {
+        el.style.setProperty("display", "block", "important");
+        el.style.setProperty("visibility", "visible", "important");
+      }
+    });
     bindInstantListeners();
     removeMultiHourButtons();
     cleanSelectedTimeParentheses();
