@@ -5791,55 +5791,106 @@
 </script>
 <!-- EW_SPATIAL_CBAR_MAP_COLOR_END -->
 
-<!-- EW_CBAR_FINAL_LOCK_START -->
+
+
+<!-- EW_STATIC_CBAR_VAR_START -->
+<style>
+  #ew-static-cbar {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5000;
+    width: min(540px, calc(100vw - 28px));
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.38);
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, sans-serif;
+    transition: none;
+    animation: none;
+  }
+  .ew-sc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .ew-sc-scale {
+    height: 10px;
+    width: 100%;
+    border-radius: 5px;
+    margin-top: 7px;
+    background: linear-gradient(90deg, #313695, #4575b4, #74add1, #abd9e9, #fee090, #fdae61, #f46d43, #d73027);
+  }
+</style>
+
 <script>
 (function () {
-  const CAT_SKIP = new Set([
+  const CAT_NAMES = new Set([
     "sıcaklık", "basınç", "rüzgar", "yağış",
     "nem & bulut & toprak", "nem / bulut / toprak",
     "temperature", "pressure", "wind", "precipitation"
   ]);
 
-  let locked = {
+  let currentVar = {
     name: "temperature 2m",
-    unit: "°C"
+    unit: "°C",
+    valueText: "-"
   };
 
-  function pickCbar() {
-    return document.getElementById("ew-picked-cbar") || document.getElementById("ew-new-cbar") || document.getElementById("ew-ui-cbar");
-  }
-
-  function applyNameAndUnitToCbar() {
-    const bar = pickCbar();
-    if (!bar) return;
-    const topSpan = bar.querySelector("div > span:first-child");
-    if (topSpan) {
-      topSpan.textContent = `${locked.name} · Birim: ${locked.unit}`;
+  function getCbar() {
+    let el = document.getElementById("ew-static-cbar");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "ew-static-cbar";
+      document.body.appendChild(el);
     }
+    return el;
   }
 
-  function captureButton(ev) {
+  function drawStaticCbar() {
+    const el = getCbar();
+    el.innerHTML = `
+      <div class="ew-sc-head">
+        <span>${currentVar.name} · Birim: ${currentVar.unit}</span>
+        <span>${currentVar.valueText}</span>
+      </div>
+      <div class="ew-sc-scale"></div>
+    `;
+  }
+
+  document.addEventListener("click", function (ev) {
     const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
     if (!btn) return;
+
     const raw = (btn.textContent || "").trim();
     const low = raw.toLowerCase();
-    if (!raw || CAT_SKIP.has(low)) return;
+    if (!raw || CAT_NAMES.has(low)) return;
 
-    const uMatch = raw.match(/\[([^\]]+)\]/);
-    const unit = (btn.dataset && btn.dataset.unit) || (uMatch ? uMatch[1].trim() : locked.unit);
-    const name = raw.replace(/\[[^\]]+\]/g, "").trim() || locked.name;
+    const unitMatch = raw.match(/\[([^\]]+)\]/);
+    const unit = (btn.dataset && btn.dataset.unit) || (unitMatch ? unitMatch[1].trim() : "");
+    const name = raw.replace(/\[[^\]]+\]/g, "").trim();
 
-    locked = { name, unit };
-    applyNameAndUnitToCbar();
+    if (!name) return;
+
+    currentVar.name = name;
+    currentVar.unit = unit || "-";
+    currentVar.valueText = `- ${currentVar.unit}`.trim();
+    drawStaticCbar();
+  }, true);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", drawStaticCbar);
+  } else {
+    drawStaticCbar();
   }
-
-  document.addEventListener("pointerdown", captureButton, true);
-  document.addEventListener("click", captureButton, true);
-
-  setInterval(applyNameAndUnitToCbar, 200);
 })();
 </script>
-<!-- EW_CBAR_FINAL_LOCK_END -->
+<!-- EW_STATIC_CBAR_VAR_END -->
 
 </body>
 </html>
